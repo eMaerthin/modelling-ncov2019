@@ -6,6 +6,7 @@
 * [kanban board for programming team](https://trello.com/b/nZAEFbG0/kanban-board-for-programming-team)
 * [Blogpost on data science project](https://towardsdatascience.com/the-data-science-workflow-43859db0415)
 * [Blogpost on TDD in data science](https://towardsdatascience.com/tdd-datascience-689c98492fcc)
+* [Blogpost on implementing git in data science](https://towardsdatascience.com/implementing-git-in-data-science-11528f0fb4a7)
 #### Python components
 * [NetworkX - Software for complexe networks](https://networkx.github.io/)
 * [Stellargraph - Machine Learning on graphs](https://github.com/stellargraph/stellargraph)

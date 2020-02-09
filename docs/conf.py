@@ -186,7 +186,7 @@ latex_documents = [
     ('index',
      'modelling-ncov2020.tex',
      u'modelling-ncov2020 Documentation',
-     u"agata", 'manual'),
+     u"nCov 2019 Research Group at WrUST (TBU)", 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -216,7 +216,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'modelling-ncov2020', u'modelling-ncov2020 Documentation',
-     [u"agata"], 1)
+     [u"nCov 2019 Research Group at WrUST (TBU)"], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -230,7 +230,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     ('index', 'modelling-ncov2020', u'modelling-ncov2020 Documentation',
-     u"agata", 'modelling-ncov2020',
+     u"nCov 2019 Research Group at WrUST (TBU)", 'modelling-ncov2020',
      'stuff', 'Miscellaneous'),
 ]
 

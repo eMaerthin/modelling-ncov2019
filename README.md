@@ -64,7 +64,7 @@
 
 ###Git Large File Storage
 [git lfs](https://git-lfs.github.com/) should be used to store big files.
-Please follow instructions on git-lfs homepage to set up git-lfs on your end.
+Please follow [instructions](https://help.github.com/en/github/managing-large-files/installing-git-large-file-storage) to set up git-lfs on your end.
 As of now the following paths are tracked with git-lfs:
 - `data/*/*.zip`
 - `data/*/*.csv`

@@ -62,7 +62,7 @@
     │
     └── tox.ini            <- tox file with settings for running tox; see tox.testrun.org
 
-###Git Large File Storage
+### Git Large File Storage
 [git lfs](https://git-lfs.github.com/) should be used to store big files.
 Please follow [instructions](https://help.github.com/en/github/managing-large-files/installing-git-large-file-storage) to set up git-lfs on your end.
 As of now the following paths are tracked with git-lfs:

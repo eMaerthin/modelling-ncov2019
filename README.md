@@ -69,6 +69,7 @@ As of now the following paths are tracked with git-lfs:
 - `data/*/*.zip`
 - `data/*/*.csv`
 - `data/*/*.xlsx`
+- `references/*.pdf`
 - `notebooks/*.ipynb`
 
 If you need to track different paths, please add them using `git lfs track [path-to-be-tracked]`.

@@ -3,7 +3,10 @@
     {
       "person_index": 0,
       "contraction_time": 0,
-      "disease_state": {"__enum__": "DiseaseState.Healthy"}
-    }],
+      "infection_status": {
+        "__enum__": "InfectionStatus.Contraction"
+      }
+    }
+  ],
   "default_stop_simulation_threshold": 100
 }

@@ -1,9 +1,9 @@
 {
-  'initial_conditions': [
+  "initial_conditions": [
     {
-      'person_index': 0,
-      'contraction_time': 0,
-      'disease_state': {"__enum__": "DiseaseState.Healthy"},
+      "person_index": 0,
+      "contraction_time": 0,
+      "disease_state": {"__enum__": "DiseaseState.Healthy"}
     }],
-  'default_stop_simulation_threshold': 100
+  "default_stop_simulation_threshold": 100
 }

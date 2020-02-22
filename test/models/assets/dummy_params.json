@@ -5,8 +5,44 @@
       "contraction_time": 0,
       "infection_status": {
         "__enum__": "InfectionStatus.Contraction"
+      },
+      "symptom_status": {
+        "__enum__": "SymptomStatus.No"
       }
     }
   ],
-  "default_stop_simulation_threshold": 100
+  "epidemic_status": {
+    "__enum__": "EpidemicStatus.NotDetected"
+  },
+  "default_stop_simulation_threshold": 1000,
+  "disease_progression": {
+    "not_detected": {
+      "t0": {
+        "distribution": "exponential",
+        "lambda": 0.33
+      },
+      "t1": {
+        "distribution": "exponential",
+        "lambda": 0.2
+      },
+      "t2": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/dummy_distribution.npy"
+      }
+    },
+    "detected": {
+      "t0": {
+        "distribution": "exponential",
+        "lambda": 0.33
+      },
+      "t1": {
+        "distribution": "exponential",
+        "lambda": 0.25
+      },
+      "t2": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/dummy_distribution.npy"
+      }
+    }
+  }
 }

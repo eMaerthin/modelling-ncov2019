@@ -3,18 +3,18 @@
     {
       "person_index": 0,
       "contraction_time": 0,
-      "infection_status": {
-        "__enum__": "InfectionStatus.Contraction"
-      },
-      "symptom_status": {
-        "__enum__": "SymptomStatus.No"
-      }
+      "infection_status": "contraction",
+      "expected_case_severity": "severe"
     }
   ],
-  "epidemic_status": {
-    "__enum__": "EpidemicStatus.NotDetected"
+  "case_severity_distribution": {
+    "asymptomatic": 0.006,
+    "mild": 0.809,
+    "severe": 0.138,
+    "critical": 0.047
   },
-  "default_stop_simulation_threshold": 1000,
+  "epidemic_status": "not_detected",
+  "stop_simulation_threshold": 1000,
   "disease_progression": {
     "not_detected": {
       "t0": {
@@ -27,7 +27,8 @@
       },
       "t2": {
         "distribution": "from_file",
-        "filepath": "$ROOT_DIR/test/models/assets/dummy_distribution.npy"
+        "filepath": "$ROOT_DIR/test/models/assets/dummy_distribution.npy",
+        "approximate_distribution" : "lognormal"
       }
     },
     "detected": {
@@ -41,7 +42,8 @@
       },
       "t2": {
         "distribution": "from_file",
-        "filepath": "$ROOT_DIR/test/models/assets/dummy_distribution.npy"
+        "filepath": "$ROOT_DIR/test/models/assets/dummy_distribution.npy",
+        "approximate_distribution" : "lognormal"
       }
     }
   }

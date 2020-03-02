@@ -1,0 +1,7 @@
+{
+  "initial_conditions": {
+    "selection_algorithm": "random_selection",
+    "infectious_cardinality": 5,
+    "contraction_cardinality": 5
+  }
+}

@@ -67,6 +67,13 @@ DETECTION = 'detection'
 QUARANTINE_AT_HOME = 'quarantine_at_home'
 QUARANTINE_AT_HOSPITAL = 'quarantine_at_hospital'
 
+SELECTION_ALGORITHM = 'selection_algorithm'
+CARDINALITIES = 'cardinalities'
+
+EMPLOYMENT_STATUS = 'employment_status'
+PROFESSION_INDEX = 'profession_index'
+SOCIAL = 'social'
+P_TRANSPORT = 'p_transport'
 
 class EnumWithPublicValue2MemberMap(enum.Enum):
     @classmethod
@@ -111,21 +118,14 @@ class StateDependentOnTheEpidemicsState(EnumWithPublicValue2MemberMap):
     QuarantineAtHospital = QUARANTINE_AT_HOSPITAL  # dependent on the epidemics state
 
 
-# https://stackoverflow.com/questions/24481852/serialising-an-enum-member-to-json
-
-PUBLIC_ENUMS = {
-    'InfectionStatus': InfectionStatus,
-    'EpidemicStatus': EpidemicStatus,
-    'ExpectedSymptom': ExpectedCaseSeverity
-}
-
-
-def as_enum(d):
-    if "__enum__" in d:
-        name, member = d["__enum__"].split(".")
-        return getattr(PUBLIC_ENUMS[name], member)
-    else:
-        return d
+class SelectionAlgorithms(EnumWithPublicValue2MemberMap):
+    """
+    This enum is intended for storing all initial condition selection algorithms,
+    to seed initially infectious agents in the population
+    RandomSelection assignes infection status randomly based on provided distribution of sick people
+    In the future other algorithms could be added e.g. to limit assigning infection status to people who work or commute
+    """
+    RandomSelection = 'random_selection'
 
 
 default_initial_conditions = ([{
@@ -133,26 +133,33 @@ default_initial_conditions = ([{
     CONTRACTION_TIME: 0,
     INFECTION_STATUS: InfectionStatus.Contraction
 }])
+
 default_stop_simulation_threshold = 10000
-default_epidemic_status = EpidemicStatus.NotDetected
+
+default_epidemic_status = EpidemicStatus.NotDetected.value
+
 default_distribution = {
     DISTRIBUTION: 'poisson'
 }
+
 default_case_severity_distribution = {
     ASYMPTOMATIC: 0.006,
     MILD: 0.809,
     SEVERE: 0.138,
     CRITICAL: 0.047
 }
+
 default_disease_times_distributions = {
     T0: default_distribution,
     T1: default_distribution,
     T2: default_distribution
 }
+
 default_disease_progression = {
     NOT_DETECTED: default_disease_times_distributions,
     DETECTED: default_disease_times_distributions
 }
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     EPIDEMIC_STATUS: default_epidemic_status,
@@ -165,17 +172,20 @@ defaults = {
 supported_distributions = [
     LOGNORMAL, EXPONENTIAL, POISSON, FROM_FILE
 ]
+
 distribution_schema = Schema({
     DISTRIBUTION: Or(*supported_distributions),
     Optional(LAMBDA): And(Or(Use(float), Use(int)), lambda n: n > 0),
     Optional(FILEPATH): (lambda x: os.path.exists(x.replace('$ROOT_DIR', config.ROOT_DIR))),
     Optional(APPROXIMATE_DISTRIBUTION, default=None): Or(None, *supported_distributions)
 })
+
 disease_times_distributions_schema = Schema({
     T0: distribution_schema,
     T1: distribution_schema,
     T2: distribution_schema
 })
+
 case_severity_distribution_schema = Schema(And({
     ASYMPTOMATIC: And(Use(float), lambda x: x >= 0),
     MILD: And(Use(float), lambda x: x >= 0),
@@ -183,13 +193,20 @@ case_severity_distribution_schema = Schema(And({
     CRITICAL: And(Use(float), lambda x: x >= 0),
 }, lambda x: sum(x.values()) == 1))
 
-infection_model_schemas = {
-    INITIAL_CONDITIONS: Schema([{
+initial_conditions_schema1 = [{
         PERSON_INDEX: int,
         CONTRACTION_TIME: Or(float, int),
         INFECTION_STATUS: Or(*InfectionStatus.map()),
         Optional(EXPECTED_CASE_SEVERITY): Or(*ExpectedCaseSeverity.map())
-    }]),
+    }]
+
+initial_conditions_schema2 = {
+        SELECTION_ALGORITHM: Or(*SelectionAlgorithms.map()),
+        CARDINALITIES: {Optional(k, default=0): And(Use(int), lambda n: n >= 0) for k in InfectionStatus.map()}
+    }
+
+infection_model_schemas = {
+    INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
     STOP_SIMULATION_THRESHOLD: Schema(And(Use(int), lambda n: n > 0)),
     DISEASE_PROGRESSION: Schema({
         NOT_DETECTED: disease_times_distributions_schema,
@@ -198,6 +215,7 @@ infection_model_schemas = {
     EPIDEMIC_STATUS: Schema(Or(*EpidemicStatus.map())),
     CASE_SEVERITY_DISTRIBUTION: Schema(case_severity_distribution_schema)
 }
+
 active_states = [
     InfectionStatus.Contraction,
     InfectionStatus.Infectious,
@@ -216,7 +234,9 @@ TYPE = 'type'
 INITIATED_BY = 'initiated_by'
 INITIATED_THROUGH = 'initiated_through'
 ISSUED_TIME = 'issued_time'
-Event = collections.namedtuple('Event', [TIME, PERSON_INDEX, TYPE, INITIATED_BY, INITIATED_THROUGH, ISSUED_TIME, EPIDEMIC_STATUS])
+Event = collections.namedtuple('Event', [TIME, PERSON_INDEX, TYPE, INITIATED_BY,
+                                         INITIATED_THROUGH, ISSUED_TIME, EPIDEMIC_STATUS])
+
 
 def _convert_enum(enum_class, x):
     for status in enum_class:
@@ -238,8 +258,7 @@ class InfectionModel:
     def __init__(self, params_path: str, df_individuals_path: str) -> None:
         with open(params_path, 'r') as params_file:
             params = json.loads(
-                params_file.read(),
-                object_hook=as_enum
+                params_file.read()
             )  # TODO: check whether this should be moved to different place
         self._params = dict()
         for key, schema in infection_model_schemas.items():
@@ -250,8 +269,7 @@ class InfectionModel:
             params.get(START_TIME, 0.0)
         )
         self._epidemic_status = Schema(Or(*EpidemicStatus.map())).validate(
-            params.get(EPIDEMIC_STATUS,
-                       _convert_enum(EpidemicStatus, NOT_DETECTED))
+            params.get(EPIDEMIC_STATUS, NOT_DETECTED)
         )
 
         self._df_individuals, self._df_progression_times, self._df_potential_contractions, self._df_households = \
@@ -300,19 +318,33 @@ class InfectionModel:
         return df_individuals, df_progression_times, df_potential_contractions, df_households
 
     def parse_initial_conditions(self):
-        for initial_condition in self._params[INITIAL_CONDITIONS]:
-            for key, value in initial_condition.items():
-                if key == PERSON_INDEX:
-                    continue
-                if key == CONTRACTION_TIME:
-                    self.apply_contraction_event(initial_condition[PERSON_INDEX], value)
-                    continue
-                if key == INFECTION_STATUS:
-                    value = _convert_infection_status(value)
-                elif key == EXPECTED_CASE_SEVERITY:
-                    value = _convert_expected_case_severity(value)
-                self._df_individuals.loc[initial_condition[PERSON_INDEX], key] = value
-
+        initial_conditions = self._params[INITIAL_CONDITIONS]
+        if isinstance(initial_conditions, list): # schema v1
+            for initial_condition in initial_conditions:
+                for key, value in initial_condition.items():
+                    if key == PERSON_INDEX:
+                        continue
+                    if key == CONTRACTION_TIME:
+                        self.apply_contraction_event(initial_condition[PERSON_INDEX], value)
+                        continue
+                    if key == INFECTION_STATUS:
+                        value = _convert_infection_status(value)
+                    elif key == EXPECTED_CASE_SEVERITY:
+                        value = _convert_expected_case_severity(value)
+                    self._df_individuals.loc[initial_condition[PERSON_INDEX], key] = value
+        elif isinstance(initial_conditions, dict): #schema v2
+            if initial_conditions[SELECTION_ALGORITHM] == SelectionAlgorithms.RandomSelection.value:
+                # initially all indices can be drawn
+                choice_set = np.arange(len(self._df_individuals))
+                for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
+                    if cardinality > 0:
+                        selected_rows = np.random.choice(choice_set, cardinality, replace=False)
+                        for row in selected_rows:
+                            self._df_individuals.loc[row, INFECTION_STATUS] = _convert_infection_status(infection_status)
+                        # now only previously unselected indices can be drawn in next steps
+                        choice_set = np.array(list(set(choice_set) - set(selected_rows)))
+        else:
+            raise ValueError('invalid schema')
 
     @property
     def global_time(self):
@@ -441,8 +473,9 @@ class InfectionModel:
     def append_event(self, event: Event) -> None:
         heapq.heappush(self.event_queue, event)
 
-
     def apply_contraction_event(self, person_id, contraction_time):
+        self._df_individuals.loc[person_id, INFECTION_STATUS] = InfectionStatus.Contraction
+        self._global_time = contraction_time
         self.generate_disease_progression(person_id,
                                           self._df_individuals.loc[person_id],
                                           contraction_time)
@@ -462,15 +495,20 @@ class InfectionModel:
     def add_potential_contractions_from_friendship_kernel(self):
         pass
 
-    #Event = collections.namedtuple('Event', [TIME, PERSON_INDEX, TYPE, INITIATED_BY, ISSUED_TIME, EPIDEMIC_STATUS])
+    # 'Event', [TIME, PERSON_INDEX, TYPE, INITIATED_BY, INITIATED_THROUGH, ISSUED_TIME, EPIDEMIC_STATUS])
     def pop_and_apply_event(self) -> bool:
         try:
             event = heapq.heappop(self.event_queue)
             type_ = getattr(event, TYPE)
             time = getattr(event, TIME)
+            self._global_time = time
+
             id = getattr(event, PERSON_INDEX)
             initiated_by = getattr(event, INITIATED_BY)
             initiated_through = getattr(event, INITIATED_THROUGH)
+
+            # TODO the remaining two attributes will be useful when we will take into account
+            #  change of the social network state to EPIDEMIC mode
             issued_time = getattr(event, ISSUED_TIME)
             epidemic_status = getattr(event, EPIDEMIC_STATUS)
 
@@ -483,19 +521,25 @@ class InfectionModel:
                             self.apply_contraction_event(id, time)
                     else:
                         self.apply_contraction_event(id, time)
-            elif type_ == T1:
+            elif type_ == T0:
                 if self._df_individuals.loc[id, INFECTION_STATUS] == InfectionStatus.Contraction:
                     self._df_individuals.loc[id, INFECTION_STATUS] = InfectionStatus.Infectious
                 else:
                     logger.error('state machine failure')
-                if self._df_individuals.loc[id, 'p_transport'] > 0:
-                    self.add_potential_contractions_from_transport_kernel()
-                if self._df_individuals.loc[id, 'employment_status'] > 0:
-                    self.add_potential_contractions_from_employment_kernel()
+                if self._df_individuals.loc[id, P_TRANSPORT] > 0:
+                    self.add_potential_contractions_from_transport_kernel(id)
+                if self._df_individuals.loc[id, EMPLOYMENT_STATUS] > 0:
+                    self.add_potential_contractions_from_employment_kernel(id)
                 if self._df_households.loc[self._df_individuals.loc[id, HOUSEHOLD_ID], INHABITANTS] > 1:
-                    self.add_potential_contractions_from_household_kernel()
-                self.add_potential_contractions_from_friendship_kernel()
-                self.add_potential_contractions_from_sporadic_kernel()
+                    self.add_potential_contractions_from_household_kernel(id)
+                self.add_potential_contractions_from_friendship_kernel(id)
+                self.add_potential_contractions_from_sporadic_kernel(id)
+            elif type_ == T1:
+                if self._df_individuals.loc[id, INFECTION_STATUS] == InfectionStatus.Infectious:
+                    self._df_individuals.loc[id, INFECTION_STATUS] = InfectionStatus.StayHome
+            elif type_ == T2:
+                if self._df_individuals.loc[id, INFECTION_STATUS] == InfectionStatus.StayHome:
+                    self._df_individuals.loc[id, INFECTION_STATUS] = InfectionStatus.Hospital
 
             # TODO: add more important logic
             return True

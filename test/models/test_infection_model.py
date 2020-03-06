@@ -1,24 +1,25 @@
 from unittest import TestCase
 from src.models import infection_model
+from collections import defaultdict
 import numpy as np
 import random
 import os
 import pandas as pd
 
-
 class TestInfectionModel(TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        dummy_params_path = os.path.join('test', 'models', 'assets', 'dummy_params.json')
-        dummy_individuals_path = os.path.join('test', 'models', 'assets', 'dummy_individuals.csv')
-        cls.model = infection_model.InfectionModel(params_path=dummy_params_path,
-                                                   df_individuals_path=dummy_individuals_path)
+    def __setup_model(self, params_filename='dummy_params.json', individuals_filename='dummy_individuals.csv'):
+        params_path = os.path.join('test', 'models', 'assets', params_filename)
+        individuals_path = os.path.join('test', 'models', 'assets', individuals_filename)
+        self.model = infection_model.InfectionModel(params_path=params_path, df_individuals_path=individuals_path)
 
     def test_active_people(self):
+        self.__setup_model()
         assert 1 == self.model.active_people()
 
-    def test_individuals(self):
+    def test_individuals_schema1(self):
+        self.__setup_model()
+
         df_individuals = self.model.df_individuals
         assert 10 == len(df_individuals)
 
@@ -26,14 +27,27 @@ class TestInfectionModel(TestCase):
         assert infection_model.ExpectedCaseSeverity.Severe == df_individuals.loc[0, infection_model.EXPECTED_CASE_SEVERITY]
         for i in range(1, 10):
             assert infection_model.InfectionStatus.Healthy == df_individuals.loc[i, infection_model.INFECTION_STATUS]
-        pd.set_option('display.max_columns', None)
-        print(df_individuals.head())
+        # pd.set_option('display.max_columns', None)
+        # print(df_individuals.head())
+
+    def test_individuals_schema2(self):
+        self.__setup_model(params_filename='dummy_alternative_specification_of_initial_conditions.json')
+        df_individuals = self.model.df_individuals
+        health_state_distribution = df_individuals[infection_model.INFECTION_STATUS].value_counts()
+        assert 5 == health_state_distribution[infection_model.InfectionStatus.Infectious]
+        assert 5 == health_state_distribution[infection_model.InfectionStatus.Contraction]
 
     def test_stop_threshold(self):
+        self.__setup_model()
+
         assert 1000 == self.model.stop_simulation_threshold
 
     def test_epidemic_status(self):
+        self.__setup_model()
+
         assert infection_model.EpidemicStatus.NotDetected.value == self.model.epidemic_status
 
     def test_disease_progression(self):
+        self.__setup_model()
+
         assert 'exponential' == self.model.disease_progression[infection_model.T0][infection_model.DISTRIBUTION]

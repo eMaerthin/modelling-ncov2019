@@ -7,9 +7,14 @@ Sphinx
 coverage
 awscli
 flake8
+gitpython
 python-dotenv>=0.5.1
 
+fire
+jupyter
+matplotlib
 numpy
 pandas
 schema
-statsmodel
+scipy
+tqdm

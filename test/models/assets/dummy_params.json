@@ -1,4 +1,32 @@
 {
+  "output_root_dir": "outputs",
+  "experiment_id": "dummy_experiment",
+  "save_input_data": true,
+  "transmission_probabilities": {
+    "sporadic": 0.001,
+    "transport": 0.01,
+    "friendship": 1,
+    "household": 1,
+    "workplace": 0.1
+  },
+  "fear_factors": {
+    "default": {
+      "fear_function": "fear_function1",
+      "scale_factor": 50,
+      "detected_multiplier": 1,
+      "deaths_multiplier": 10
+    },
+    "household": {
+      "fear_function": "fear_disabled"
+    }
+  },
+  "import_intensity": {
+    "function": "exponential",
+    "multiplier": 1,
+    "rate": 1.31,
+    "cap": 5,
+    "infectious": 0.1
+  },
   "initial_conditions": [
     {
       "person_index": 0,
@@ -16,33 +44,20 @@
   "epidemic_status": "not_detected",
   "stop_simulation_threshold": 1000,
   "disease_progression": {
-    "not_detected": {
+    "default": {
       "t0": {
-        "distribution": "exponential",
-        "lambda": 0.33
-      },
-      "t1": {
-        "distribution": "exponential",
-        "lambda": 0.2
-      },
-      "t2": {
         "distribution": "from_file",
-        "filepath": "$ROOT_DIR/test/models/assets/dummy_distribution.npy",
+        "filepath": "$ROOT_DIR/test/models/assets/incubation_period_distribution.npy",
         "approximate_distribution" : "lognormal"
-      }
-    },
-    "detected": {
-      "t0": {
-        "distribution": "exponential",
-        "lambda": 0.33
       },
       "t1": {
-        "distribution": "exponential",
-        "lambda": 0.25
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/t1_distribution.npy",
+        "approximate_distribution" : "lognormal"
       },
       "t2": {
         "distribution": "from_file",
-        "filepath": "$ROOT_DIR/test/models/assets/dummy_distribution.npy",
+        "filepath": "$ROOT_DIR/test/models/assets/t1_t2_distribution.npy",
         "approximate_distribution" : "lognormal"
       }
     }

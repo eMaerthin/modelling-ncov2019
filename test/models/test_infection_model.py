@@ -15,13 +15,17 @@ class TestInfectionModel(TestCase):
 
     def test_active_people(self):
         self.__setup_model()
-        assert 1 == self.model.active_people()
+        assert 0 == self.model.active_people(), f'Expected 0, actual: {self.model.active_people()}'
+
+        self.model.pop_and_apply_event()
+        assert 1 == self.model.active_people(), f'Expected at least 1, actual: {self.model.active_people()}'
 
     def test_individuals_schema1(self):
         self.__setup_model()
 
         df_individuals = self.model.df_individuals
         assert 10 == len(df_individuals)
+        self.model.pop_and_apply_event()
 
         assert infection_model.InfectionStatus.Contraction == df_individuals.loc[0, infection_model.INFECTION_STATUS]
         assert infection_model.ExpectedCaseSeverity.Severe == df_individuals.loc[0, infection_model.EXPECTED_CASE_SEVERITY]
@@ -37,6 +41,11 @@ class TestInfectionModel(TestCase):
         assert 5 == health_state_distribution[infection_model.InfectionStatus.Infectious]
         assert 5 == health_state_distribution[infection_model.InfectionStatus.Contraction]
 
+    def test_auxilliary(self):
+        self.__setup_model()
+        assert 0 < len([event for event in self.model.event_queue
+                        if event.initiated_through == infection_model.IMPORT_INTENSITY])
+
     def test_stop_threshold(self):
         self.__setup_model()
 
@@ -50,4 +59,4 @@ class TestInfectionModel(TestCase):
     def test_disease_progression(self):
         self.__setup_model()
 
-        assert 'exponential' == self.model.disease_progression[infection_model.T0][infection_model.DISTRIBUTION]
+        assert 'from_file' == self.model.disease_progression[infection_model.T0][infection_model.DISTRIBUTION]

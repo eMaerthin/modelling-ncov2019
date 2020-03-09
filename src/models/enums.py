@@ -72,6 +72,7 @@ class KernelType(EnumWithPublicValue2MemberMap):
     Friendship = FRIENDSHIP
     Workplace = WORKPLACE
     Transport = TRANSPORT
+    Constant = CONSTANT
 
 
 class ImportIntensityFunctions(EnumWithPublicValue2MemberMap):

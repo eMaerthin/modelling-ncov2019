@@ -78,6 +78,7 @@ HOUSEHOLD = 'household'
 FRIENDSHIP = 'friendship'
 WORKPLACE = 'workplace'
 TRANSPORT = 'transport'
+CONSTANT = 'constant'
 
 IMPORT_INTENSITY = 'import_intensity'
 

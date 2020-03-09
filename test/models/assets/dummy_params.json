@@ -8,7 +8,8 @@
     "transport": 0.01,
     "friendship": 1,
     "household": 1,
-    "workplace": 0.1
+    "workplace": 0.1,
+    "constant": 0.0
   },
   "fear_factors": {
     "default": {

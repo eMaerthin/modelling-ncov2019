@@ -81,6 +81,15 @@ class InfectionModel:
             *StateDependentOnTheEpidemicsState.map()
         ])'''
         logger.info('Set up data frames: Building households df...')
+        '''
+        df_households = None
+        household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
+                                            'input_df_households.csv')
+        if os.path.exists(household_input_path):
+            df_households = pd.read_csv(household_input_path)
+        else:
+            df_households = df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)
+        '''
         df_households = df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)
         return df_individuals, df_households
 
@@ -333,6 +342,10 @@ class InfectionModel:
                                                             f'input_{os.path.basename(self.df_individuals_path)}'))
             copyfile(self.params_path, os.path.join(simulation_output_dir,
                                                     f'input_{os.path.basename(self.params_path)}'))
+        household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
+                                            'input_df_households.csv')
+        if not os.path.exists(household_input_path):
+            self._df_households.to_csv(household_input_path)
         repo = Repo(config.ROOT_DIR)
         git_active_branch_log = os.path.join(simulation_output_dir, 'git_active_branch_log.txt')
         with open(git_active_branch_log, 'w') as f:
@@ -344,12 +357,37 @@ class InfectionModel:
             f.write(repo.git.status())
 
         self.store_graphs(simulation_output_dir)
+        self.store_bins(simulation_output_dir)
+
+    def store_bins(self, simulation_output_dir):
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+        from matplotlib import pyplot as plt
+        plt.close()
+        bins = np.arange(1 + df_r2.contraction_time.max())
+        cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
+        cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
+        cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
+        cond1.hist(alpha=0.3, histtype='stepfilled', bins=bins)
+        cond2.hist(alpha=0.3, histtype='stepfilled', bins=bins)
+        cond3.hist(alpha=0.3, histtype='stepfilled', bins=bins)
+        hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
+        ho_cases = hospitalized_cases[hospitalized_cases < df_r2.contraction_time.max(axis=0)].sort_values()
+        death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
+        d_cases = death_cases[death_cases < df_r2.contraction_time.max(axis=0)].sort_values()
+        ho_cases.hist(alpha=0.7, histtype='stepfilled', bins=bins)
+        d_cases.hist(alpha=0.9, histtype='stepfilled', bins=bins)
+        plt.legend(['# Imported cases', 'Infected through constant kernel',
+                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'])
+        plt.title(f'1 day binning of simulated covid19\n {self._params[EXPERIMENT_ID]}')
+        plt.savefig(os.path.join(simulation_output_dir, 'bins.png'))
 
     def store_graphs(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
         from matplotlib import pyplot as plt
-        plt.plot(df_r2.contraction_time, np.arange(len(df_r2)))
+        vals = df_r2.contraction_time.sort_values()
+        plt.plot(vals, np.arange(len(vals)))
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
         cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
         cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
@@ -366,6 +404,8 @@ class InfectionModel:
                     'Infected through household kernel', '# hospitalized cases', '# deceased cases'])
         plt.title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'summary.png'))
+
+
 
     def get_current_progress(self):
         return (self._df_individuals[INFECTION_STATUS] != InfectionStatus.Healthy).sum()

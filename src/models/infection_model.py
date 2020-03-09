@@ -514,10 +514,16 @@ class InfectionModel:
                 # check if this action is still valid first
 
                 initiated_inf_status = self._df_individuals.loc[initiated_by, INFECTION_STATUS]
-                if initiated_inf_status in active_states:
-                    if initiated_inf_status != InfectionStatus.StayHome:  # otherwise, person is already sick
-                        self.add_new_infection(id, InfectionStatus.Contraction,
-                                                initiated_by, initiated_through)
+                current_status = self._df_individuals.loc[id, INFECTION_STATUS]
+                if current_status == InfectionStatus.Healthy:
+                    if initiated_inf_status in active_states:
+                        if initiated_through != HOUSEHOLD:
+                            if initiated_inf_status != InfectionStatus.StayHome:
+                                self.add_new_infection(id, InfectionStatus.Contraction,
+                                                       initiated_by, initiated_through)
+                        else:
+                            self.add_new_infection(id, InfectionStatus.Contraction,
+                                                   initiated_by, initiated_through)
             elif type_ == T0:
                 self.handle_t0(id)
             elif type_ == T1:

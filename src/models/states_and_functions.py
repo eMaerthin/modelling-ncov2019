@@ -1,4 +1,5 @@
 import collections
+from math import exp
 
 import numpy as np
 from .enums import (FearFunctions, InfectionStatus, ImportIntensityFunctions)
@@ -28,6 +29,7 @@ Event = collections.namedtuple('Event', [TIME, PERSON_INDEX, TYPE, INITIATED_BY,
                                          INITIATED_THROUGH, ISSUED_TIME, EPIDEMIC_STATUS])
 
 import_intensity_functions = {
-    ImportIntensityFunctions.Exponential: (lambda x, rate, multiplier: multiplier*pow(rate, x)),
+    ImportIntensityFunctions.Exponential: (lambda x, rate, multiplier: multiplier*exp(rate * x)),
+    ImportIntensityFunctions.Polynomial: (lambda x, rate, multiplier: multiplier*pow(rate, x)),
     ImportIntensityFunctions.NoImport: (lambda _: 0)
 }

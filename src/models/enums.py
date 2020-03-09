@@ -78,6 +78,7 @@ class KernelType(EnumWithPublicValue2MemberMap):
 class ImportIntensityFunctions(EnumWithPublicValue2MemberMap):
     NoImport = NO_IMPORT
     Exponential = EXPONENTIAL
+    Polynomial = POLYNOMIAL
 
 
 class FearFunctions(EnumWithPublicValue2MemberMap):

@@ -1,6 +1,6 @@
 {
   "output_root_dir": "outputs",
-  "experiment_id": "dummy_experiment",
+  "experiment_id": "exponential_import",
   "save_input_data": true,
   "transmission_probabilities": {
     "sporadic": 0.001,
@@ -19,7 +19,7 @@
   "import_intensity": {
     "function": "exponential",
     "multiplier": 1,
-    "rate": 1.31,
+    "rate": 0.14,
     "cap": 1000,
     "infectious": 0.1
   },

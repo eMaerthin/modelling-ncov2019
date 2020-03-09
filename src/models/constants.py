@@ -47,6 +47,7 @@ CRITICAL = 'critical'
 
 LOGNORMAL = 'lognormal'
 EXPONENTIAL = 'exponential'
+POLYNOMIAL = 'polynomial'
 GAMMA = 'gamma'
 POISSON = 'poisson'
 FROM_FILE = 'from_file'

@@ -151,7 +151,7 @@ class InfectionModel:
                         for row in selected_rows:
                             self.append_event(Event(self.global_time, row, t_state, None, INITIAL_CONDITIONS,
                                                     self.global_time, self.epidemic_status))
-                            self._df_individuals.loc[row, INFECTION_STATUS] = convert_infection_status(infection_status)
+                            #self._df_individuals.loc[row, INFECTION_STATUS] = convert_infection_status(infection_status)
                         # now only previously unselected indices can be drawn in next steps
                         choice_set = np.array(list(set(choice_set) - set(selected_rows)))
         else:
@@ -243,7 +243,7 @@ class InfectionModel:
         if self._df_individuals.loc[id, INFECTION_STATUS] == InfectionStatus.Contraction:
             self._df_individuals.loc[id, INFECTION_STATUS] = InfectionStatus.Infectious
         elif self._df_individuals.loc[id, INFECTION_STATUS] != InfectionStatus.Infectious:
-            logger.error(f'state machine failure. was {self._df_individuals.loc[id, INFECTION_STATUS]}')
+            logger.error(f'state machine failure. was {self._df_individuals.loc[id, INFECTION_STATUS]} id: {id}')
         if self._df_individuals.loc[id, P_TRANSPORT] > 0:
             self.add_potential_contractions_from_transport_kernel(id)
         if self._df_individuals.loc[id, EMPLOYMENT_STATUS] > 0:
@@ -342,6 +342,30 @@ class InfectionModel:
         git_status = os.path.join(simulation_output_dir, 'git_status.txt')
         with open(git_status, 'w') as f:
             f.write(repo.git.status())
+
+        self.store_graphs(simulation_output_dir)
+
+    def store_graphs(self, simulation_output_dir):
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+        from matplotlib import pyplot as plt
+        plt.plot(df_r2.contraction_time, np.arange(len(df_r2)))
+        cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
+        cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
+        cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
+        plt.plot(cond1, np.arange(len(cond1)))
+        plt.plot(cond2, np.arange(len(cond2)))
+        plt.plot(cond3, np.arange(len(cond3)))
+        hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
+        ho_cases = hospitalized_cases[hospitalized_cases < df_r2.contraction_time.max(axis=0)].sort_values()
+        death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
+        d_cases = death_cases[death_cases < df_r2.contraction_time.max(axis=0)].sort_values()
+        plt.plot(ho_cases, np.arange(len(ho_cases)))
+        plt.plot(d_cases, np.arange(len(d_cases)))
+        plt.legend(['Total # infected', '# Imported cases', 'Infected through constant kernel',
+                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'])
+        plt.title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
+        plt.savefig(os.path.join(simulation_output_dir, 'summary.png'))
 
     def get_current_progress(self):
         return (self._df_individuals[INFECTION_STATUS] != InfectionStatus.Healthy).sum()
@@ -491,13 +515,9 @@ class InfectionModel:
 
                 initiated_inf_status = self._df_individuals.loc[initiated_by, INFECTION_STATUS]
                 if initiated_inf_status in active_states:
-                    if initiated_through != 'household':
-                        if initiated_inf_status != InfectionStatus.StayHome:
-                            self.add_new_infection(id, InfectionStatus.Contraction,
-                                                   initiated_by, initiated_through)
-                    else:
+                    if initiated_inf_status != InfectionStatus.StayHome:  # otherwise, person is already sick
                         self.add_new_infection(id, InfectionStatus.Contraction,
-                                               initiated_by, initiated_through)
+                                                initiated_by, initiated_through)
             elif type_ == T0:
                 self.handle_t0(id)
             elif type_ == T1:

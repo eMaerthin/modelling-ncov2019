@@ -21,7 +21,7 @@ active_states = [
 termination_states = [
     InfectionStatus.Hospital,
     InfectionStatus.Death,
-    InfectionStatus.Recovered
+    #InfectionStatus.Recovered
 ]
 
 Event = collections.namedtuple('Event', [TIME, PERSON_INDEX, TYPE, INITIATED_BY,

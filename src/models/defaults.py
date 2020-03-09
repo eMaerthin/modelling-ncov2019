@@ -61,6 +61,15 @@ default_output_root_dir = 'outputs'
 
 default_save_input_data = True
 
+default_death_probability = {
+    ASYMPTOMATIC: 0.0,
+    MILD: 0.0,
+    SEVERE: 0.0,
+    CRITICAL: 0.49
+}
+
+default_random_seed = 42
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     EPIDEMIC_STATUS: default_epidemic_status,
@@ -74,4 +83,6 @@ defaults = {
     FEAR_FACTORS: default_fear_factors,
     IMPORT_INTENSITY: default_import_intensity,
     START_TIME: default_start_time,
+    DEATH_PROBABILITY: default_death_probability,
+    RANDOM_SEED: default_random_seed
 }

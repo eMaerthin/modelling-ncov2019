@@ -1,5 +1,4 @@
 {
-  "seed": 123,
   "output_root_dir": "outputs",
   "experiment_id": "dummy_experiment",
   "save_input_data": true,
@@ -12,30 +11,17 @@
   },
   "fear_factors": {
     "default": {
-      "fear_function": "fear_function1",
-      "scale_factor": 50,
-      "detected_multiplier": 1,
-      "deaths_multiplier": 10
-    },
-    "household": {
       "fear_function": "fear_disabled"
     }
   },
+  "initial_conditions": [],
   "import_intensity": {
     "function": "exponential",
     "multiplier": 1,
     "rate": 1.31,
-    "cap": 5,
+    "cap": 1000,
     "infectious": 0.1
   },
-  "initial_conditions": [
-    {
-      "person_index": 0,
-      "contraction_time": 0,
-      "infection_status": "contraction",
-      "expected_case_severity": "severe"
-    }
-  ],
   "case_severity_distribution": {
     "asymptomatic": 0.006,
     "mild": 0.809,

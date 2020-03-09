@@ -37,6 +37,8 @@ T0 = 't0' # contraction->infectious ACTIVE
 T1 = 't1' # infectious->stay_home ACTIVE
 T2 = 't2' # stay_home->hospital SEVERE/CRITICAL TODO it WAS before : stay_home->see_doctor MILD only
 #T3 = 't3' # TODO let's check if we need this: # stay_home/see_doctor->hospital SEVERE/CRITICAL
+TDEATH = 'tdeath'
+TRECOVERY = 'trecovery'
 
 ASYMPTOMATIC = 'asymptomatic'
 MILD = 'mild'
@@ -45,6 +47,7 @@ CRITICAL = 'critical'
 
 LOGNORMAL = 'lognormal'
 EXPONENTIAL = 'exponential'
+GAMMA = 'gamma'
 POISSON = 'poisson'
 FROM_FILE = 'from_file'
 
@@ -92,3 +95,8 @@ NO_IMPORT = 'no_import'
 
 OUTPUT_ROOT_DIR = 'output_root_dir'
 SAVE_INPUT_DATA = 'save_input_data'
+
+DEATH_PROBABILITY = 'death_probability'
+UNSEEN_NODE = 'unseen_node'
+
+RANDOM_SEED = 'random_seed'

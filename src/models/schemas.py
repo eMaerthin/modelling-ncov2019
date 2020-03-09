@@ -8,21 +8,20 @@ from .defaults import default_fear_factor
 import config
 
 # TODO ensure those distributions are really supported
-supported_distributions = [
-    LOGNORMAL, EXPONENTIAL, POISSON, FROM_FILE
-]
+
 
 distribution_schema = Schema({
-    DISTRIBUTION: Or(*supported_distributions),
+    DISTRIBUTION: Or(*SupportedDistributions.map()),
     Optional(LAMBDA): And(Or(Use(float), Use(int)), lambda n: n > 0),
     Optional(FILEPATH): (lambda x: os.path.exists(x.replace('$ROOT_DIR', config.ROOT_DIR))),
-    Optional(APPROXIMATE_DISTRIBUTION, default=None): Or(None, *supported_distributions)
+    Optional(APPROXIMATE_DISTRIBUTION, default=None): Or(None, *SupportedDistributions.map())
 })
 
 disease_times_distributions_schema = Schema({
     T0: distribution_schema,
     T1: distribution_schema,
-    T2: distribution_schema
+    T2: distribution_schema,
+    TDEATH: distribution_schema
 })
 
 case_severity_distribution_schema = Schema(And({
@@ -67,6 +66,15 @@ initial_conditions_schema2 = {
 
 global_time_schema = Schema(And(Or(int, float), lambda x: x >= 0))
 
+death_probability_schema = Schema({
+    ASYMPTOMATIC: And(Use(float), lambda x: 0.0 <= x <= 1.0),
+    MILD: And(Use(float), lambda x: 0.0 <= x <= 1.0),
+    SEVERE: And(Use(float), lambda x: 0.0 <= x <= 1.0),
+    CRITICAL: And(Use(float), lambda x: 0.0 <= x <= 1.0),
+})
+
+random_seed_schema = Schema(Or(int, None))
+
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
     EPIDEMIC_STATUS: Schema(Or(*EpidemicStatus.map())),
@@ -86,6 +94,8 @@ infection_model_schemas = {
     FEAR_FACTORS: fear_factors_schema,
     IMPORT_INTENSITY: import_intensity_schema,
     START_TIME: global_time_schema,
+    DEATH_PROBABILITY: death_probability_schema,
+    RANDOM_SEED: random_seed_schema
 }
 
 

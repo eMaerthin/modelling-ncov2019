@@ -1,11 +1,14 @@
 """
 This is mostly based on references/infection_alg.pdf
 """
-
+import csv
+from functools import lru_cache
 import heapq
+from io import BytesIO
 import json
 import logging
 import math
+import random
 from time import time_ns
 import typing
 
@@ -14,6 +17,7 @@ from git import Repo
 import pandas as pd
 import scipy.optimize
 import scipy.stats
+from tqdm import tqdm
 
 from src.models.schemas import *
 from src.models.defaults import *
@@ -25,6 +29,7 @@ class InfectionModel:
     def __init__(self, params_path: str, df_individuals_path: str) -> None:
         self.params_path = params_path
         self.df_individuals_path = df_individuals_path
+        logger.info('Loading params...')
         with open(params_path, 'r') as params_file:
             params = json.loads(
                 params_file.read()
@@ -32,45 +37,52 @@ class InfectionModel:
         self._params = dict()
         self.event_queue = []
 
+        logger.info('Parsing params...')
         for key, schema in infection_model_schemas.items():
             self._params[key] = schema.validate(params.get(key, defaults[key]))
 
+        np.random.seed(self._params[RANDOM_SEED])
+        random.seed(self._params[RANDOM_SEED])
+
         self._global_time = self._params[START_TIME]
+        logger.info('Setting up data frames...')
+        self._df_individuals, self._df_households = self._set_up_data_frames(df_individuals_path)
 
-        self._df_individuals, self._df_progression_times, self._df_potential_contractions, self._df_households = \
-            self._set_up_data_frames(df_individuals_path)
-
+        self._infections_dict = {}
+        self._progression_times_dict = {}
         self.event_schema = event_schema_fun(self._df_individuals)
 
+        logger.info('Filling queue based on initial conditions...')
         self._fill_queue_based_on_initial_conditions()
+        logger.info('Filling queue based on auxiliary functions...')
         self._fill_queue_based_on_auxiliary_functions()
+        logger.info('Initialization step is done!')
 
-    def _set_up_data_frames(self, df_individuals_path: str) -> typing.Tuple[pd.DataFrame, pd.DataFrame,
-                                                                           pd.DataFrame, pd.DataFrame]:
+    def _set_up_data_frames(self, df_individuals_path: str) -> typing.Tuple[pd.DataFrame, pd.DataFrame]:
+        logger.info('Set up data frames: Reading population csv...')
         df_individuals = pd.read_csv(
             df_individuals_path,
             converters={
                 INFECTION_STATUS: convert_infection_status,
                 EXPECTED_CASE_SEVERITY: convert_expected_case_severity
             })  # TODO: Consider networkx graph instead of pandas df
-
+        df_individuals.index = df_individuals.idx
+        logger.info('Set up data frames: drawing expected case severity...')
         if EXPECTED_CASE_SEVERITY not in df_individuals:
-            df_individuals[EXPECTED_CASE_SEVERITY] = df_individuals.apply(
+            df_individuals[EXPECTED_CASE_SEVERITY] = ExpectedCaseSeverity.UnseenNode
+            """df_individuals.apply(
                 lambda x: self.draw_expected_case_severity(x),
                 axis=1
-            )
+            )"""
 
-        df_progression_times = pd.DataFrame(columns=[
+        '''df_progression_times = pd.DataFrame(columns=[
             ID,
             *DiseaseProgressionEvents.map(),
             *StateDependentOnTheEpidemicsState.map()
-        ])
-
-        df_potential_contractions = pd.DataFrame(columns=[SOURCE, TARGET, CONTRACTION_TIME, KERNEL])
-        df_households = pd.DataFrame(df_individuals.groupby(HOUSEHOLD_ID)[ID].count(),
-                                     index=df_individuals[HOUSEHOLD_ID].drop_duplicates().values
-                                     ).rename(columns={ID: INHABITANTS})
-        return df_individuals, df_progression_times, df_potential_contractions, df_households
+        ])'''
+        logger.info('Set up data frames: Building households df...')
+        df_households = df_individuals.groupby(HOUSEHOLD_ID)[ID].count()
+        return df_individuals, df_households
 
     def _fill_queue_based_on_auxiliary_functions(self) -> None:
         def _generate_event_times(f, rate, multiplier, cap, root_buffer=100, root_guess=0):
@@ -98,7 +110,7 @@ class InfectionModel:
         if np.random.rand() < infectious_prob:
             t_state = T0
         for event_time in event_times:
-            person_id = np.random.randint(len(self.df_individuals))
+            person_id = self.df_individuals.index[np.random.randint(len(self.df_individuals))]
             self.append_event(Event(event_time, person_id, t_state,
                                     None, IMPORT_INTENSITY, self.global_time,
                                     self.epidemic_status))
@@ -131,7 +143,7 @@ class InfectionModel:
         elif isinstance(initial_conditions, dict): #schema v2
             if initial_conditions[SELECTION_ALGORITHM] == SelectionAlgorithms.RandomSelection.value:
                 # initially all indices can be drawn
-                choice_set = np.arange(len(self._df_individuals))
+                choice_set = self._df_individuals.index.values
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
                         selected_rows = np.random.choice(choice_set, cardinality, replace=False)
@@ -187,35 +199,42 @@ class InfectionModel:
             np.arange(len(distribution_hist)),
             distribution_hist
         ))
-        selected_key = list(case_severity_dict.keys())[dis.rvs()]
+        selected_key = list(case_severity_dict)[dis.rvs()]
         return convert_expected_case_severity(selected_key)
 
     @staticmethod
     def generate_random_sample(**kwargs) -> float:
-        distribution = kwargs.get('distribution', 'poisson')
-        if distribution == 'from_file':
-            filepath = kwargs.get('filepath', None).replace('$ROOT_DIR', config.ROOT_DIR)
-            Schema(lambda x: os.path.exists(x)).validate(filepath)
-            array = np.load(filepath)
-            approximate_distribution = kwargs.get('approximate_distribution', None)
-            if approximate_distribution == 'lognormal':
-                shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
-                return scipy.stats.lognorm.rvs(shape, loc=loc, scale=scale)
-            if approximate_distribution:
-                raise ValueError(f'Approximating to this distribution {approximate_distribution}'
-                                 f'is not yet supported but we can quickly add it if needed')
+        @lru_cache(maxsize=32)
+        def cached_random_gen(**kwargs):
+            distribution = kwargs.get('distribution', 'poisson')
+            if distribution == FROM_FILE:
+                filepath = kwargs.get('filepath', None).replace('$ROOT_DIR', config.ROOT_DIR)
+                Schema(lambda x: os.path.exists(x)).validate(filepath)
+                array = np.load(filepath)
+                approximate_distribution = kwargs.get('approximate_distribution', None)
+                if approximate_distribution == LOGNORMAL:
+                    shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
+                    return scipy.stats.lognorm.rvs, [shape], {'loc': loc, 'scale': scale}
+                elif approximate_distribution == GAMMA:
+                    shape, loc, scale = scipy.stats.gamma.fit(array, floc=0)
+                    return scipy.stats.gamma.rvs, [shape], {'loc': loc, 'scale': scale}
+                if approximate_distribution:
+                    raise ValueError(f'Approximating to this distribution {approximate_distribution}'
+                                     f'is not yet supported but we can quickly add it if needed')
 
-        if distribution == 'lognormal':
-            mean = kwargs.get('mean', 0.0)
-            sigma = kwargs.get('sigma', 1.0)
-            return np.random.lognormal(mean=mean, sigma=sigma)
+            if distribution == LOGNORMAL:
+                mean = kwargs.get('mean', 0.0)
+                sigma = kwargs.get('sigma', 1.0)
+                return np.random.lognormal, [], {'mean': mean, 'sigma': sigma}
 
-        lambda_ = kwargs.get('lambda', 1.0)
-        if distribution == 'exponential':
-            return np.random.exponential(scale=1/lambda_)
-        if distribution == 'poisson':
-            return np.random.poisson(lam=lambda_)
-        raise ValueError(f'Sampling from distribution {distribution} is not yet supported but we can quickly add it')
+            lambda_ = kwargs.get('lambda', 1.0)
+            if distribution == 'exponential':
+                return np.random.exponential, [], {'scale': 1/lambda_}
+            if distribution == 'poisson':
+                return np.random.poisson, [], {'lam': lambda_}
+            raise ValueError(f'Sampling from distribution {distribution} is not yet supported but we can quickly add it')
+        f, args, kwargs = cached_random_gen(**kwargs)
+        return f(*args, **kwargs)
 
     def generate_disease_progression(self, person_id, features, event_time: float,
                                      initial_infection_status: InfectionStatus) -> None:
@@ -233,6 +252,7 @@ class InfectionModel:
             self.append_event(Event(t0, person_id, T0, person_id, DISEASE_PROGRESSION,
                                     tminus1, self.epidemic_status))
         elif initial_infection_status == InfectionStatus.Infectious:
+            logger.info('{person_id}, {initial_infection_status}, {event_time}')
             t0 = event_time
         else:
             raise ValueError(f'invalid initial infection status {infection_status}')
@@ -250,13 +270,25 @@ class InfectionModel:
             self.append_event(Event(t1, person_id, T1, person_id, DISEASE_PROGRESSION, t0, self.epidemic_status))
         else:
             t1 = None
-        self._df_progression_times = self._df_progression_times.append({
+        #self._df_progression_times =
+        tdetection = None
+        trecovery = None
+        tdeath = None
+        if np.random.rand() <= self._params[DEATH_PROBABILITY][self._df_individuals.loc[person_id, EXPECTED_CASE_SEVERITY].value]:
+            tdeath = t0 + self.generate_random_sample(**self.disease_progression[TDEATH])
+        else:
+            #trecovery =
+            pass
+        self._progression_times_dict[person_id] = {ID: person_id, TMINUS1: tminus1, T0: t0, T1: t1, T2: t2,
+                                                   TDEATH: tdeath}
+                                                   #TDETECTION: tdetection, TRECOVERY: trecovery, TDEATH: tdeath}
+        '''.append({
             ID: person_id,
             TMINUS1: tminus1,
             T0: t0,
             T1: t1,
             T2: t2,
-        }, ignore_index=True)
+        }, ignore_index=True)'''
         ''' TODO let's investigate how to add this:
         quarantine_at_home = None
         quarantine_at_hospital = None
@@ -272,16 +304,16 @@ class InfectionModel:
     def log_outputs(self):
         simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID], str(time_ns()))
         os.makedirs(simulation_output_dir)
-        self._df_progression_times.to_csv(os.path.join(simulation_output_dir, 'df_progression_times.csv'))
-        self._df_potential_contractions.to_csv(os.path.join(simulation_output_dir, 'df_potential_contractions.csv'))
-        self._df_individuals.to_csv(os.path.join(simulation_output_dir, 'df_individuals.csv'))
-        self._df_households.to_csv(os.path.join(simulation_output_dir, 'df_households.csv'))
+        self.df_progression_times.to_csv(os.path.join(simulation_output_dir, 'output_df_progression_times.csv'))
+        self.df_infections.to_csv(os.path.join(simulation_output_dir, 'output_df_potential_contractions.csv'))
+        self._df_individuals.to_csv(os.path.join(simulation_output_dir, 'output_df_individuals.csv'))
+        self._df_households.to_csv(os.path.join(simulation_output_dir, 'output_df_households.csv'))
         if self._params[SAVE_INPUT_DATA]:
             from shutil import copyfile
             copyfile(self.df_individuals_path, os.path.join(simulation_output_dir,
-                                                            os.path.basename(self.df_individuals_path)))
+                                                            f'input_{os.path.basename(self.df_individuals_path)}'))
             copyfile(self.params_path, os.path.join(simulation_output_dir,
-                                                    os.path.basename(self.params_path)))
+                                                    f'input_{os.path.basename(self.params_path)}'))
         repo = Repo(config.ROOT_DIR)
         git_active_branch_log = os.path.join(simulation_output_dir, 'git_active_branch_log.txt')
         with open(git_active_branch_log, 'w') as f:
@@ -292,19 +324,45 @@ class InfectionModel:
         with open(git_status, 'w') as f:
             f.write(repo.git.status())
 
+    def get_current_progress(self):
+        return (self._df_individuals[INFECTION_STATUS] != InfectionStatus.Healthy).sum()
+
     def run_simulation(self):
-        while self.pop_and_apply_event():
-            number_active_people = self.active_people()
-            if number_active_people >= self.stop_simulation_threshold:
-                logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
-                break
+        with tqdm(total=None) as pbar:
+            while self.pop_and_apply_event():
+                affected = self.get_current_progress()
+                pbar.set_description(f'{self.global_time:.2f} - {affected}')
+                if affected >= self.stop_simulation_threshold:
+                    logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
+                    break
         self.log_outputs()
 
     def append_event(self, event: Event) -> None:
         heapq.heappush(self.event_queue, event)
 
-    def add_new_infection(self, person_id, infection_status=InfectionStatus.Contraction):
+    @property
+    def df_infections(self):
+        return pd.DataFrame.from_dict(self._infections_dict, orient='index') #, ignore_index=True) #orient='index', columns=columns)
+
+    @property
+    def df_progression_times(self):
+        return pd.DataFrame.from_dict(self._progression_times_dict, orient='index') #, ignore_index=True)
+
+    def add_new_infection(self, person_id, infection_status,
+                          initiated_by, initiated_through):
         self._df_individuals.loc[person_id, INFECTION_STATUS] = infection_status
+        # https://stackoverflow.com/questions/41888080/python-efficient-way-to-add-rows-to-dataframe
+        self._infections_dict[len(self._infections_dict)] = {
+            SOURCE: initiated_by,
+            TARGET: person_id,
+            CONTRACTION_TIME: self.global_time,
+            KERNEL: initiated_through
+        }
+        if self._df_individuals.loc[person_id, EXPECTED_CASE_SEVERITY] == ExpectedCaseSeverity.UnseenNode:
+            self._df_individuals.loc[person_id, EXPECTED_CASE_SEVERITY] = self.draw_expected_case_severity(
+                self._df_individuals.loc[person_id]
+            )
+
         self.generate_disease_progression(person_id,
                                           self._df_individuals.loc[person_id],
                                           self.global_time,
@@ -321,23 +379,35 @@ class InfectionModel:
         return self._params[TRANSMISSION_PROBABILITIES][kernel_id] * self.fear(kernel_id)
 
     def add_potential_contractions_from_household_kernel(self, id):
-        prog_times = self._df_progression_times[self._df_progression_times[ID] == id]
-        start = prog_times[T0].values
-        end = prog_times[T2].values
-        if math.isnan(end):
-            end = prog_times[T1].values
-        total_infection_rate = (end - start) * self.gamma('household')
-        household_id = self._df_individuals.loc[id, HOUSEHOLD_ID]
-        infected = np.minimum(np.random.poisson(total_infection_rate, size=1),
-                              self._df_households.loc[household_id, INHABITANTS] - 1)
-        possible_choices = self._df_individuals[self._df_individuals[HOUSEHOLD_ID]==household_id].index.values
-        selected_rows = np.random.choice(possible_choices, infected, replace=False)
-        for row in selected_rows:
-            contraction_time = np.random.uniform(low=start, high=end)
-            person_idx = self._df_individuals.iloc[row].idx.values[0]
-            self.append_event(Event(contraction_time, person_idx, TMINUS1,
-                                    id, HOUSEHOLD, self.global_time,
-                                    self.epidemic_status)) # TODO: REMEMBER TO USE "through" somewhere
+        try:
+            prog_times = self._progression_times_dict[id]
+            start = prog_times[T0]
+            end = prog_times[T2]
+            if not end:
+                end = prog_times[T1]
+            total_infection_rate = (end - start) * self.gamma('household')
+            household_id = self._df_individuals.loc[id, HOUSEHOLD_ID]
+            cond1 = self._df_individuals[HOUSEHOLD_ID] == household_id
+            cond2a = self._df_individuals[INFECTION_STATUS] == termination_states[0]
+            cond2b = self._df_individuals[INFECTION_STATUS] == termination_states[1]
+            cond2 = ~np.logical_and(cond2a, cond2b)
+            cond3 = self._df_individuals[ID] != id
+            cond = np.logical_and(np.logical_and(cond1, cond2), cond3)
+            infected = np.minimum(np.random.poisson(total_infection_rate, size=1),
+                                  len(self._df_individuals[cond]))[0]
+            if infected == 0:
+                return
+            possible_choices = self._df_individuals[cond].index.values
+            selected_rows = np.random.choice(possible_choices, infected, replace=False)
+            for row in selected_rows:
+                if self._df_individuals.loc[row, INFECTION_STATUS] == InfectionStatus.Healthy:
+                    contraction_time = np.random.uniform(low=start, high=end)
+                    person_idx = self._df_individuals.loc[row, ID]
+                    self.append_event(Event(contraction_time, person_idx, TMINUS1,
+                                            id, HOUSEHOLD, self.global_time,
+                                            self.epidemic_status))
+        except IndexError as verr:
+            logger.info(f'error: {verr} id: {id}')
 
     def add_potential_contractions_from_employment_kernel(self, id):
         pass
@@ -367,11 +437,13 @@ class InfectionModel:
             if not initiated_by and initiated_through != DISEASE_PROGRESSION:
                 if type_ == TMINUS1:
                     if self._df_individuals.loc[id, INFECTION_STATUS] == InfectionStatus.Healthy:
-                        self.add_new_infection(id, InfectionStatus.Contraction)
+                        self.add_new_infection(id, InfectionStatus.Contraction,
+                                               initiated_by, initiated_through)
                 if type_ == T0:
                     if self._df_individuals.loc[id, INFECTION_STATUS] in [InfectionStatus.Healthy,
                                                                           InfectionStatus.Contraction]:
-                            self.add_new_infection(id, InfectionStatus.Infectious)
+                            self.add_new_infection(id, InfectionStatus.Infectious,
+                                                   initiated_by, initiated_through)
                 return True
             if type_ == TMINUS1:
                 # TODO handle initial parameter induced contractions: both externally and by initial conditions
@@ -381,9 +453,11 @@ class InfectionModel:
                 if initiated_inf_status in active_states:
                     if initiated_through != 'household':
                         if initiated_inf_status != InfectionStatus.StayHome:
-                            self.add_new_infection(id, InfectionStatus.Contraction)
+                            self.add_new_infection(id, InfectionStatus.Contraction,
+                                                   initiated_by, initiated_through)
                     else:
-                        self.add_new_infection(id, InfectionStatus.Contraction)
+                        self.add_new_infection(id, InfectionStatus.Contraction,
+                                               initiated_by, initiated_through)
             elif type_ == T0:
                 if self._df_individuals.loc[id, INFECTION_STATUS] == InfectionStatus.Contraction:
                     self._df_individuals.loc[id, INFECTION_STATUS] = InfectionStatus.Infectious
@@ -393,7 +467,7 @@ class InfectionModel:
                     self.add_potential_contractions_from_transport_kernel(id)
                 if self._df_individuals.loc[id, EMPLOYMENT_STATUS] > 0:
                     self.add_potential_contractions_from_employment_kernel(id)
-                if self._df_households.loc[self._df_individuals.loc[id, HOUSEHOLD_ID], INHABITANTS] > 1:
+                if self._df_households.loc[self._df_individuals.loc[id, HOUSEHOLD_ID]] > 1:
                     self.add_potential_contractions_from_household_kernel(id)
                 self.add_potential_contractions_from_friendship_kernel(id)
                 self.add_potential_contractions_from_sporadic_kernel(id)
@@ -401,12 +475,16 @@ class InfectionModel:
                 if self._df_individuals.loc[id, INFECTION_STATUS] == InfectionStatus.Infectious:
                     self._df_individuals.loc[id, INFECTION_STATUS] = InfectionStatus.StayHome
             elif type_ == T2:
-                if self._df_individuals.loc[id, INFECTION_STATUS] == InfectionStatus.StayHome:
+                if self._df_individuals.loc[id, INFECTION_STATUS] in [
+                    InfectionStatus.StayHome,
+                    InfectionStatus.Infectious
+                ]:
                     self._df_individuals.loc[id, INFECTION_STATUS] = InfectionStatus.Hospital
 
             # TODO: add more important logic
             return True
-        except IndexError:
+        except IndexError as valerr:
+            logger.info(f'Oops IndexError error: {valerr}')
             return False
 
     def recalculate_event_queue(self):

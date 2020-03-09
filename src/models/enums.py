@@ -32,7 +32,7 @@ class ExpectedCaseSeverity(EnumWithPublicValue2MemberMap):  # to be added to nod
     Mild = MILD  # 80.9% Maybe Staying Home, maybe visit Doctor
     Severe = SEVERE  # 13.8%
     Critical = CRITICAL  # 4.7% Need to go to Hospital!
-
+    UnseenNode = UNSEEN_NODE
 
 class EpidemicStatus(EnumWithPublicValue2MemberMap):
     NotDetected = NOT_DETECTED
@@ -85,6 +85,14 @@ class FearFunctions(EnumWithPublicValue2MemberMap):
     """
     FearDisabled = 'fear_disabled'
     Fear1 = 'fear_function1'
+
+
+class SupportedDistributions(EnumWithPublicValue2MemberMap):
+    Lognormal = LOGNORMAL
+    Exponential = EXPONENTIAL
+    Poisson = POISSON
+    Gamma = GAMMA
+    FromFile = FROM_FILE
 
 
 def _convert_enum(enum_class, x):

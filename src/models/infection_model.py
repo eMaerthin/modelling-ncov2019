@@ -309,11 +309,59 @@ class InfectionModel:
         if initial_infection_status == InfectionStatus.Infectious:
             self.handle_t0(person_id)
 
+    def doubling_time(self, simulation_output_dir):
+        def doubling(x, y, window=100):
+            x1 = x[:-window]
+            x2 = x[window:]
+            y1 = y[:-window]
+            y2 = y[window:]
+            a = (x2 - x1) * np.log(2)
+            b = np.log(y2/y1)
+            c = a / b
+            return c # (x2 - x1) * np.log(2) / np.log(y2 / y1)
+
+        def plot_doubling(x, window=100):
+            if len(x) > window:
+                plt.plot(x[:-window], doubling(x.values, np.arange(len(x))))
+                return True
+            return False
+
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+        from matplotlib import pyplot as plt
+        plt.close()
+        vals = df_r2.contraction_time.sort_values()
+        legend = []
+        if plot_doubling(vals):
+            legend.append('Trend line for total # infected')
+        cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
+        cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
+        cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
+        if plot_doubling(cond1):
+            legend.append('Trend line for # imported cases')
+        if plot_doubling(cond2):
+            legend.append('Trend line for Infected through constant kernel')
+        if plot_doubling(cond3):
+            legend.append('Trend line for Infected through household kernel')
+        hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
+        ho_cases = hospitalized_cases[hospitalized_cases < df_r2.contraction_time.max(axis=0)].sort_values()
+        death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
+        d_cases = death_cases[death_cases < df_r2.contraction_time.max(axis=0)].sort_values()
+        if plot_doubling(ho_cases):
+            legend.append('Trend line for # hospitalized cases')
+        if plot_doubling(d_cases):
+            legend.append('Trend line for # deceased cases')
+        plt.legend(legend)
+        plt.title(f'Doubling times for simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
+        plt.savefig(os.path.join(simulation_output_dir, 'doubling_times.png'))
+
     def log_outputs(self):
         simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID], str(time_ns()))
         os.makedirs(simulation_output_dir)
         self.df_progression_times.to_csv(os.path.join(simulation_output_dir, 'output_df_progression_times.csv'))
         self.df_infections.to_csv(os.path.join(simulation_output_dir, 'output_df_potential_contractions.csv'))
+        self._df_individuals[EXPECTED_CASE_SEVERITY] = pd.Series(self._expected_case_severity)
+        self._df_individuals[INFECTION_STATUS] = pd.Series(self._infection_status)
         self._df_individuals.to_csv(os.path.join(simulation_output_dir, 'output_df_individuals.csv'))
         self._df_households.to_csv(os.path.join(simulation_output_dir, 'output_df_households.csv'))
         if self._params[SAVE_INPUT_DATA]:
@@ -340,6 +388,35 @@ class InfectionModel:
         self.store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
         self.store_event_queue(simulation_output_dir)
+        self.doubling_time(simulation_output_dir)
+        self.icu_beds(simulation_output_dir)
+
+    def icu_beds(self, simulation_output_dir):
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+        df_in = self.df_individuals
+
+        from matplotlib import pyplot as plt
+        plt.close()
+        critical = df_r1[df_in[EXPECTED_CASE_SEVERITY] == ExpectedCaseSeverity.Critical]
+        plus = critical.t2.values
+        deceased = critical[~critical.tdeath.isna()]
+        survived = critical[critical.tdeath.isna()]
+        FOUR_WEEKS = 28
+        minus1 = survived.t2.values + FOUR_WEEKS
+        minus2 = deceased.tdeath.values
+        df = pd.DataFrame({'t': plus, 'd': np.ones_like(plus)}).append(
+            pd.DataFrame({'t': minus1, 'd': -np.ones_like(minus1)})).append(
+            pd.DataFrame({'t': minus2, 'd': -np.ones_like(minus2)})
+        ).sort_values(by='t')
+        df = df[df.t <= df_r2.contraction_time.max(axis=0)]
+        plt.plot(df.t.values, df.d.cumsum().values)
+
+        plt.title(f'ICU beds needed assuming 4 weeks for recovery \n {self._params[EXPERIMENT_ID]}')
+        plt.savefig(os.path.join(simulation_output_dir, 'icu_beds_analysis.png'))
+
+
+
 
     def store_event_queue(self, simulation_output_dir):
         import pickle

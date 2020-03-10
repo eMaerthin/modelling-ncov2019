@@ -1,5 +1,5 @@
 {
-  "seed": 123,
+  "random_seed": 123,
   "output_root_dir": "outputs",
   "experiment_id": "dummy_experiment",
   "save_input_data": true,

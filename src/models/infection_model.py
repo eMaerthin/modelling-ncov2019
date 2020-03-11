@@ -142,7 +142,10 @@ class InfectionModel:
             for initial_condition in initial_conditions:
                 person_idx = initial_condition[PERSON_INDEX]
                 t_state = _assign_t_state(initial_condition[INFECTION_STATUS])
-                self._expected_case_severity[person_idx] = initial_condition[EXPECTED_CASE_SEVERITY]
+                if EXPECTED_CASE_SEVERITY in initial_condition:
+                    self._expected_case_severity[person_idx] = convert_expected_case_severity(
+                        initial_condition[EXPECTED_CASE_SEVERITY]
+                    )
                 self.append_event(Event(initial_condition[CONTRACTION_TIME], person_idx, t_state, None,
                                         INITIAL_CONDITIONS, self.global_time, self.epidemic_status))
         elif isinstance(initial_conditions, dict):  # schema v2

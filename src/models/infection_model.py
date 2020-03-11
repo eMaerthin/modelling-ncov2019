@@ -50,7 +50,7 @@ class InfectionModel:
         self._df_households = None
         self._set_up_data_frames()
         self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)
-        self._expected_case_severity = self.draw_expected_case_severity_simple()  # self.draw_expected_case_severity_experimental()  #
+        self._expected_case_severity = self.draw_expected_case_severity_experimental() # self.draw_expected_case_severity_simple()  #
         self._infections_dict = {}
         self._progression_times_dict = {}
         self.event_schema = event_schema_fun(self._df_individuals)

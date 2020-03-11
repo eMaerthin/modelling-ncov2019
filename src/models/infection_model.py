@@ -453,7 +453,7 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'deceased_cases_age_analysis.png'))
 
     def log_outputs(self):
-        simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID], str(time_ns()))
+        simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID], f'{time_ns()}_{self._params[RANDOM_SEED]}')
         os.makedirs(simulation_output_dir)
         self.df_progression_times.to_csv(os.path.join(simulation_output_dir, 'output_df_progression_times.csv'))
         self.df_infections.to_csv(os.path.join(simulation_output_dir, 'output_df_potential_contractions.csv'))

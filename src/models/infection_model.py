@@ -512,10 +512,12 @@ class InfectionModel:
         plt.plot(d_cases, np.arange(len(d_cases)))
         icu_availability = 100
         plt.plot(d_cases, np.ones(len(d_cases)) * icu_availability)
-        critical_t = df.t.values[cumv > 100].min()
-        plt.plot([critical_t] * 2, [0, max(d_cases.max(), cumv.max())])
-        plt.legend(['ICU beds required', '# deceased cases', 'ICU beds available', f'Critical time {critical_t:.1f}'],
-                   loc='upper left')
+        legend = ['ICU beds required', '# deceased cases', 'ICU beds available']
+        if sum(cumv > 100) > 0:
+            critical_t = df.t.values[cumv > 100].min()
+            plt.plot([critical_t] * 2, [0, max(d_cases.max(), cumv.max())])
+            legend.append(f'Critical time {critical_t:.1f}')
+        plt.legend(legend, loc='upper left')
         plt.title(f'ICU beds needed assuming 4 weeks for recovery \n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'icu_beds_analysis.png'))
 

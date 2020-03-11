@@ -90,7 +90,7 @@ infection_model_schemas = {
     EXPERIMENT_ID: Schema(And(Use(str), lambda str_: str_.isalnum)),
     SAVE_INPUT_DATA: Schema(bool),
     TRANSMISSION_PROBABILITIES: Schema({
-        Optional(transmission_way, default=1.0): And(Use(float), lambda f: 0 < f <= 1) for transmission_way in KernelType.map()
+        Optional(transmission_way, default=1.0): And(Use(float), lambda f: 0 <= f <= 1) for transmission_way in KernelType.map()
     }),
     FEAR_FACTORS: fear_factors_schema,
     IMPORT_INTENSITY: import_intensity_schema,

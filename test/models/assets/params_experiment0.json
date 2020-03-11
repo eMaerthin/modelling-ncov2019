@@ -11,8 +11,15 @@
     "constant": 0.376
   },
   "fear_factors": {
-    "default": {
+    "household": {
       "fear_function": "fear_disabled"
+    },
+    "default": {
+      "fear_function": "fear_tanh",
+      "scale_factor": 5000,
+      "limit_value": 0.2,
+      "detected_multiplier": 1,
+      "deaths_multiplier": 10
     }
   },
   "initial_conditions": [],

@@ -32,10 +32,11 @@ case_severity_distribution_schema = Schema(And({
 }, lambda x: sum(x.values()) == 1))
 
 fear_factor_schema = Schema({
-    Optional(FEAR_FUNCTION, default_fear_factor[FEAR_FUNCTION]): Or(*FearFunctions.map()),
-    Optional(SCALE_FACTOR, default_fear_factor[SCALE_FACTOR]): And(Or(Use(float), Use(int)), lambda x: x > 0),
-    Optional(DETECTED_MULTIPLIER, default_fear_factor[DETECTED_MULTIPLIER]): And(Or(Use(float), Use(int)), lambda x: x >= 0),
-    Optional(DEATHS_MULTIPLIER, default_fear_factor[DEATHS_MULTIPLIER]): And(Or(Use(float), Use(int)), lambda x: x >= 0),
+    Optional(FEAR_FUNCTION, default=default_fear_factor[FEAR_FUNCTION]): Or(*FearFunctions.map()),
+    Optional(SCALE_FACTOR, default=default_fear_factor[SCALE_FACTOR]): And(Or(Use(float), Use(int)), lambda x: x > 0),
+    Optional(LIMIT_VALUE, default=default_fear_factor[LIMIT_VALUE]): And(Or(Use(float), Use(int)), lambda x: 1.0 >= x >= 0.0),
+    Optional(DETECTED_MULTIPLIER, default=default_fear_factor[DETECTED_MULTIPLIER]): And(Or(Use(float), Use(int)), lambda x: x >= 0),
+    Optional(DEATHS_MULTIPLIER, default=default_fear_factor[DEATHS_MULTIPLIER]): And(Or(Use(float), Use(int)), lambda x: x >= 0),
 })
 
 fear_factors_schema = Schema({
@@ -44,10 +45,10 @@ fear_factors_schema = Schema({
 
 import_intensity_schema = Schema({
     FUNCTION: Or(*ImportIntensityFunctions.map()),
-    Optional(MULTIPLIER, 1): And(Or(int, float), lambda x: x >= 0),
-    Optional(RATE, 1): And(Or(int, float), lambda x: x >= 0),
-    Optional(CAP, float('inf')): And(Or(int, float), lambda x: x >= 0),
-    Optional(INFECTIOUS, 0.0): And(float, lambda x: 0.0 <= x <= 1.0),
+    Optional(MULTIPLIER, default=1): And(Or(int, float), lambda x: x >= 0),
+    Optional(RATE, default=1): And(Or(int, float), lambda x: x >= 0),
+    Optional(CAP, default=float('inf')): And(Or(int, float), lambda x: x >= 0),
+    Optional(INFECTIOUS, default=0.0): And(float, lambda x: 0.0 <= x <= 1.0),
 })
 
 initial_conditions_schema1 = [{
@@ -89,7 +90,7 @@ infection_model_schemas = {
     EXPERIMENT_ID: Schema(And(Use(str), lambda str_: str_.isalnum)),
     SAVE_INPUT_DATA: Schema(bool),
     TRANSMISSION_PROBABILITIES: Schema({
-        Optional(transmission_way, 1.0): And(Use(float), lambda f: 0 < f <= 1) for transmission_way in KernelType.map()
+        Optional(transmission_way, default=1.0): And(Use(float), lambda f: 0 < f <= 1) for transmission_way in KernelType.map()
     }),
     FEAR_FACTORS: fear_factors_schema,
     IMPORT_INTENSITY: import_intensity_schema,

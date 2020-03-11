@@ -87,6 +87,7 @@ class FearFunctions(EnumWithPublicValue2MemberMap):
     """
     FearDisabled = 'fear_disabled'
     Fear1 = 'fear_function1'
+    FearTanh = 'fear_tanh'
 
 
 class SupportedDistributions(EnumWithPublicValue2MemberMap):
@@ -114,3 +115,7 @@ def convert_expected_case_severity(x):
 
 def convert_import_intensity_functions(x):
     return _convert_enum(ImportIntensityFunctions, x)
+
+
+def convert_fear_functions(x):
+    return _convert_enum(FearFunctions, x)

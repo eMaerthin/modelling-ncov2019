@@ -36,14 +36,14 @@ default_disease_progression = {
 }
 
 default_fear_factor = {
-    APPLICABLE_TO: DEFAULT,
     FEAR_FUNCTION: default_fear_function,
     SCALE_FACTOR: 10,
+    LIMIT_VALUE: 0.5,
     DETECTED_MULTIPLIER: 0,
     DEATHS_MULTIPLIER: 1
 }
 
-default_fear_factors = [default_fear_factor]
+default_fear_factors = {DEFAULT: default_fear_factor}
 
 default_experiment_id = 'experiment'
 

@@ -36,6 +36,7 @@ class InfectionModel:
         self._params = dict()
         self.event_queue = []
         self._affected_people = 0
+        self._deaths = 0
         logger.info('Parsing params...')
         for key, schema in infection_model_schemas.items():
             self._params[key] = schema.validate(params.get(key, defaults[key]))
@@ -45,8 +46,10 @@ class InfectionModel:
 
         self._global_time = self._params[START_TIME]
         logger.info('Setting up data frames...')
-        self._df_individuals, self._df_households = self._set_up_data_frames(df_individuals_path)
-        self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)  # self._df_individuals[INFECTION_STATUS].to_dict() #defaultdict(lambda: InfectionStatus.Healthy)
+        self._df_individuals = None
+        self._df_households = None
+        self._set_up_data_frames()
+        self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)
         self._expected_case_severity = self.draw_expected_case_severity_simple()
         self._infections_dict = {}
         self._progression_times_dict = {}
@@ -58,39 +61,43 @@ class InfectionModel:
         self._fill_queue_based_on_auxiliary_functions()
         logger.info('Initialization step is done!')
 
-    def _set_up_data_frames(self, df_individuals_path: str) -> typing.Tuple[pd.DataFrame, pd.DataFrame]:
+    def _set_up_data_frames(self) -> None:
+        """
+        The purpose of this method is to set up two dataframes.
+        One is self._df_individuals that stores features for the population
+        Second is self._df_households that stores list of people idx per household
+        building df_households is time consuming, therefore we try to reuse previously computed df_households
+        :return:
+        """
         logger.info('Set up data frames: Reading population csv...')
-        df_individuals = pd.read_csv(
-            df_individuals_path,
-            converters={
-                INFECTION_STATUS: convert_infection_status,
-                EXPECTED_CASE_SEVERITY: convert_expected_case_severity
-            })  # TODO: Consider networkx graph instead of pandas df
-        df_individuals.index = df_individuals.idx
-        logger.info('Set up data frames: drawing expected case severity...')
-        if EXPECTED_CASE_SEVERITY not in df_individuals:
-            df_individuals[EXPECTED_CASE_SEVERITY] = ExpectedCaseSeverity.UnseenNode
-
+        self._df_individuals = pd.read_csv(self.df_individuals_path)
+        self._df_individuals.index = self._df_individuals.idx
         logger.info('Set up data frames: Building households df...')
 
-        df_households = None
         household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
                                             'input_df_households.csv')
         if os.path.exists(household_input_path):
-            df_households = pd.read_csv(household_input_path, index_col=HOUSEHOLD_ID, converters={ID: ast.literal_eval})
+            self._df_households = pd.read_csv(household_input_path, index_col=HOUSEHOLD_ID,
+                                              converters={ID: ast.literal_eval})
         else:
-            df_households = df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)
-
-        return df_individuals, df_households
+            self._df_households = self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)
 
     def _fill_queue_based_on_auxiliary_functions(self) -> None:
-        def _generate_event_times(f, rate, multiplier, cap, root_buffer=100, root_guess=0):
+        """
+        The purpose of this method is to mark some people of the population as sick according to provided function.
+        Possible functions: see possible values of ImportIntensityFunctions enum
+        Outcome of the function can be adjusted by overriding default parameters:
+        multiplier, rate, cap, infectious_probability.
+        :return:
+        """
+        def _generate_event_times(func, rate, multiplier, cap, root_buffer=100, root_guess=0) -> list:
             root_min = root_guess - root_buffer
             root_max = root_guess + root_buffer
             time_events_ = []
             for i in range(1, 1 + cap):
-                root = scipy.optimize.bisect(lambda x: f(x, rate=rate, multiplier=multiplier) - i, root_min, root_max)
-                time_events_.append(root) #, f(root, rate=rate, multiplier=multiplier)))
+                bisect_fun = lambda x: func(x, rate=rate, multiplier=multiplier) - i
+                root = scipy.optimize.bisect(bisect_fun, root_min, root_max)
+                time_events_.append(root)
                 root_min = root
                 root_max = root + root_buffer
             return time_events_
@@ -99,12 +106,12 @@ class InfectionModel:
         f_choice = convert_import_intensity_functions(import_intensity[FUNCTION])
         if f_choice == ImportIntensityFunctions.NoImport:
             return
-        f = import_intensity_functions[f_choice]
+        func = import_intensity_functions[f_choice]
         multiplier = import_intensity[MULTIPLIER]
         rate = import_intensity[RATE]
         cap = import_intensity[CAP]
         infectious_prob = import_intensity[INFECTIOUS]
-        event_times = _generate_event_times(f=f, rate=rate, multiplier=multiplier, cap=cap)
+        event_times = _generate_event_times(func=func, rate=rate, multiplier=multiplier, cap=cap)
         for event_time in event_times:
             person_id = self.df_individuals.index[np.random.randint(len(self.df_individuals))]
             t_state = TMINUS1
@@ -115,6 +122,14 @@ class InfectionModel:
                                     self.epidemic_status))
 
     def _fill_queue_based_on_initial_conditions(self):
+        """
+        The purpose of this method is to mark some people of the population as sick according to provided
+        initial conditions.
+        Conditions can be provided using one of two supported schemas.
+        schema v1 is list with details per person, while schema v2 is dictionary specifying selection algorithm
+        and cardinalities of each group of patients (per symptom).
+        :return:
+        """
         def _assign_t_state(status):
             if status == CONTRACTION:
                 return TMINUS1
@@ -123,38 +138,34 @@ class InfectionModel:
             raise ValueError(f'invalid initial infection status {status}')
 
         initial_conditions = self._params[INITIAL_CONDITIONS]
-        if isinstance(initial_conditions, list): # schema v1
+        if isinstance(initial_conditions, list):  # schema v1
             for initial_condition in initial_conditions:
-                for key, value in initial_condition.items():
-                    if key == PERSON_INDEX:
-                        continue
-                    if key == INFECTION_STATUS:
-                        continue
-                    if key == CONTRACTION_TIME:
-                        t_state = _assign_t_state(initial_condition[INFECTION_STATUS])
-                        self.append_event(Event(value, initial_condition[PERSON_INDEX], t_state,
-                                                None, INITIAL_CONDITIONS, self.global_time,
-                                                self.epidemic_status))
-                        continue
-                    elif key == EXPECTED_CASE_SEVERITY:
-                        value = convert_expected_case_severity(value)
-                    self._df_individuals.loc[initial_condition[PERSON_INDEX], key] = value
-        elif isinstance(initial_conditions, dict): #schema v2
+                person_idx = initial_condition[PERSON_INDEX]
+                t_state = _assign_t_state(initial_condition[INFECTION_STATUS])
+                self._expected_case_severity[person_idx] = initial_condition[EXPECTED_CASE_SEVERITY]
+                self.append_event(Event(initial_condition[CONTRACTION_TIME], person_idx, t_state, None,
+                                        INITIAL_CONDITIONS, self.global_time, self.epidemic_status))
+        elif isinstance(initial_conditions, dict):  # schema v2
             if initial_conditions[SELECTION_ALGORITHM] == SelectionAlgorithms.RandomSelection.value:
                 # initially all indices can be drawn
                 choice_set = self._df_individuals.index.values
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
                         selected_rows = np.random.choice(choice_set, cardinality, replace=False)
+                        # now only previously unselected indices can be drawn in next steps
+                        choice_set = np.array(list(set(choice_set) - set(selected_rows)))
                         t_state = _assign_t_state(infection_status)
                         for row in selected_rows:
                             self.append_event(Event(self.global_time, row, t_state, None, INITIAL_CONDITIONS,
                                                     self.global_time, self.epidemic_status))
-                            #self._df_individuals.loc[row, INFECTION_STATUS] = convert_infection_status(infection_status)
-                        # now only previously unselected indices can be drawn in next steps
-                        choice_set = np.array(list(set(choice_set) - set(selected_rows)))
+            else:
+                err_msg = f'Unsupported selection algorithm provided {initial_conditions[SELECTION_ALGORITHM]}'
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         else:
-            raise ValueError('invalid schema')
+            err_msg = f'invalid schema provided {initial_conditions}'
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
     @property
     def global_time(self):
@@ -180,8 +191,13 @@ class InfectionModel:
     def disease_progression(self):
         return self._params[DISEASE_PROGRESSION].get(self.epidemic_status, self._params[DISEASE_PROGRESSION][DEFAULT])
 
+    @property
     def affected_people(self):
         return self._affected_people
+
+    @property
+    def deaths(self):
+        return self._deaths
 
     def draw_expected_case_severity_simple(self):
         case_severity_dict = self.case_severity_distribution
@@ -300,6 +316,7 @@ class InfectionModel:
         if np.random.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id].value]:
         #if np.random.rand() <= self._params[DEATH_PROBABILITY][self._df_individuals.loc[person_id, EXPECTED_CASE_SEVERITY].value]:
             tdeath = t0 + self.generate_random_sample(**self.disease_progression[TDEATH])
+            self.append_event(Event(tdeath, person_id, TDEATH, person_id, DISEASE_PROGRESSION, t0, self.epidemic_status))
         else:
             #trecovery =
             pass
@@ -496,8 +513,8 @@ class InfectionModel:
     def run_simulation(self):
         with tqdm(total=None) as pbar:
             while self.pop_and_apply_event():
-                affected = self.affected_people() #get_current_progress()
-                pbar.set_description(f'Time: {self.global_time:.2f} - Affected: {affected}')
+                affected = self.affected_people
+                pbar.set_description(f'Time: {self.global_time:.2f} - Affected: {affected} - fear constant: {self.fear("constant"):.3f} - fear household: {self.fear("household"):.3f}')
                 if affected >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break
@@ -542,7 +559,18 @@ class InfectionModel:
         pass
 
     def fear(self, kernel_id) -> float:
-        return 1.0
+        fear_factors = self._params[FEAR_FACTORS]
+        fear_factor = fear_factor_schema.validate(fear_factors.get(kernel_id, fear_factors.get(DEFAULT, None)))
+        if not fear_factor:
+            return 1.0
+        f = fear_functions[convert_fear_functions(fear_factor[FEAR_FUNCTION])]
+        limit_value = fear_factor[LIMIT_VALUE]
+        scale = fear_factor[SCALE_FACTOR]
+        weights_deaths = fear_factor[DEATHS_MULTIPLIER]
+        weights_detected = fear_factor[DETECTED_MULTIPLIER]
+        detected = self.affected_people
+        deaths = self.deaths
+        return f(detected, deaths, weights_detected, weights_deaths, scale, limit_value)
 
     def gamma(self, kernel_id):
         return self._params[TRANSMISSION_PROBABILITIES][kernel_id] * self.fear(kernel_id)
@@ -653,6 +681,10 @@ class InfectionModel:
                     InfectionStatus.Infectious
                 ]:
                     self._infection_status[id] = InfectionStatus.Hospital  # self._df_individuals.loc[id, INFECTION_STATUS] = InfectionStatus.Hospital
+            elif type_ == TDEATH:
+                if self._infection_status[id] != InfectionStatus.Death:
+                    self._infection_status[id] = InfectionStatus.Death
+                    self._deaths += 1
 
             # TODO: add more important logic
             return True

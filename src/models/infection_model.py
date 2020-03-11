@@ -50,7 +50,7 @@ class InfectionModel:
         self._df_households = None
         self._set_up_data_frames()
         self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)
-        self._expected_case_severity = self.draw_expected_case_severity_simple()
+        self._expected_case_severity = self.draw_expected_case_severity_simple()  # self.draw_expected_case_severity_experimental()  #
         self._infections_dict = {}
         self._progression_times_dict = {}
         self.event_schema = event_schema_fun(self._df_individuals)
@@ -80,7 +80,7 @@ class InfectionModel:
             self._df_households = pd.read_csv(household_input_path, index_col=HOUSEHOLD_ID,
                                               converters={ID: ast.literal_eval})
         else:
-            self._df_households = self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)
+            self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
 
     def _fill_queue_based_on_auxiliary_functions(self) -> None:
         """
@@ -198,6 +198,56 @@ class InfectionModel:
     @property
     def deaths(self):
         return self._deaths
+
+    def draw_expected_case_severity_experimental(self):
+        fatality_probabilities = [0.002, 0.004, 0.013, 0.036, 0.08, 0.148]
+
+        conds = []
+        cond1 = self._df_individuals[AGE] < 40
+        conds.append(cond1)
+
+        cond2a = self._df_individuals[AGE] >= 40
+        cond2b = self._df_individuals[AGE] < 50
+        cond2 = np.logical_and(cond2a, cond2b)
+        conds.append(cond2)
+
+        cond3a = self._df_individuals[AGE] >= 50
+        cond3b = self._df_individuals[AGE] < 60
+        cond3 = np.logical_and(cond3a, cond3b)
+        conds.append(cond3)
+
+        cond4a = self._df_individuals[AGE] >= 60
+        cond4b = self._df_individuals[AGE] < 70
+        cond4 = np.logical_and(cond4a, cond4b)
+        conds.append(cond4)
+
+        cond5a = self._df_individuals[AGE] >= 70
+        cond5b = self._df_individuals[AGE] < 80
+        cond5 = np.logical_and(cond5a, cond5b)
+        conds.append(cond5)
+
+        cond6 = self._df_individuals[AGE] >= 80
+        conds.append(cond6)
+
+        case_severity_dict = self.case_severity_distribution
+        keys = [convert_expected_case_severity(x) for x in case_severity_dict]
+        d = {}
+        for cond, fatality_prob in zip(conds, fatality_probabilities):
+            new_d = dict()
+            new_d[CRITICAL] = fatality_prob/self._params[DEATH_PROBABILITY][CRITICAL]
+            for x in case_severity_dict:
+                if x != CRITICAL:
+                    new_d[x] = case_severity_dict[x]/(1 - case_severity_dict[CRITICAL])*(1 - new_d[CRITICAL])
+            distribution_hist = np.array([new_d[x] for x in case_severity_dict])
+            dis = scipy.stats.rv_discrete(values=(
+                np.arange(len(new_d)),
+                distribution_hist
+            ))
+            realizations = dis.rvs(size=len(self._df_individuals[cond]))
+            values = [keys[r] for r in realizations]
+            df = pd.DataFrame(values, index=self._df_individuals[cond].index)
+            d = {**d, **df.to_dict()[0]}
+        return d
 
     def draw_expected_case_severity_simple(self):
         case_severity_dict = self.case_severity_distribution
@@ -339,7 +389,9 @@ class InfectionModel:
 
         def plot_doubling(x, window=100):
             if len(x) > window:
-                plt.plot(x[:-window], doubling(x.values, np.arange(len(x))))
+                xval = x[:-window]
+                yval = doubling(x.values, np.arange(len(x)))
+                plt.plot(xval[yval<28], yval[yval<28])
                 return True
             return False
 
@@ -371,6 +423,31 @@ class InfectionModel:
         plt.legend(legend)
         plt.title(f'Doubling times for simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'doubling_times.png'))
+
+    def draw_death_age_cohorts(self, simulation_output_dir):
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+        df_in = self.df_individuals
+        from matplotlib import pyplot as plt
+        plt.close()
+        lims = [(0, 20, '[0-19]'), (20, 40, '[20-39]'), (40, 50, '[40-49]'), (50, 60, '[50-59]'), (60, 70, '[60-69]'),
+                (70, 80, '[70-79]'), (80, 200, '[80+]')]
+        legend = []
+        for limm, limM, descr in lims:
+            cond1 = df_in.age >= limm
+            cond2 = df_in.age < limM
+            cond = np.logical_and(cond1, cond2)
+            filtered = df_r1[cond]
+            death_cases = filtered[~filtered.tdeath.isna()].sort_values(by='tdeath').tdeath
+            d_cases = death_cases[death_cases < df_r2.contraction_time.max(axis=0)].sort_values()
+            d_times = np.arange(len(d_cases))
+            plt.plot(np.append(d_cases, df_r2.contraction_time.max(axis=0)), np.append(d_times, len(d_cases)))
+            legend.append(descr)
+
+        plt.legend(legend)
+        experiment_id = self._params[EXPERIMENT_ID]
+        plt.title(f'cumulative deceased cases per age group \n {experiment_id}')
+        plt.savefig(os.path.join(simulation_output_dir, 'deceased_cases_age_analysis.png'))
 
     def log_outputs(self):
         simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID], str(time_ns()))
@@ -407,6 +484,7 @@ class InfectionModel:
         self.store_event_queue(simulation_output_dir)
         self.doubling_time(simulation_output_dir)
         self.icu_beds(simulation_output_dir)
+        self.draw_death_age_cohorts(simulation_output_dir)
 
     def icu_beds(self, simulation_output_dir):
         df_r1 = self.df_progression_times
@@ -427,8 +505,17 @@ class InfectionModel:
             pd.DataFrame({'t': minus2, 'd': -np.ones_like(minus2)})
         ).sort_values(by='t')
         df = df[df.t <= df_r2.contraction_time.max(axis=0)]
-        plt.plot(df.t.values, df.d.cumsum().values)
-
+        cumv = df.d.cumsum().values
+        plt.plot(df.t.values, cumv)
+        death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
+        d_cases = death_cases[death_cases < df_r2.contraction_time.max(axis=0)].sort_values()
+        plt.plot(d_cases, np.arange(len(d_cases)))
+        icu_availability = 100
+        plt.plot(d_cases, np.ones(len(d_cases)) * icu_availability)
+        critical_t = df.t.values[cumv > 100].min()
+        plt.plot([critical_t] * 2, [0, max(d_cases.max(), cumv.max())])
+        plt.legend(['ICU beds required', '# deceased cases', 'ICU beds available', f'Critical time {critical_t:.1f}'],
+                   loc='upper left')
         plt.title(f'ICU beds needed assuming 4 weeks for recovery \n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'icu_beds_analysis.png'))
 

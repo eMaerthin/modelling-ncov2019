@@ -59,7 +59,7 @@ initial_conditions_schema1 = [{
 }]
 
 initial_conditions_schema2 = {
-    SELECTION_ALGORITHM: Or(*SelectionAlgorithms.map()),
+    SELECTION_ALGORITHM: Or(*InitialConditionSelectionAlgorithms.map()),
     CARDINALITIES: {Optional(k, default=0): And(Use(int), lambda n: n >= 0) for k in [
         CONTRACTION, INFECTIOUS
     ]}

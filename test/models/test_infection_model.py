@@ -15,7 +15,7 @@ class TestInfectionModel(TestCase):
 
     def test_active_people(self):
         self.__setup_model()
-        assert 0 == self.model.active_people(), f'Expected 0, actual: {self.model.active_people()}'
+        assert 0 == self.model.active_people, f'Expected 0, actual: {self.model.active_people()}'
 
         self.model.pop_and_apply_event()
         assert 1 == self.model.active_people(), f'Expected at least 1, actual: {self.model.active_people()}'

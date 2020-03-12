@@ -32,7 +32,7 @@ class ExpectedCaseSeverity(EnumWithPublicValue2MemberMap):  # to be added to nod
     Mild = MILD  # 80.9% Maybe Staying Home, maybe visit Doctor
     Severe = SEVERE  # 13.8%
     Critical = CRITICAL  # 4.7% Need to go to Hospital!
-    UnseenNode = UNSEEN_NODE
+
 
 class EpidemicStatus(EnumWithPublicValue2MemberMap):
     NotDetected = NOT_DETECTED
@@ -56,7 +56,7 @@ class StateDependentOnTheEpidemicsState(EnumWithPublicValue2MemberMap):
     QuarantineAtHospital = QUARANTINE_AT_HOSPITAL  # dependent on the epidemics state
 
 
-class SelectionAlgorithms(EnumWithPublicValue2MemberMap):
+class InitialConditionSelectionAlgorithms(EnumWithPublicValue2MemberMap):
     """
     This enum is intended for storing all initial condition selection algorithms,
     to seed initially infectious agents in the population
@@ -77,8 +77,8 @@ class KernelType(EnumWithPublicValue2MemberMap):
 
 class ImportIntensityFunctions(EnumWithPublicValue2MemberMap):
     NoImport = NO_IMPORT
-    Exponential = EXPONENTIAL
-    Polynomial = POLYNOMIAL
+    Exponential = EXPONENTIAL # a * exp(r*t)
+    Polynomial = POLYNOMIAL  # a * r ^ t
 
 
 class FearFunctions(EnumWithPublicValue2MemberMap):

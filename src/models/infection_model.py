@@ -25,7 +25,7 @@ from src.models.states_and_functions import *
 
 
 class InfectionModel:
-    def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str) -> None:
+    def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
         self.params_path = params_path
         self.df_individuals_path = df_individuals_path
         self.df_households_path = df_households_path
@@ -41,7 +41,10 @@ class InfectionModel:
         logger.info('Parsing params...')
         for key, schema in infection_model_schemas.items():
             self._params[key] = schema.validate(params.get(key, defaults[key]))
-
+        default_household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
+                                                    'input_df_households.csv')  # TODO: ensure households are valid!
+        if df_households_path == '':
+            self.df_households_path = default_household_input_path
         np.random.seed(self._params[RANDOM_SEED])
         random.seed(self._params[RANDOM_SEED])
 

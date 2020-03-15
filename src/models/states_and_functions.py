@@ -7,7 +7,7 @@ from .constants import *
 
 fear_functions = {
     FearFunctions.FearDisabled: (lambda *args, **kwargs: 1),
-    FearFunctions.Fear1: (lambda detected, deaths, weight_detected, weight_deaths, scale, limit_value:
+    FearFunctions.FearSigmoid: (lambda detected, deaths, weight_detected, weight_deaths, scale, limit_value:
                           1.0 + limit_value - limit_value / 0.5
                           * np.exp((detected * weight_detected + deaths * weight_deaths) / scale)
                           / (1 + np.exp((detected * weight_detected + deaths * weight_deaths) / scale))),
@@ -29,8 +29,7 @@ termination_states = [
     InfectionStatus.Recovered
 ]
 
-Event = collections.namedtuple('Event', [TIME, PERSON_INDEX, TYPE, INITIATED_BY,
-                                         INITIATED_THROUGH, ISSUED_TIME, EPIDEMIC_STATUS])
+Event = collections.namedtuple('Event', [TIME, PERSON_INDEX, TYPE, INITIATED_BY, INITIATED_THROUGH, ISSUED_TIME])
 
 import_intensity_functions = {
     ImportIntensityFunctions.Exponential: (lambda x, rate, multiplier: multiplier*exp(rate * x)),

@@ -1,5 +1,4 @@
 from .enums import *
-from .states_and_functions import fear_functions
 
 default_fear_function = FearFunctions.FearDisabled.value
 
@@ -11,7 +10,7 @@ default_initial_conditions = ([{
 
 default_stop_simulation_threshold = 10000
 
-default_epidemic_status = EpidemicStatus.NotDetected.value
+default_detection_status = DetectionStatus.NotDetected.value
 
 default_distribution = {
     DISTRIBUTION: 'poisson'
@@ -72,7 +71,6 @@ default_random_seed = 42
 
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
-    EPIDEMIC_STATUS: default_epidemic_status,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
     DISEASE_PROGRESSION: default_disease_progression,
     CASE_SEVERITY_DISTRIBUTION: default_case_severity_distribution,
@@ -86,3 +84,10 @@ defaults = {
     DEATH_PROBABILITY: default_death_probability,
     RANDOM_SEED: default_random_seed
 }
+
+default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),
+                                      (60, 70, 0.036), (70, 80, 0.08), (80, 200, 0.148)]
+
+default_age_cohorts_with_descriptions = [(0, 20, '[0-19]'), (20, 40, '[20-39]'), (40, 50, '[40-49]'),
+                                         (50, 60, '[50-59]'), (60, 70, '[60-69]'), (70, 80, '[70-79]'),
+                                         (80, 200, '[80+]')]

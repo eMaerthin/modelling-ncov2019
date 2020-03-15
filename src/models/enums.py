@@ -34,7 +34,7 @@ class ExpectedCaseSeverity(EnumWithPublicValue2MemberMap):  # to be added to nod
     Critical = CRITICAL  # 4.7% Need to go to Hospital!
 
 
-class EpidemicStatus(EnumWithPublicValue2MemberMap):
+class DetectionStatus(EnumWithPublicValue2MemberMap):
     NotDetected = NOT_DETECTED
     Detected = DETECTED
 
@@ -44,16 +44,9 @@ class InfectionStatus(EnumWithPublicValue2MemberMap):
     Contraction = CONTRACTION
     Infectious = INFECTIOUS
     StayHome = 'stay_home'
-    #SeeDoctor = 'see_doctor'  # probable, dynamic variable - visiting doctor can cause spreading the disease into vulnerable people (already sick)
     Hospital = 'hospital'  # probable
     Recovered = 'recovered'  # probable
     Death = 'death'  # probable, alternative to Recovered
-
-
-class StateDependentOnTheEpidemicsState(EnumWithPublicValue2MemberMap):
-    Detection = DETECTION  # dependent on the epidemics state
-    QuarantineAtHome = QUARANTINE_AT_HOME  # dependent on the epidemics state
-    QuarantineAtHospital = QUARANTINE_AT_HOSPITAL  # dependent on the epidemics state
 
 
 class InitialConditionSelectionAlgorithms(EnumWithPublicValue2MemberMap):
@@ -76,17 +69,26 @@ class KernelType(EnumWithPublicValue2MemberMap):
 
 
 class ImportIntensityFunctions(EnumWithPublicValue2MemberMap):
+    """
+    Here we list various ways of importing new infected cases into the population according to provided schedule.
+    - NoImport means that we have a lockdown already so no further cases will be imported from the outside.
+    - Exponential - there will be added N imported cases (for instance due to travels, migration)
+                    up to time T that solves the equation N=a*exp(rT)
+    - Polynomial - imported cases are drawn in polynomial rate
+                    - N imported cases up to time T that solves the equation N=a*pow(r, T)
+    """
     NoImport = NO_IMPORT
-    Exponential = EXPONENTIAL # a * exp(r*t)
-    Polynomial = POLYNOMIAL  # a * r ^ t
+    Exponential = EXPONENTIAL
+    Polynomial = POLYNOMIAL
 
 
 class FearFunctions(EnumWithPublicValue2MemberMap):
     """
     Set of allowed fear functions
+    TODO: create a Fear class with a function spread (or sow or something) and would allow any concrete class implementing Fear to be applied in a simulation.
     """
     FearDisabled = 'fear_disabled'
-    Fear1 = 'fear_function1'
+    FearSigmoid = 'fear_sigmoid'
     FearTanh = 'fear_tanh'
 
 

@@ -78,7 +78,6 @@ random_seed_schema = Schema(Or(int, None))
 
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
-    EPIDEMIC_STATUS: Schema(Or(*EpidemicStatus.map())),
     STOP_SIMULATION_THRESHOLD: Schema(And(Use(int), lambda n: n > 0)),
     DISEASE_PROGRESSION: Schema(And({
         Optional(NOT_DETECTED): disease_times_distributions_schema,
@@ -98,18 +97,3 @@ infection_model_schemas = {
     DEATH_PROBABILITY: death_probability_schema,
     RANDOM_SEED: random_seed_schema
 }
-
-
-def event_schema_fun(df_individuals):
-    return Schema({
-        TIME: And(Or(float,
-                     int), lambda x: x > 0),
-        PERSON_INDEX: And(int, lambda x: x in df_individuals.id.values),
-        TYPE: Or(*DiseaseProgressionEvents.map(),
-                 *StateDependentOnTheEpidemicsState.map()),
-        INITIATED_BY: Or(None,
-                         And(int, lambda x: x in df_individuals.id.values)),
-        ISSUED_TIME: Or(None,
-                        And(Or(float, int), lambda x: x >= 0)),
-        EPIDEMIC_STATUS: Or(*EpidemicStatus.map()),
-    })

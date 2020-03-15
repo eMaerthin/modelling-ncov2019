@@ -51,11 +51,6 @@ class TestInfectionModel(TestCase):
 
         assert 1000 == self.model.stop_simulation_threshold
 
-    def test_epidemic_status(self):
-        self.__setup_model()
-
-        assert infection_model.EpidemicStatus.NotDetected.value == self.model.epidemic_status
-
     def test_disease_progression(self):
         self.__setup_model()
 

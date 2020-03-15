@@ -9,7 +9,7 @@ import json
 import logging
 import random
 from time import time_ns
-import os, psutil
+import psutil
 
 import fire
 from git import Repo
@@ -25,9 +25,10 @@ from src.models.states_and_functions import *
 
 
 class InfectionModel:
-    def __init__(self, params_path: str, df_individuals_path: str) -> None:
+    def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str) -> None:
         self.params_path = params_path
         self.df_individuals_path = df_individuals_path
+        self.df_households_path = df_households_path
         logger.info('Loading params...')
         with open(params_path, 'r') as params_file:
             params = json.loads(
@@ -74,13 +75,13 @@ class InfectionModel:
         self._df_individuals.index = self._df_individuals.idx
         logger.info('Set up data frames: Building households df...')
 
-        household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
-                                            'input_df_households.csv')  # TODO: ensure that households are valid!
-        if os.path.exists(household_input_path):
-            self._df_households = pd.read_csv(household_input_path, index_col=HOUSEHOLD_ID,
+        if os.path.exists(self.df_households_path):
+            self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
                                               converters={ID: ast.literal_eval})
         else:
             self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
+            os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)
+            self._df_households.to_csv(self.df_households_path)
 
     def append_event(self, event: Event) -> None:
         heapq.heappush(self.event_queue, event)

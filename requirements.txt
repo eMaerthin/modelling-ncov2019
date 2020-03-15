@@ -2,20 +2,21 @@
 -e .
 
 # external requirements
-click
-Sphinx
-coverage
-awscli
-flake8
-gitpython
+click==7.0
+Sphinx==2.4.4
+coverage==5.0.3
+awscli==1.18.16
+flake8==3.7.9
+gitpython==3.1.0
 python-dotenv>=0.5.1
 
-fire
-jupyter
-matplotlib
-numpy
-pandas
-schema
-scipy
-tqdm
-xlrd
+fire==0.2.1
+jupyter==1.0.0
+matplotlib==3.2.0
+numpy==1.18.1
+pandas==1.0.1
+psutil==5.7.0
+schema==0.7.1
+scipy==1.4.1
+tqdm==4.43.0
+xlrd==1.2.0

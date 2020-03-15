@@ -104,3 +104,5 @@ DEATH_PROBABILITY = 'death_probability'
 UNSEEN_NODE = 'unseen_node'
 
 RANDOM_SEED = 'random_seed'
+
+FOUR_WEEKS = 28

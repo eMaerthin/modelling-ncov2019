@@ -253,7 +253,7 @@ class InfectionModel:
     @staticmethod
     def generate_random_sample(**kwargs) -> float:
         def cached_random_gen(**kwargs):
-            distribution = kwargs.get('distribution', 'poisson')
+            distribution = kwargs.get(DISTRIBUTION, default_distribution[DISTRIBUTION])
             if distribution == FROM_FILE:
                 filepath = kwargs.get('filepath', None).replace('$ROOT_DIR', config.ROOT_DIR)
                 Schema(lambda x: os.path.exists(x)).validate(filepath)

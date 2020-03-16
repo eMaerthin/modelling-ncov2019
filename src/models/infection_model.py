@@ -373,10 +373,12 @@ class InfectionModel:
         elif self._infection_status[person_id] != InfectionStatus.Infectious:
             raise AssertionError(f'Unexpected state detected: {self._infection_status[person_id]}'
                                  f'person_id: {person_id}')
-        if self._df_individuals.loc[person_id, P_TRANSPORT] > 0:
-            self.add_potential_contractions_from_transport_kernel(person_id)
-        if self._df_individuals.loc[person_id, EMPLOYMENT_STATUS] > 0:
-            self.add_potential_contractions_from_employment_kernel(person_id)
+        if P_TRANSPORT in self._df_individuals.columns:
+            if self._df_individuals.loc[person_id, P_TRANSPORT] > 0:
+                self.add_potential_contractions_from_transport_kernel(person_id)
+        if EMPLOYMENT_STATUS in self._df_individuals.columns:
+            if self._df_individuals.loc[person_id, EMPLOYMENT_STATUS] > 0:
+                self.add_potential_contractions_from_employment_kernel(person_id)
         if len(self._df_households.loc[self._df_individuals.loc[person_id, HOUSEHOLD_ID]][ID]) > 1:
             self.add_potential_contractions_from_household_kernel(person_id)
         self.add_potential_contractions_from_friendship_kernel(person_id)

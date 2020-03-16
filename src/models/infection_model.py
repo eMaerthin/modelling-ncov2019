@@ -106,12 +106,12 @@ class InfectionModel:
             """
             Here a naive way of generating event times is proposed.
             The idea is to generate N events
-            :param func:
-            :param rate:
-            :param multiplier:
-            :param cap:
-            :param root_buffer:
-            :param root_guess:
+            :param func: currently two functions are supported: exponential a*exp(r*t) and polynomial a*r^t
+            :param rate: a parameter that is making the slope more steep
+            :param multiplier: a parameter that scales the time down
+            :param cap: the maximum amount of cases generated and added to queue list
+            :param root_buffer: one-directional range to find roots in
+            :param root_guess: guess on first solution (i=1)
             :return:
             """
             root_min = root_guess - root_buffer
@@ -262,24 +262,31 @@ class InfectionModel:
                 if approximate_distribution == LOGNORMAL:
                     shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
                     return scipy.stats.lognorm.rvs, [shape], {'loc': loc, 'scale': scale}
-                elif approximate_distribution == GAMMA:
+
+                if approximate_distribution == GAMMA:
                     shape, loc, scale = scipy.stats.gamma.fit(array, floc=0)
                     return scipy.stats.gamma.rvs, [shape], {'loc': loc, 'scale': scale}
+
                 if approximate_distribution:
-                    raise ValueError(f'Approximating to this distribution {approximate_distribution}'
-                                     f'is not yet supported but we can quickly add it if needed')
-                # TODO: support no approximate distribution provided
+                    raise NotImplementedError(f'Approximating to this distribution {approximate_distribution}'
+                                              f'is not yet supported but we can quickly add it if needed')
+
+                raise NotImplementedError(f'Currently not supporting empirical distribution'
+                                          f' without approximating it')
 
             if distribution == LOGNORMAL:
                 mean = kwargs.get('mean', 0.0)
                 sigma = kwargs.get('sigma', 1.0)
                 return np.random.lognormal, [], {'mean': mean, 'sigma': sigma}
 
-            lambda_ = kwargs.get('lambda', 1.0)
-            if distribution == 'exponential':
+            if distribution == EXPONENTIAL:
+                lambda_ = kwargs.get('lambda', 1.0)
                 return np.random.exponential, [], {'scale': 1/lambda_}
-            if distribution == 'poisson':
+
+            if distribution == POISSON:
+                lambda_ = kwargs.get('lambda', 1.0)
                 return np.random.poisson, [], {'lam': lambda_}
+
             raise ValueError(f'Sampling from distribution {distribution} is not yet supported but we can quickly add it')
         f, args, kwargs = cached_random_gen(**kwargs)
         return f(*args, **kwargs)

@@ -47,8 +47,9 @@ class InfectionModel:
             self.df_households_path = default_household_input_path
         np.random.seed(self._params[RANDOM_SEED])
         random.seed(self._params[RANDOM_SEED])
-
         self._global_time = self._params[START_TIME]
+        self._max_time = self._params[MAX_TIME]
+
         logger.info('Setting up data frames...')
         self._df_individuals = None
         self._df_households = None
@@ -320,7 +321,7 @@ class InfectionModel:
         start = prog_times[T0]
         end = prog_times[T2]
         if end is None:
-            end = start + prog_times[T1] + 14 # TODO: Fix the bug, this should Recovery Time
+            end = start + prog_times[T0] + 14 # TODO: Fix the bug, this should Recovery Time
         total_infection_rate = (end - start) * self.gamma('household')
         household_id = self._df_individuals.loc[person_id, HOUSEHOLD_ID]
         inhabitants = self._df_households.loc[household_id][ID]
@@ -329,7 +330,7 @@ class InfectionModel:
                               len(possibly_affected_household_members))[0]
         if infected == 0:
             return
-        possible_choices = possibly_affected_household_members #.index.values
+        possible_choices = possibly_affected_household_members
         selected_rows = np.random.choice(possible_choices, infected, replace=False)
         for row in selected_rows:
             person_idx = self._df_individuals.loc[row, ID]
@@ -353,13 +354,13 @@ class InfectionModel:
         if end is None:
             end = prog_times[T2]
         total_infection_rate = (end - start) * self.gamma('constant')
-        infected = np.random.poisson(total_infection_rate, size=1)
+        infected = np.random.poisson(total_infection_rate, size=1)[0]
         if infected == 0:
             return
         possible_choices = self._df_individuals.index.values
         possible_choices = possible_choices[possible_choices != person_id]
         r = range(possible_choices.shape[0])
-        selected_rows_ids = random.sample(r, k=infected[0])
+        selected_rows_ids = random.sample(r, k=infected)
         selected_rows = possible_choices[selected_rows_ids]
         for row in selected_rows:
             person_idx = self._df_individuals.loc[row, ID]
@@ -696,7 +697,8 @@ class InfectionModel:
             type_ = getattr(event, TYPE)
             time = getattr(event, TIME)
             self._global_time = time
-
+            if self._global_time > self._max_time:
+                return False
             person_id = getattr(event, PERSON_INDEX)
             initiated_by = getattr(event, INITIATED_BY)
             initiated_through = getattr(event, INITIATED_THROUGH)

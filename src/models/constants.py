@@ -12,6 +12,7 @@ DEFAULT = 'default'
 
 CONTRACTION = 'contraction'
 INFECTIOUS = 'infectious'
+MAX_TIME = 'max_time'
 
 DISTRIBUTION = 'distribution'
 LAMBDA = 'lambda'

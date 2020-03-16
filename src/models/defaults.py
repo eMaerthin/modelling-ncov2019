@@ -69,6 +69,8 @@ default_death_probability = {
 
 default_random_seed = 42
 
+default_max_time = float('inf')
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -82,7 +84,8 @@ defaults = {
     IMPORT_INTENSITY: default_import_intensity,
     START_TIME: default_start_time,
     DEATH_PROBABILITY: default_death_probability,
-    RANDOM_SEED: default_random_seed
+    RANDOM_SEED: default_random_seed,
+    MAX_TIME: default_max_time,
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

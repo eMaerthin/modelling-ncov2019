@@ -95,5 +95,6 @@ infection_model_schemas = {
     IMPORT_INTENSITY: import_intensity_schema,
     START_TIME: global_time_schema,
     DEATH_PROBABILITY: death_probability_schema,
-    RANDOM_SEED: random_seed_schema
+    RANDOM_SEED: random_seed_schema,
+    MAX_TIME: global_time_schema,
 }

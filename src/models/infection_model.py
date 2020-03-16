@@ -485,7 +485,7 @@ class InfectionModel:
             legend.append('Trend line for # hospitalized cases')
         if plot_doubling(d_cases):
             legend.append('Trend line for # deceased cases')
-        plt.legend(legend)
+        plt.legend(legend, loc='upper left')
         plt.title(f'Doubling times for simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'doubling_times.png'))
 
@@ -507,7 +507,7 @@ class InfectionModel:
             plt.plot(np.append(d_cases, df_r2.contraction_time.max(axis=0)), np.append(d_times, len(d_cases)))
             legend.append(descr)
 
-        plt.legend(legend)
+        plt.legend(legend, loc='upper left')
         experiment_id = self._params[EXPERIMENT_ID]
         plt.title(f'cumulative deceased cases per age group \n {experiment_id}')
         plt.savefig(os.path.join(simulation_output_dir, 'deceased_cases_age_analysis.png'))
@@ -516,7 +516,7 @@ class InfectionModel:
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
         plt.close()
-        bins = np.arange(1 + df_r2.contraction_time.max())
+        bins = np.arange(np.minimum(730, 1 + df_r2.contraction_time.max()))
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
         cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
         cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
@@ -530,7 +530,8 @@ class InfectionModel:
         ho_cases.hist(alpha=0.7, histtype='stepfilled', bins=bins)
         d_cases.hist(alpha=0.9, histtype='stepfilled', bins=bins)
         plt.legend(['# Imported cases', 'Infected through constant kernel',
-                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'])
+                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'],
+                   loc='upper left')
         plt.title(f'1 day binning of simulated covid19\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'bins.png'))
 
@@ -552,7 +553,8 @@ class InfectionModel:
         plt.plot(ho_cases, np.arange(1, 1 + len(ho_cases)))
         plt.plot(d_cases, np.arange(1, 1 + len(d_cases)))
         plt.legend(['Total # infected', '# Imported cases', 'Infected through constant kernel',
-                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'])
+                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'],
+                   loc='upper left')
         plt.title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'summary.png'))
 
@@ -575,7 +577,8 @@ class InfectionModel:
         plt.semilogy(ho_cases, np.arange(1, 1 + len(ho_cases)))
         plt.semilogy(d_cases, np.arange(1, 1 + len(d_cases)))
         plt.legend(['Total # infected', '# Imported cases', 'Infected through constant kernel',
-                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'])
+                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'],
+                    loc='upper left')
         plt.title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'summary_semilogy.png'))
 

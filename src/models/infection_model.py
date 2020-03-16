@@ -654,8 +654,9 @@ class InfectionModel:
         with tqdm(total=None) as pbar:
             while self.pop_and_apply_event():
                 affected = self.affected_people
-                memoryUse = ps.memory_info().rss / 1024 / 1024
-                pbar.set_description(f'Time: {self.global_time:.2f} - Affected: {affected} - Physical memory use: {memoryUse:.2f} MB') # - fear constant: {self.fear("constant"):.3f} - fear household: {self.fear("household"):.3f}')
+                memory_use = ps.memory_info().rss / 1024 / 1024
+                pbar.set_description(f'Time: {self.global_time:.2f} - Affected: {affected}'
+                                     f' - Physical memory use: {memory_use:.2f} MB')
                 if affected >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break

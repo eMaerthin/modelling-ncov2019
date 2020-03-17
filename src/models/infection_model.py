@@ -647,11 +647,11 @@ class InfectionModel:
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         plt.plot(d_cases, np.arange(1, 1 + len(d_cases)))
-        icu_availability = 100
+        icu_availability = self._params[ICU_AVAILABILITY]
         plt.plot(d_cases, np.ones(len(d_cases)) * icu_availability)
         legend = ['ICU beds required', '# deceased cases', 'ICU beds available']
-        if sum(cumv > 100) > 0:
-            critical_t = df.t.values[cumv > 100].min()
+        if sum(cumv > icu_availability) > 0:
+            critical_t = df.t.values[cumv > icu_availability].min()
             plt.plot([critical_t] * 2, [0, max(d_cases.max(), cumv.max())])
             legend.append(f'Critical time {critical_t:.1f}')
         plt.legend(legend, loc='upper left')

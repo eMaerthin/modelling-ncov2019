@@ -75,6 +75,7 @@ death_probability_schema = Schema({
 })
 
 random_seed_schema = Schema(Or(int, None))
+availability_schema = Schema(And(int, lambda x: x > 0))
 
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
@@ -97,4 +98,7 @@ infection_model_schemas = {
     DEATH_PROBABILITY: death_probability_schema,
     RANDOM_SEED: random_seed_schema,
     MAX_TIME: global_time_schema,
+    ICU_AVAILABILITY: availability_schema,
+    HOSPITAL_BEDS_AVAILABILITY: availability_schema,
+    MED_PERSONNEL_AVAILABILITY: availability_schema
 }

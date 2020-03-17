@@ -71,6 +71,10 @@ default_random_seed = 42
 
 default_max_time = float('inf')
 
+default_icu_availability = 100
+default_hospital_beds_availability = 5000
+default_med_personnel_availability = 400
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -86,6 +90,9 @@ defaults = {
     DEATH_PROBABILITY: default_death_probability,
     RANDOM_SEED: default_random_seed,
     MAX_TIME: default_max_time,
+    ICU_AVAILABILITY: default_icu_availability,
+    HOSPITAL_BEDS_AVAILABILITY: default_hospital_beds_availability,
+    MED_PERSONNEL_AVAILABILITY: default_med_personnel_availability
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

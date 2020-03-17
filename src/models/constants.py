@@ -14,6 +14,10 @@ CONTRACTION = 'contraction'
 INFECTIOUS = 'infectious'
 MAX_TIME = 'max_time'
 
+ICU_AVAILABILITY = 'icu_availability'
+HOSPITAL_BEDS_AVAILABILITY = 'hospital_beds_availability'
+MED_PERSONNEL_AVAILABILITY = 'med_personnel_availability'
+
 DISTRIBUTION = 'distribution'
 LAMBDA = 'lambda'
 FILEPATH = 'filepath'

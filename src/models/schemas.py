@@ -74,7 +74,7 @@ death_probability_schema = Schema({
     CRITICAL: And(Use(float), lambda x: 0.0 <= x <= 1.0),
 })
 
-random_seed_schema = Schema(Or(int, None))
+random_seed_schema = Schema(Or(str, int, None))
 availability_schema = Schema(And(int, lambda x: x > 0))
 log_time_freq_schema = Schema(Or(And(float, lambda x: x > 0), And(int, lambda x: x > 0), None))
 infection_model_schemas = {
@@ -101,5 +101,6 @@ infection_model_schemas = {
     ICU_AVAILABILITY: availability_schema,
     HOSPITAL_BEDS_AVAILABILITY: availability_schema,
     MED_PERSONNEL_AVAILABILITY: availability_schema,
-    LOG_TIME_FREQ: log_time_freq_schema
+    LOG_TIME_FREQ: log_time_freq_schema,
+    LOG_OUTPUTS: Schema(bool),
 }

@@ -10,6 +10,8 @@ NOT_DETECTED = 'not_detected'
 DETECTED = 'detected'
 DEFAULT = 'default'
 
+LOG_OUTPUTS = 'log_outputs'
+
 CONTRACTION = 'contraction'
 INFECTIOUS = 'infectious'
 MAX_TIME = 'max_time'

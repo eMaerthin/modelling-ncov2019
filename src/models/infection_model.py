@@ -4,12 +4,10 @@ This is mostly based on references/infection_alg.pdf
 import ast
 from collections import defaultdict
 from functools import (lru_cache, partial)
-import heapq
 import json
 import logging
 import random
-from time import time_ns
-import psutil
+import time
 
 import fire
 from git import Repo
@@ -17,7 +15,6 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import scipy.optimize
 import scipy.stats
-from tqdm import tqdm
 
 from src.models.schemas import *
 from src.models.defaults import *
@@ -107,7 +104,6 @@ class InfectionModel:
 
 
     def append_event(self, event: Event) -> None:
-        #heapq.heappush(self.event_queue, event)
         q.put(event)
 
     def _fill_queue_based_on_auxiliary_functions(self) -> None:
@@ -606,7 +602,7 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'summary_semilogy.png'))
 
     def log_outputs(self):
-        run_id = f'{time_ns()}_{self._params[RANDOM_SEED]}'
+        run_id = f'{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
         simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR],
                                              self._params[EXPERIMENT_ID],
                                              run_id)
@@ -760,29 +756,7 @@ class InfectionModel:
         # TODO: add more important logic
         return True
 
-    def pop_and_apply_event(self) -> bool:
-        try:
-            event = heapq.heappop(self.event_queue)
-            self.process_event(event)
-        except IndexError:
-            return False
-
     def run_simulation(self):
-        """
-            def run_simulation(self):
-                #with tqdm(total=None) as pbar:
-                while self.pop_and_apply_event():
-                    affected = self.affected_people
-                    #memory_use = ps.memory_info().rss / 1024 / 1024
-                    #pbar.set_description(f'Time: {self.global_time:.2f} - Affected: {affected}'
-                    #                     f' - Physical memory use: {memory_use:.2f} MB')
-                    if affected >= self.stop_simulation_threshold:
-                        logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
-                        break
-                self.log_outputs()
-        :return:
-        """
-        #q.join()
         while True:
             event = q.get()
             if self.affected_people >= self.stop_simulation_threshold:
@@ -801,12 +775,11 @@ class InfectionModel:
         logger.info('Log outputs')
         self.log_outputs()
 
+
 logger = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
-    pid = os.getpid()
-    ps = psutil.Process(pid)
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)
     pd.set_option('display.max_columns', None)

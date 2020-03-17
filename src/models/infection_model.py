@@ -19,9 +19,15 @@ import scipy.stats
 from src.models.schemas import *
 from src.models.defaults import *
 from src.models.states_and_functions import *
+import click
 
-from queue import (Empty, PriorityQueue)
+from pathlib import Path
+from dotenv import find_dotenv, load_dotenv
+
+
+from queue import (PriorityQueue)
 q = PriorityQueue()
+
 
 class InfectionModel:
     def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
@@ -778,9 +784,26 @@ class InfectionModel:
 
 logger = logging.getLogger(__name__)
 
+@click.command()
+@click.option('--params-path', type=click.Path(exists=True))
+@click.option('--df-individuals-path', type=click.Path(exists=True))
+@click.option('--df-households-path', type=click.Path())
+@click.argument('run-simulation') #ignored
+def runner(params_path, df_individuals_path, run_simulation, df_households_path=''):
+    im = InfectionModel(params_path=params_path,
+                        df_individuals_path=df_individuals_path,
+                        df_households_path=df_households_path or '')
+    im.run_simulation()
+
 
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)
     pd.set_option('display.max_columns', None)
-    fire.Fire(InfectionModel)
+    #fire.Fire(InfectionModel)
+
+    # find .env automagically by walking up directories until it's found, then
+    # load up the .env entries as environment variables
+    load_dotenv(find_dotenv())
+
+    runner()

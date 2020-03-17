@@ -76,7 +76,7 @@ death_probability_schema = Schema({
 
 random_seed_schema = Schema(Or(int, None))
 availability_schema = Schema(And(int, lambda x: x > 0))
-
+log_time_freq_schema = Schema(Or(And(float, lambda x: x > 0), And(int, lambda x: x > 0), None))
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
     STOP_SIMULATION_THRESHOLD: Schema(And(Use(int), lambda n: n > 0)),
@@ -100,5 +100,6 @@ infection_model_schemas = {
     MAX_TIME: global_time_schema,
     ICU_AVAILABILITY: availability_schema,
     HOSPITAL_BEDS_AVAILABILITY: availability_schema,
-    MED_PERSONNEL_AVAILABILITY: availability_schema
+    MED_PERSONNEL_AVAILABILITY: availability_schema,
+    LOG_TIME_FREQ: log_time_freq_schema
 }

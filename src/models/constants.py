@@ -13,11 +13,12 @@ DEFAULT = 'default'
 CONTRACTION = 'contraction'
 INFECTIOUS = 'infectious'
 MAX_TIME = 'max_time'
+CAPACITY = 'capacity'
 
 ICU_AVAILABILITY = 'icu_availability'
 HOSPITAL_BEDS_AVAILABILITY = 'hospital_beds_availability'
 MED_PERSONNEL_AVAILABILITY = 'med_personnel_availability'
-
+LOG_TIME_FREQ = 'log_time_freq'
 DISTRIBUTION = 'distribution'
 LAMBDA = 'lambda'
 FILEPATH = 'filepath'

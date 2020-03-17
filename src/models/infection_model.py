@@ -23,6 +23,8 @@ from src.models.schemas import *
 from src.models.defaults import *
 from src.models.states_and_functions import *
 
+from queue import (Empty, PriorityQueue)
+q = PriorityQueue()
 
 class InfectionModel:
     def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
@@ -53,6 +55,14 @@ class InfectionModel:
         logger.info('Setting up data frames...')
         self._df_individuals = None
         self._df_households = None
+        #self._individuals_gender = {}
+        self._individuals_age = None
+        self._individuals_household_id = {}
+        self._individuals_indices = None
+        self._households_capacities = {}
+        self._households_inhabitants = {}
+
+
         self._set_up_data_frames()
         self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)
         self._detection_status = defaultdict(lambda: default_detection_status)
@@ -77,6 +87,10 @@ class InfectionModel:
         logger.info('Set up data frames: Reading population csv...')
         self._df_individuals = pd.read_csv(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
+        self._individuals_age = self._df_individuals[AGE].values
+        self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
+        self._individuals_indices = self._df_individuals.index.values
+
         logger.info('Set up data frames: Building households df...')
 
         if os.path.exists(self.df_households_path):
@@ -86,9 +100,15 @@ class InfectionModel:
             self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
             os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)
             self._df_households.to_csv(self.df_households_path)
+        self._df_households[CAPACITY] = self._df_households[ID].apply(lambda x: len(x))
+        d = self._df_households.to_dict()
+        self._households_inhabitants = d[ID] #self._df_households[ID]
+        self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
+
 
     def append_event(self, event: Event) -> None:
-        heapq.heappush(self.event_queue, event)
+        #heapq.heappush(self.event_queue, event)
+        q.put(event)
 
     def _fill_queue_based_on_auxiliary_functions(self) -> None:
         # TODO: THIS IS NOT WORKING WHEN CAP = INF, let's fix it
@@ -177,7 +197,7 @@ class InfectionModel:
         elif isinstance(initial_conditions, dict):  # schema v2
             if initial_conditions[SELECTION_ALGORITHM] == InitialConditionSelectionAlgorithms.RandomSelection.value:
                 # initially all indices can be drawn
-                choice_set = self._df_individuals.index.values
+                choice_set = self._individuals_indices# self._df_individuals.index.values
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
                         selected_rows = np.random.choice(choice_set, cardinality, replace=False)
@@ -229,10 +249,10 @@ class InfectionModel:
         keys = [convert_expected_case_severity(x) for x in case_severity_dict]
         d = {}
         for age_min, age_max, fatality_prob in default_age_induced_fatality_rates:
-            cond_lb = self._df_individuals[AGE] >= age_min
-            cond_ub = self._df_individuals[AGE] < age_max
+            cond_lb = self._individuals_age >= age_min
+            cond_ub = self._individuals_age < age_max
             cond = np.logical_and(cond_lb, cond_ub)
-            if sum(cond) == 0:
+            if np.count_nonzero(cond) == 0:
                 continue
             age_induced_severity_distribution = dict()
             age_induced_severity_distribution[CRITICAL] = fatality_prob/self._params[DEATH_PROBABILITY][CRITICAL]
@@ -244,9 +264,9 @@ class InfectionModel:
                 np.arange(len(age_induced_severity_distribution)),
                 distribution_hist
             ))
-            realizations = dis.rvs(size=len(self._df_individuals[cond]))
+            realizations = dis.rvs(size=len(self._individuals_indices[cond]))
             values = [keys[r] for r in realizations]
-            df = pd.DataFrame(values, index=self._df_individuals[cond].index)
+            df = pd.DataFrame(values, index=self._individuals_indices[cond])
             d = {**d, **df.to_dict()[0]}
 
         return d
@@ -323,8 +343,8 @@ class InfectionModel:
         if end is None:
             end = start + prog_times[T0] + 14 # TODO: Fix the bug, this should Recovery Time
         total_infection_rate = (end - start) * self.gamma('household')
-        household_id = self._df_individuals.loc[person_id, HOUSEHOLD_ID]
-        inhabitants = self._df_households.loc[household_id][ID]
+        household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
+        inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]
         possibly_affected_household_members = list(set(inhabitants) - {person_id})
         infected = np.minimum(np.random.poisson(total_infection_rate, size=1),
                               len(possibly_affected_household_members))[0]
@@ -332,8 +352,7 @@ class InfectionModel:
             return
         possible_choices = possibly_affected_household_members
         selected_rows = np.random.choice(possible_choices, infected, replace=False)
-        for row in selected_rows:
-            person_idx = self._df_individuals.loc[row, ID]
+        for person_idx in selected_rows:
             if self._infection_status[person_idx] == InfectionStatus.Healthy:
                 contraction_time = np.random.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
@@ -357,13 +376,12 @@ class InfectionModel:
         infected = np.random.poisson(total_infection_rate, size=1)[0]
         if infected == 0:
             return
-        possible_choices = self._df_individuals.index.values
+        possible_choices = self._individuals_indices # self._df_individuals.index.values
         possible_choices = possible_choices[possible_choices != person_id]
         r = range(possible_choices.shape[0])
         selected_rows_ids = random.sample(r, k=infected)
         selected_rows = possible_choices[selected_rows_ids]
-        for row in selected_rows:
-            person_idx = self._df_individuals.loc[row, ID]
+        for person_idx in selected_rows:
             if self._infection_status[person_idx] == InfectionStatus.Healthy:
                 contraction_time = np.random.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
@@ -374,19 +392,24 @@ class InfectionModel:
         elif self._infection_status[person_id] != InfectionStatus.Infectious:
             raise AssertionError(f'Unexpected state detected: {self._infection_status[person_id]}'
                                  f'person_id: {person_id}')
+        '''
+        # TODO: we do not use those params yet:
         if P_TRANSPORT in self._df_individuals.columns:
             if self._df_individuals.loc[person_id, P_TRANSPORT] > 0:
                 self.add_potential_contractions_from_transport_kernel(person_id)
         if EMPLOYMENT_STATUS in self._df_individuals.columns:
             if self._df_individuals.loc[person_id, EMPLOYMENT_STATUS] > 0:
                 self.add_potential_contractions_from_employment_kernel(person_id)
-        if len(self._df_households.loc[self._df_individuals.loc[person_id, HOUSEHOLD_ID]][ID]) > 1:
+        '''
+        household_id = self._individuals_household_id[person_id]  # self._df_individuals.loc[person_id, HOUSEHOLD_ID]
+        capacity = self._households_capacities[household_id]  # self._df_households.loc[household_id][ID]
+        if capacity > 1:
             self.add_potential_contractions_from_household_kernel(person_id)
         self.add_potential_contractions_from_friendship_kernel(person_id)
         self.add_potential_contractions_from_sporadic_kernel(person_id)
         self.add_potential_contractions_from_constant_kernel(person_id)
 
-    def generate_disease_progression(self, person_id, features, event_time: float,
+    def generate_disease_progression(self, person_id, event_time: float,
                                      initial_infection_status: InfectionStatus) -> None:
         """Returns list of disease progression events
         "future" disease_progression should be recalculated when the disease will be recognised at the state level
@@ -663,18 +686,6 @@ class InfectionModel:
         with open(os.path.join(simulation_output_dir, 'save_state_event_queue.pkl'), 'wb') as f:
             pickle.dump(self.event_queue, f)
 
-    def run_simulation(self):
-        with tqdm(total=None) as pbar:
-            while self.pop_and_apply_event():
-                affected = self.affected_people
-                memory_use = ps.memory_info().rss / 1024 / 1024
-                pbar.set_description(f'Time: {self.global_time:.2f} - Affected: {affected}'
-                                     f' - Physical memory use: {memory_use:.2f} MB')
-                if affected >= self.stop_simulation_threshold:
-                    logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
-                    break
-        self.log_outputs()
-
     def add_new_infection(self, person_id, infection_status,
                           initiated_by, initiated_through):
         self._infection_status[person_id] = infection_status
@@ -689,69 +700,106 @@ class InfectionModel:
 
         self._affected_people += 1
         self.generate_disease_progression(person_id,
-                                          self._df_individuals.loc[person_id],
                                           self.global_time,
                                           infection_status)
 
     # 'Event', [TIME, PERSON_INDEX, TYPE, INITIATED_BY, INITIATED_THROUGH, ISSUED_TIME])
+    def process_event(self, event) -> bool:
+        type_ = getattr(event, TYPE)
+        time = getattr(event, TIME)
+        if int(time / self._params[LOG_TIME_FREQ]) != int(self._global_time / self._params[LOG_TIME_FREQ]):
+            logger.info(f'Time: {time:.2f}\tAffected people: {self.affected_people}')
+        self._global_time = time
+        if self._global_time > self._max_time:
+            return False
+        person_id = getattr(event, PERSON_INDEX)
+        initiated_by = getattr(event, INITIATED_BY)
+        initiated_through = getattr(event, INITIATED_THROUGH)
+
+        # TODO the remaining attribute will be useful when we will take into account for backtracing
+        # issued_time = getattr(event, ISSUED_TIME)
+        if initiated_by is None and initiated_through != DISEASE_PROGRESSION:
+            if type_ == TMINUS1:
+                if self._infection_status[person_id] == InfectionStatus.Healthy:
+                    self.add_new_infection(person_id, InfectionStatus.Contraction,
+                                           initiated_by, initiated_through)
+            if type_ == T0:
+                if self._infection_status[person_id] in [InfectionStatus.Healthy, InfectionStatus.Contraction]:
+                    self.add_new_infection(person_id, InfectionStatus.Infectious,
+                                           initiated_by, initiated_through)
+            return True
+        if type_ == TMINUS1:
+            # check if this action is still valid first
+            initiated_inf_status = self._infection_status[initiated_by]
+            current_status = self._infection_status[person_id]
+            if current_status == InfectionStatus.Healthy:
+                if initiated_inf_status in active_states:
+                    if initiated_through != HOUSEHOLD:
+                        if initiated_inf_status != InfectionStatus.StayHome:
+                            self.add_new_infection(person_id, InfectionStatus.Contraction,
+                                                   initiated_by, initiated_through)
+                    else:
+                        self.add_new_infection(person_id, InfectionStatus.Contraction,
+                                               initiated_by, initiated_through)
+        elif type_ == T0:
+            self.handle_t0(person_id)
+        elif type_ == T1:
+            if self._infection_status[person_id] == InfectionStatus.Infectious:
+                self._infection_status[person_id] = InfectionStatus.StayHome
+        elif type_ == T2:
+            if self._infection_status[person_id] in [
+                InfectionStatus.StayHome,
+                InfectionStatus.Infectious
+            ]:
+                self._infection_status[person_id] = InfectionStatus.Hospital
+        elif type_ == TDEATH:
+            if self._infection_status[person_id] != InfectionStatus.Death:
+                self._infection_status[person_id] = InfectionStatus.Death
+                self._deaths += 1
+
+        # TODO: add more important logic
+        return True
+
     def pop_and_apply_event(self) -> bool:
         try:
             event = heapq.heappop(self.event_queue)
-            type_ = getattr(event, TYPE)
-            time = getattr(event, TIME)
-            self._global_time = time
-            if self._global_time > self._max_time:
-                return False
-            person_id = getattr(event, PERSON_INDEX)
-            initiated_by = getattr(event, INITIATED_BY)
-            initiated_through = getattr(event, INITIATED_THROUGH)
-
-            # TODO the remaining attribute will be useful when we will take into account for backtracing
-            # issued_time = getattr(event, ISSUED_TIME)
-            if initiated_by is None and initiated_through != DISEASE_PROGRESSION:
-                if type_ == TMINUS1:
-                    if self._infection_status[person_id] == InfectionStatus.Healthy:
-                        self.add_new_infection(person_id, InfectionStatus.Contraction,
-                                               initiated_by, initiated_through)
-                if type_ == T0:
-                    if self._infection_status[person_id] in [InfectionStatus.Healthy, InfectionStatus.Contraction]:
-                            self.add_new_infection(person_id, InfectionStatus.Infectious,
-                                                   initiated_by, initiated_through)
-                return True
-            if type_ == TMINUS1:
-                # check if this action is still valid first
-                initiated_inf_status = self._infection_status[initiated_by]
-                current_status = self._infection_status[person_id]
-                if current_status == InfectionStatus.Healthy:
-                    if initiated_inf_status in active_states:
-                        if initiated_through != HOUSEHOLD:
-                            if initiated_inf_status != InfectionStatus.StayHome:
-                                self.add_new_infection(person_id, InfectionStatus.Contraction,
-                                                       initiated_by, initiated_through)
-                        else:
-                            self.add_new_infection(person_id, InfectionStatus.Contraction,
-                                                   initiated_by, initiated_through)
-            elif type_ == T0:
-                self.handle_t0(person_id)
-            elif type_ == T1:
-                if self._infection_status[person_id] == InfectionStatus.Infectious:
-                    self._infection_status[person_id] = InfectionStatus.StayHome
-            elif type_ == T2:
-                if self._infection_status[person_id] in [
-                    InfectionStatus.StayHome,
-                    InfectionStatus.Infectious
-                ]:
-                    self._infection_status[person_id] = InfectionStatus.Hospital
-            elif type_ == TDEATH:
-                if self._infection_status[person_id] != InfectionStatus.Death:
-                    self._infection_status[person_id] = InfectionStatus.Death
-                    self._deaths += 1
-
-            # TODO: add more important logic
-            return True
+            self.process_event(event)
         except IndexError:
             return False
 
+    def run_simulation(self):
+        """
+            def run_simulation(self):
+                #with tqdm(total=None) as pbar:
+                while self.pop_and_apply_event():
+                    affected = self.affected_people
+                    #memory_use = ps.memory_info().rss / 1024 / 1024
+                    #pbar.set_description(f'Time: {self.global_time:.2f} - Affected: {affected}'
+                    #                     f' - Physical memory use: {memory_use:.2f} MB')
+                    if affected >= self.stop_simulation_threshold:
+                        logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
+                        break
+                self.log_outputs()
+        :return:
+        """
+        #q.join()
+        while True:
+            event = q.get()
+            if self.affected_people >= self.stop_simulation_threshold:
+                logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
+                q.task_done()
+                break
+            if not self.process_event(event):
+                logging.info(f"Processing event {event} returned False")
+                q.task_done()
+                break
+            q.task_done()
+        # cleaning up priority queue:
+        while not q.empty():
+            q.get_nowait()
+            q.task_done()
+        logger.info('Log outputs')
+        self.log_outputs()
 
 logger = logging.getLogger(__name__)
 

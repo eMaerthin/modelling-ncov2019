@@ -343,7 +343,7 @@ class InfectionModel:
         start = prog_times[T0]
         end = prog_times[T2]
         if end is None:
-            end = start + prog_times[T0] + 14 # TODO: Fix the bug, this should Recovery Time
+            end = start + 14 # TODO: Fix the bug, this should Recovery Time
         total_infection_rate = (end - start) * self.gamma('household')
         household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
         inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]

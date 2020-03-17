@@ -8,8 +8,8 @@ import json
 import logging
 import random
 import time
+import psutil
 
-import fire
 from git import Repo
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -34,28 +34,22 @@ class InfectionModel:
         self.params_path = params_path
         self.df_individuals_path = df_individuals_path
         self.df_households_path = df_households_path
-        logger.info('Loading params...')
+        logger.debug('Loading params...')
+        self._params = dict()
         with open(params_path, 'r') as params_file:
             params = json.loads(
                 params_file.read()
             )  # TODO: check whether this should be moved to different place
-        self._params = dict()
-        self.event_queue = []
-        self._affected_people = 0
-        self._deaths = 0
-        logger.info('Parsing params...')
+        logger.debug('Parsing params...')
         for key, schema in infection_model_schemas.items():
             self._params[key] = schema.validate(params.get(key, defaults[key]))
         default_household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
                                                     'input_df_households.csv')  # TODO: ensure households are valid!
         if df_households_path == '':
             self.df_households_path = default_household_input_path
-        np.random.seed(self._params[RANDOM_SEED])
-        random.seed(self._params[RANDOM_SEED])
-        self._global_time = self._params[START_TIME]
-        self._max_time = self._params[MAX_TIME]
-
-        logger.info('Setting up data frames...')
+        self._global_time = None
+        self._max_time = None
+        self._expected_case_severity = None
         self._df_individuals = None
         self._df_households = None
         #self._individuals_gender = {}
@@ -65,6 +59,10 @@ class InfectionModel:
         self._households_capacities = {}
         self._households_inhabitants = {}
 
+        self.event_queue = []
+        self._affected_people = 0
+        self._active_people = 0
+        self._deaths = 0
 
         self._set_up_data_frames()
         self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)
@@ -73,11 +71,11 @@ class InfectionModel:
         self._infections_dict = {}
         self._progression_times_dict = {}
 
-        logger.info('Filling queue based on initial conditions...')
-        self._fill_queue_based_on_initial_conditions()
-        logger.info('Filling queue based on auxiliary functions...')
-        self._fill_queue_based_on_auxiliary_functions()
-        logger.info('Initialization step is done!')
+
+    @staticmethod
+    def parse_random_seed(random_seed):
+        np.random.seed(random_seed)
+        random.seed(random_seed)
 
     def _set_up_data_frames(self) -> None:
         """
@@ -87,14 +85,14 @@ class InfectionModel:
         building df_households is time consuming, therefore we try to reuse previously computed df_households
         :return:
         """
-        logger.info('Set up data frames: Reading population csv...')
+        logger.debug('Set up data frames: Reading population csv...')
         self._df_individuals = pd.read_csv(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
         self._individuals_age = self._df_individuals[AGE].values
         self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
         self._individuals_indices = self._df_individuals.index.values
 
-        logger.info('Set up data frames: Building households df...')
+        logger.debug('Set up data frames: Building households df...')
 
         if os.path.exists(self.df_households_path):
             self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
@@ -107,7 +105,6 @@ class InfectionModel:
         d = self._df_households.to_dict()
         self._households_inhabitants = d[ID] #self._df_households[ID]
         self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
-
 
     def append_event(self, event: Event) -> None:
         q.put(event)
@@ -236,7 +233,7 @@ class InfectionModel:
 
     @property
     def disease_progression(self):
-        return self._params[DISEASE_PROGRESSION][DEFAULT] # TODO Please ensure this can be removed completely .get(self.epidemic_status, self._params[DISEASE_PROGRESSION][DEFAULT])
+        return self._params[DISEASE_PROGRESSION][DEFAULT]
 
     @property
     def affected_people(self):
@@ -451,11 +448,13 @@ class InfectionModel:
             tdeath = t0 + self.generate_random_sample(**self.disease_progression[TDEATH])
             self.append_event(Event(tdeath, person_id, TDEATH, person_id, DISEASE_PROGRESSION, t0))
         else:
-            #trecovery =
-            pass
+            if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Mild:
+                trecovery = t0 + 14
+            else:
+                trecovery = t0 + 42
+            self.append_event(Event(trecovery, person_id, TRECOVERY, person_id, DISEASE_PROGRESSION, t0))
         self._progression_times_dict[person_id] = {ID: person_id, TMINUS1: tminus1, T0: t0, T1: t1, T2: t2,
-                                                   TDEATH: tdeath}
-                                                   #TDETECTION: tdetection, TRECOVERY: trecovery, TDEATH: tdeath}
+                                                   TDEATH: tdeath, TRECOVERY: trecovery}
         if initial_infection_status == InfectionStatus.Infectious:
             self.handle_t0(person_id)
 
@@ -644,16 +643,26 @@ class InfectionModel:
         self.store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
         self.store_event_queue(simulation_output_dir)
+        self.store_expected_case_severity(simulation_output_dir)
+        self.store_infection_status(simulation_output_dir)
         self.doubling_time(simulation_output_dir)
         self.icu_beds(simulation_output_dir)
         self.draw_death_age_cohorts(simulation_output_dir)
+
+    def store_expected_case_severity(self, simulation_output_dir):
+        import pickle
+        with open(os.path.join(simulation_output_dir, 'save_expected_case_severity.pkl'), 'wb') as f:
+            pickle.dump(self._expected_case_severity, f)
+
+    def store_infection_status(self, simulation_output_dir):
+        import pickle
+        with open(os.path.join(simulation_output_dir, 'save_infection_status.pkl'), 'wb') as f:
+            pickle.dump(self._infection_status, f)
 
     def icu_beds(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
         df_in = self.df_individuals
-
-
         plt.close()
         cond = df_in[EXPECTED_CASE_SEVERITY] == ExpectedCaseSeverity.Critical
         critical = df_r1.loc[df_r1.index.isin(df_in[cond].index)]
@@ -701,6 +710,7 @@ class InfectionModel:
         }
 
         self._affected_people += 1
+        self._active_people += 1
         self.generate_disease_progression(person_id,
                                           self.global_time,
                                           infection_status)
@@ -710,7 +720,11 @@ class InfectionModel:
         type_ = getattr(event, TYPE)
         time = getattr(event, TIME)
         if int(time / self._params[LOG_TIME_FREQ]) != int(self._global_time / self._params[LOG_TIME_FREQ]):
-            logger.info(f'Time: {time:.2f}\tAffected people: {self.affected_people}')
+            memory_use = ps.memory_info().rss / 1024 / 1024
+            logger.debug(f'Time: {time:.2f}'
+                         f'\tAffected people: {self.affected_people}'
+                         f'\tActive: {self._active_people}'
+                         f'\tPhysical memory use: {memory_use:.2f} MB')
         self._global_time = time
         if self._global_time > self._max_time:
             return False
@@ -758,28 +772,87 @@ class InfectionModel:
             if self._infection_status[person_id] != InfectionStatus.Death:
                 self._infection_status[person_id] = InfectionStatus.Death
                 self._deaths += 1
+                self._active_people -= 1
+        elif type_ == TRECOVERY:
+            if self._infection_status[person_id] != InfectionStatus.Recovered:
+                self._active_people -= 1
+                self._infection_status[person_id] = InfectionStatus.Recovered
 
         # TODO: add more important logic
         return True
 
     def run_simulation(self):
-        while True:
-            event = q.get()
+        def _inner_loop(iter):
+            while True:
+                if self.affected_people >= self.stop_simulation_threshold:
+                    logging.debug(f"The outbreak reached a high number {self.stop_simulation_threshold}")
+                    break
+                event = q.get()
+                if not self.process_event(event):
+                    logging.debug(f"Processing event {event} returned False")
+                    q.task_done()
+                    break
+                q.task_done()
+            # cleaning up priority queue:
+            while not q.empty():
+                q.get_nowait()
+                q.task_done()
+            if self._params[LOG_OUTPUTS]:
+                logger.info('Log outputs')
+                self.log_outputs()
             if self.affected_people >= self.stop_simulation_threshold:
-                logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
-                q.task_done()
-                break
-            if not self.process_event(event):
-                logging.info(f"Processing event {event} returned False")
-                q.task_done()
-                break
-            q.task_done()
-        # cleaning up priority queue:
-        while not q.empty():
-            q.get_nowait()
-            q.task_done()
-        logger.info('Log outputs')
-        self.log_outputs()
+                return True
+            return False
+
+        seeds = None
+        if isinstance(self._params[RANDOM_SEED], str):
+            seeds = eval(self._params[RANDOM_SEED])
+        elif isinstance(self._params[RANDOM_SEED], int):
+            seeds = [self._params[RANDOM_SEED]]
+        outbreak_proba = 0.0
+        mean_time_when_no_outbreak = 0.0
+        mean_affected_when_no_outbreak = 0.0
+        no_outbreaks = 0
+        for i, seed in enumerate(seeds):
+            self.parse_random_seed(seed)
+            self.setup_simulation()
+            logger.debug('Filling queue based on initial conditions...')
+            self._fill_queue_based_on_initial_conditions()
+            logger.debug('Filling queue based on auxiliary functions...')
+            self._fill_queue_based_on_auxiliary_functions()
+            logger.debug('Initialization step is done!')
+            outbreak = _inner_loop(i + 1)
+            outbreak_proba = (i * outbreak_proba + outbreak) / (i + 1)
+            if not outbreak:
+                mean_time_when_no_outbreak = (mean_time_when_no_outbreak * no_outbreaks + self._global_time) / (
+                            no_outbreaks + 1)
+                no_outbreaks += 1
+        c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
+        c_norm = c/0.376
+        init_people = self._params[INITIAL_CONDITIONS][CARDINALITIES].get(CONTRACTION, 0) + self._params[INITIAL_CONDITIONS][CARDINALITIES].get(INFECTIOUS, 0)
+        logger.info(f'\nMean Time\tMean #Affected\tWins freq.\tc\tc_norm\tInit #people'
+                    f'\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}\t{outbreak_proba}'
+                    f'\t{c}\t{c_norm}\t{init_people}')
+
+
+
+    def setup_simulation(self):
+        self.event_queue = []
+
+        self._affected_people = 0
+        self._active_people = 0
+        self._deaths = 0
+        # TODO add more online stats like: self._active_people = 0
+        # TODO  and think how to better group them, ie namedtuple state_stats?
+
+        self._fear_factor = {}
+        self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)
+        self._infections_dict = {}
+        self._progression_times_dict = {}
+
+        self._global_time = self._params[START_TIME]
+        self._max_time = self._params[MAX_TIME]
+        self._expected_case_severity = self.draw_expected_case_severity()
 
 
 logger = logging.getLogger(__name__)
@@ -799,6 +872,8 @@ def runner(params_path, df_individuals_path, run_simulation, df_households_path=
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)
+    pid = os.getpid()
+    ps = psutil.Process(pid)
     pd.set_option('display.max_columns', None)
     #fire.Fire(InfectionModel)
 

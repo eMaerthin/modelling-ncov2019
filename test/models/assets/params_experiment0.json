@@ -1,7 +1,9 @@
 {
   "output_root_dir": "outputs",
   "experiment_id": "exponential_import",
-  "save_input_data": true,
+  "save_input_data": false,
+  "log_outputs": false,
+  "log_time_freq": 10.0,
   "transmission_probabilities": {
     "sporadic": 0.001,
     "transport": 0.01,

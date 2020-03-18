@@ -833,9 +833,17 @@ class InfectionModel:
         c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
         c_norm = c/0.376
         init_people = self._params[INITIAL_CONDITIONS][CARDINALITIES].get(CONTRACTION, 0) + self._params[INITIAL_CONDITIONS][CARDINALITIES].get(INFECTIOUS, 0)
-        logger.info(f'\nMean Time\tMean #Affected\tWins freq.\tc\tc_norm\tInit #people'
-                    f'\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}\t{outbreak_proba}'
-                    f'\t{c}\t{c_norm}\t{init_people}')
+        output_log = f'\nMean Time\tMean #Affected\tWins freq.\tc\tc_norm\tInit #people\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'
+        logger.info(output_log)
+        run_id = f'{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
+        simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR],
+                                             self._params[EXPERIMENT_ID],
+                                             run_id)
+        os.makedirs(simulation_output_dir)
+        output_log_file = os.path.join(simulation_output_dir, 'results.txt')
+        with open(output_log_file, "w") as out:
+            out.write(output_log)
+
 
 
 

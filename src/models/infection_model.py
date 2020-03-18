@@ -829,6 +829,7 @@ class InfectionModel:
             if not outbreak:
                 mean_time_when_no_outbreak = (mean_time_when_no_outbreak * no_outbreaks + self._global_time) / (
                             no_outbreaks + 1)
+                mean_affected_when_no_outbreak = (mean_affected_when_no_outbreak * no_outbreaks + self._affected_people) / ( no_outbreaks + 1)
                 no_outbreaks += 1
         c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
         c_norm = c/0.376

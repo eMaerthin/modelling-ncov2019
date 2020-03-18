@@ -779,6 +779,9 @@ class InfectionModel:
                 self._infection_status[person_id] = InfectionStatus.Recovered
 
         # TODO: add more important logic
+
+        if self._active_people == 0:
+            return False
         return True
 
     def run_simulation(self):

@@ -101,12 +101,13 @@ class InfectionModel:
             self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
             os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)
             self._df_households.to_csv(self.df_households_path)
-        self._df_households[CAPACITY] = self._df_households[ID].apply(lambda x: len(x))
-        d = self._df_households.to_dict()
-        self._households_inhabitants = d[ID] #self._df_households[ID]
-        self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
+        self._households_inhabitants = self._df_households[ID].to_dict() #self._df_households[ID]
+        if not self._params[LOG_OUTPUTS]:
+            self._df_individuals = None
+            self._df_households = None
 
-    def append_event(self, event: Event) -> None:
+    @staticmethod
+    def append_event(event: Event) -> None:
         q.put(event)
 
     def _fill_queue_based_on_auxiliary_functions(self) -> None:
@@ -160,7 +161,7 @@ class InfectionModel:
         infectious_prob = import_intensity[INFECTIOUS]
         event_times = _generate_event_times(func=func, rate=rate, multiplier=multiplier, cap=cap)
         for event_time in event_times:
-            person_id = self.df_individuals.index[np.random.randint(len(self.df_individuals))]
+            person_id = self._individuals_indices[np.random.randint(len(self._individuals_indices))]
             t_state = TMINUS1
             if np.random.rand() < infectious_prob:
                 t_state = T0
@@ -401,7 +402,7 @@ class InfectionModel:
                 self.add_potential_contractions_from_employment_kernel(person_id)
         '''
         household_id = self._individuals_household_id[person_id]  # self._df_individuals.loc[person_id, HOUSEHOLD_ID]
-        capacity = self._households_capacities[household_id]  # self._df_households.loc[household_id][ID]
+        capacity = len(self._households_inhabitants[household_id])  # self._df_households.loc[household_id][ID]
         if capacity > 1:
             self.add_potential_contractions_from_household_kernel(person_id)
         self.add_potential_contractions_from_friendship_kernel(person_id)

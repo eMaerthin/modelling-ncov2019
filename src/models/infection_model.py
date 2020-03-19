@@ -6,6 +6,7 @@ from collections import defaultdict
 from functools import (lru_cache, partial)
 import json
 import logging
+import pickle
 import random
 import time
 
@@ -30,6 +31,15 @@ q = PriorityQueue()
 
 
 class InfectionModel:
+
+    @staticmethod
+    def default_infection_status():
+        return InfectionStatus.Healthy
+
+    @staticmethod
+    def default_detection_status_():
+        return default_detection_status
+
     def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
         self.params_path = params_path
         self.df_individuals_path = df_individuals_path
@@ -40,8 +50,8 @@ class InfectionModel:
                 params_file.read()
             )  # TODO: check whether this should be moved to different place
         self._params = dict()
-        self.event_queue = []
         self._affected_people = 0
+        self._active_people = 0
         self._deaths = 0
         logger.info('Parsing params...')
         for key, schema in infection_model_schemas.items():
@@ -67,8 +77,8 @@ class InfectionModel:
 
 
         self._set_up_data_frames()
-        self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)
-        self._detection_status = defaultdict(lambda: default_detection_status)
+        self._infection_status = defaultdict(self.default_infection_status)
+        self._detection_status = defaultdict(self.default_detection_status_)
         self._expected_case_severity = self.draw_expected_case_severity()
         self._infections_dict = {}
         self._progression_times_dict = {}
@@ -108,8 +118,8 @@ class InfectionModel:
         self._households_inhabitants = d[ID] #self._df_households[ID]
         self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
 
-
-    def append_event(self, event: Event) -> None:
+    @staticmethod
+    def append_event(event: Event) -> None:
         q.put(event)
 
     def _fill_queue_based_on_auxiliary_functions(self) -> None:
@@ -153,7 +163,7 @@ class InfectionModel:
             return time_events_
 
         import_intensity = self._params[IMPORT_INTENSITY]
-        f_choice = convert_import_intensity_functions(import_intensity[FUNCTION])
+        f_choice = ImportIntensityFunctions(import_intensity[FUNCTION])
         if f_choice == ImportIntensityFunctions.NoImport:
             return
         func = import_intensity_functions[f_choice]
@@ -191,7 +201,7 @@ class InfectionModel:
                 person_idx = initial_condition[PERSON_INDEX]
                 t_state = _assign_t_state(initial_condition[INFECTION_STATUS])
                 if EXPECTED_CASE_SEVERITY in initial_condition:
-                    self._expected_case_severity[person_idx] = convert_expected_case_severity(
+                    self._expected_case_severity[person_idx] = ExpectedCaseSeverity(
                         initial_condition[EXPECTED_CASE_SEVERITY]
                     )
                 self.append_event(Event(initial_condition[CONTRACTION_TIME], person_idx, t_state, None,
@@ -236,11 +246,15 @@ class InfectionModel:
 
     @property
     def disease_progression(self):
-        return self._params[DISEASE_PROGRESSION][DEFAULT] # TODO Please ensure this can be removed completely .get(self.epidemic_status, self._params[DISEASE_PROGRESSION][DEFAULT])
+        return self._params[DISEASE_PROGRESSION][DEFAULT]
 
     @property
     def affected_people(self):
         return self._affected_people
+
+    @property
+    def active_people(self):
+        return self._active_people
 
     @property
     def deaths(self):
@@ -248,7 +262,7 @@ class InfectionModel:
 
     def draw_expected_case_severity(self):
         case_severity_dict = self.case_severity_distribution
-        keys = [convert_expected_case_severity(x) for x in case_severity_dict]
+        keys = [ExpectedCaseSeverity(x) for x in case_severity_dict]
         d = {}
         for age_min, age_max, fatality_prob in default_age_induced_fatality_rates:
             cond_lb = self._individuals_age >= age_min
@@ -324,7 +338,7 @@ class InfectionModel:
             fear_factor = fear_factor_schema.validate(fear_factors.get(kernel_id, fear_factors.get(DEFAULT, None)))
             if not fear_factor:
                 return 1.0
-            f = fear_functions[convert_fear_functions(fear_factor[FEAR_FUNCTION])]
+            f = fear_functions[FearFunctions(fear_factor[FEAR_FUNCTION])]
             limit_value = fear_factor[LIMIT_VALUE]
             scale = fear_factor[SCALE_FACTOR]
             weights_deaths = fear_factor[DEATHS_MULTIPLIER]
@@ -389,6 +403,7 @@ class InfectionModel:
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
 
     def handle_t0(self, person_id):
+        self._active_people += 1
         if self._infection_status[person_id] == InfectionStatus.Contraction:
             self._infection_status[person_id] = InfectionStatus.Infectious
         elif self._infection_status[person_id] != InfectionStatus.Infectious:
@@ -430,7 +445,6 @@ class InfectionModel:
         else:
             raise ValueError(f'invalid initial infection status {initial_infection_status}')
         t2 = None
-        # t3 = None
         if self._expected_case_severity[person_id] in [
             ExpectedCaseSeverity.Severe,
             ExpectedCaseSeverity.Critical
@@ -443,19 +457,21 @@ class InfectionModel:
             self.append_event(Event(t1, person_id, T1, person_id, DISEASE_PROGRESSION, t0))
         else:
             t1 = None
-        #self._df_progression_times =
-        tdetection = None
+
+        # TODO We should model tdetection as well (tdetection = None)
         trecovery = None
         tdeath = None
         if np.random.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id].value]:
             tdeath = t0 + self.generate_random_sample(**self.disease_progression[TDEATH])
             self.append_event(Event(tdeath, person_id, TDEATH, person_id, DISEASE_PROGRESSION, t0))
         else:
-            #trecovery =
-            pass
+            if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Mild:
+                trecovery = t0 + 14  # TODO base this on empirical distribution
+            else:
+                trecovery = t0 + 42
+
         self._progression_times_dict[person_id] = {ID: person_id, TMINUS1: tminus1, T0: t0, T1: t1, T2: t2,
-                                                   TDEATH: tdeath}
-                                                   #TDETECTION: tdetection, TRECOVERY: trecovery, TDEATH: tdeath}
+                                                   TRECOVERY: trecovery, TDEATH: tdeath}
         if initial_infection_status == InfectionStatus.Infectious:
             self.handle_t0(person_id)
 
@@ -607,19 +623,25 @@ class InfectionModel:
         plt.title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'summary_semilogy.png'))
 
-    def log_outputs(self):
-        run_id = f'{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
+    def _save_population_parameters(self, simulation_output_dir):
+        self.store_parameter(simulation_output_dir, self._expected_case_severity, 'expected_case_severity.pkl')
+        self.store_parameter(simulation_output_dir, self._infection_status, 'infection_status.pkl')
+        self.store_parameter(simulation_output_dir, self._detection_status, 'detection_status.pkl')
+
+    def _save_dir(self, prefix=''):
+        underscore_if_prefix = '_' if len(prefix) > 0 else ''
+        run_id = f'{prefix}{underscore_if_prefix}{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
         simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR],
                                              self._params[EXPERIMENT_ID],
                                              run_id)
         os.makedirs(simulation_output_dir)
+        return simulation_output_dir
+
+    def log_outputs(self):
+        simulation_output_dir = self._save_dir()
         self.df_progression_times.to_csv(os.path.join(simulation_output_dir, 'output_df_progression_times.csv'))
         self.df_infections.to_csv(os.path.join(simulation_output_dir, 'output_df_potential_contractions.csv'))
-        self._df_individuals[EXPECTED_CASE_SEVERITY] = pd.Series(self._expected_case_severity)
-        self._df_individuals[INFECTION_STATUS] = pd.Series(self._infection_status)
-        self._df_individuals[DETECTION] = pd.Series(self._detection_status)
-        self._df_individuals.to_csv(os.path.join(simulation_output_dir, 'output_df_individuals.csv'))
-        self._df_households.to_csv(os.path.join(simulation_output_dir, 'output_df_households.csv'))
+        self._save_population_parameters(simulation_output_dir)
         if self._params[SAVE_INPUT_DATA]:
             from shutil import copyfile
             copyfile(self.df_individuals_path, os.path.join(simulation_output_dir,
@@ -643,7 +665,6 @@ class InfectionModel:
         self.store_graphs(simulation_output_dir)
         self.store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
-        self.store_event_queue(simulation_output_dir)
         self.doubling_time(simulation_output_dir)
         self.icu_beds(simulation_output_dir)
         self.draw_death_age_cohorts(simulation_output_dir)
@@ -652,8 +673,6 @@ class InfectionModel:
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
         df_in = self.df_individuals
-
-
         plt.close()
         cond = df_in[EXPECTED_CASE_SEVERITY] == ExpectedCaseSeverity.Critical
         critical = df_r1.loc[df_r1.index.isin(df_in[cond].index)]
@@ -683,10 +702,11 @@ class InfectionModel:
         plt.title(f'ICU beds needed assuming 4 weeks for recovery \n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'icu_beds_analysis.png'))
 
-    def store_event_queue(self, simulation_output_dir):
-        import pickle
-        with open(os.path.join(simulation_output_dir, 'save_state_event_queue.pkl'), 'wb') as f:
-            pickle.dump(self.event_queue, f)
+    @staticmethod
+    def store_parameter(simulation_output_dir, parameter, filename):
+        save_path = os.path.join(simulation_output_dir, filename)
+        with open(save_path, 'wb') as f:
+            pickle.dump(parameter, f)
 
     def add_new_infection(self, person_id, infection_status,
                           initiated_by, initiated_through):
@@ -701,6 +721,7 @@ class InfectionModel:
         }
 
         self._affected_people += 1
+
         self.generate_disease_progression(person_id,
                                           self.global_time,
                                           infection_status)
@@ -758,8 +779,17 @@ class InfectionModel:
             if self._infection_status[person_id] != InfectionStatus.Death:
                 self._infection_status[person_id] = InfectionStatus.Death
                 self._deaths += 1
+                self._active_people -= 1
+        elif type_ == TRECOVERY:
+            if self._infection_status[person_id] not in [
+                InfectionStatus.Recovered,
+                InfectionStatus.Death
+            ]:
+                self._active_people -= 1
+                self._infection_status[person_id] = InfectionStatus.Recovered
 
-        # TODO: add more important logic
+        if self._active_people == 0:
+            return False
         return True
 
     def run_simulation(self):
@@ -779,7 +809,8 @@ class InfectionModel:
             q.get_nowait()
             q.task_done()
         logger.info('Log outputs')
-        self.log_outputs()
+        if self._params[LOG_OUTPUTS]:
+            self.log_outputs()
 
 
 logger = logging.getLogger(__name__)

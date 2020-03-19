@@ -14,6 +14,7 @@ CONTRACTION = 'contraction'
 INFECTIOUS = 'infectious'
 MAX_TIME = 'max_time'
 CAPACITY = 'capacity'
+LOG_OUTPUTS = 'log_outputs'
 
 ICU_AVAILABILITY = 'icu_availability'
 HOSPITAL_BEDS_AVAILABILITY = 'hospital_beds_availability'

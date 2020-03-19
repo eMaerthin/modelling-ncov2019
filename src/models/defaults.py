@@ -76,6 +76,7 @@ default_hospital_beds_availability = 5000
 default_med_personnel_availability = 400
 
 default_log_time_freq = 1.0
+default_log_outputs = True
 
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
@@ -95,7 +96,8 @@ defaults = {
     ICU_AVAILABILITY: default_icu_availability,
     HOSPITAL_BEDS_AVAILABILITY: default_hospital_beds_availability,
     MED_PERSONNEL_AVAILABILITY: default_med_personnel_availability,
-    LOG_TIME_FREQ: default_log_time_freq
+    LOG_TIME_FREQ: default_log_time_freq,
+    LOG_OUTPUTS: default_log_outputs
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

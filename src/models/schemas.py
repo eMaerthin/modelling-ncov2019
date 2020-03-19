@@ -101,5 +101,6 @@ infection_model_schemas = {
     ICU_AVAILABILITY: availability_schema,
     HOSPITAL_BEDS_AVAILABILITY: availability_schema,
     MED_PERSONNEL_AVAILABILITY: availability_schema,
-    LOG_TIME_FREQ: log_time_freq_schema
+    LOG_TIME_FREQ: log_time_freq_schema,
+    LOG_OUTPUTS: Schema(bool),
 }

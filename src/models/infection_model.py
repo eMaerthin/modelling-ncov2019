@@ -30,17 +30,25 @@ q = PriorityQueue()
 
 
 class InfectionModel:
+    @staticmethod
+    def default_infection_status():
+        return InfectionStatus.Healthy
+
+    @staticmethod
+    def default_detection_status_():
+        return default_detection_status
+
     def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
         self.params_path = params_path
         self.df_individuals_path = df_individuals_path
         self.df_households_path = df_households_path
-        logger.debug('Loading params...')
+        logger.info('Loading params...')
         self._params = dict()
         with open(params_path, 'r') as params_file:
             params = json.loads(
                 params_file.read()
             )  # TODO: check whether this should be moved to different place
-        logger.debug('Parsing params...')
+        logger.info('Parsing params...')
         for key, schema in infection_model_schemas.items():
             self._params[key] = schema.validate(params.get(key, defaults[key]))
         default_household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
@@ -65,8 +73,8 @@ class InfectionModel:
         self._deaths = 0
 
         self._set_up_data_frames()
-        self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)
-        self._detection_status = defaultdict(lambda: default_detection_status)
+        self._infection_status = defaultdict(self.default_infection_status)
+        self._detection_status = defaultdict(self.default_detection_status_)
         self._expected_case_severity = self.draw_expected_case_severity()
         self._infections_dict = {}
         self._progression_times_dict = {}
@@ -85,14 +93,14 @@ class InfectionModel:
         building df_households is time consuming, therefore we try to reuse previously computed df_households
         :return:
         """
-        logger.debug('Set up data frames: Reading population csv...')
+        logger.info('Set up data frames: Reading population csv...')
         self._df_individuals = pd.read_csv(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
         self._individuals_age = self._df_individuals[AGE].values
         self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
         self._individuals_indices = self._df_individuals.index.values
 
-        logger.debug('Set up data frames: Building households df...')
+        logger.info('Set up data frames: Building households df...')
 
         if os.path.exists(self.df_households_path):
             self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
@@ -101,13 +109,12 @@ class InfectionModel:
             self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
             os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)
             self._df_households.to_csv(self.df_households_path)
-        self._households_inhabitants = self._df_households[ID].to_dict() #self._df_households[ID]
-        if not self._params[LOG_OUTPUTS]:
-            self._df_individuals = None
-            self._df_households = None
+        self._df_households[CAPACITY] = self._df_households[ID].apply(lambda x: len(x))
+        d = self._df_households.to_dict()
+        self._households_inhabitants = d[ID] #self._df_households[ID]
+        self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
 
-    @staticmethod
-    def append_event(event: Event) -> None:
+    def append_event(self, event: Event) -> None:
         q.put(event)
 
     def _fill_queue_based_on_auxiliary_functions(self) -> None:
@@ -161,7 +168,7 @@ class InfectionModel:
         infectious_prob = import_intensity[INFECTIOUS]
         event_times = _generate_event_times(func=func, rate=rate, multiplier=multiplier, cap=cap)
         for event_time in event_times:
-            person_id = self._individuals_indices[np.random.randint(len(self._individuals_indices))]
+            person_id = self.df_individuals.index[np.random.randint(len(self.df_individuals))]
             t_state = TMINUS1
             if np.random.rand() < infectious_prob:
                 t_state = T0
@@ -402,7 +409,7 @@ class InfectionModel:
                 self.add_potential_contractions_from_employment_kernel(person_id)
         '''
         household_id = self._individuals_household_id[person_id]  # self._df_individuals.loc[person_id, HOUSEHOLD_ID]
-        capacity = len(self._households_inhabitants[household_id])  # self._df_households.loc[household_id][ID]
+        capacity = self._households_capacities[household_id]  # self._df_households.loc[household_id][ID]
         if capacity > 1:
             self.add_potential_contractions_from_household_kernel(person_id)
         self.add_potential_contractions_from_friendship_kernel(person_id)
@@ -722,7 +729,7 @@ class InfectionModel:
         time = getattr(event, TIME)
         if int(time / self._params[LOG_TIME_FREQ]) != int(self._global_time / self._params[LOG_TIME_FREQ]):
             memory_use = ps.memory_info().rss / 1024 / 1024
-            logger.debug(f'Time: {time:.2f}'
+            logger.info(f'Time: {time:.2f}'
                          f'\tAffected people: {self.affected_people}'
                          f'\tActive: {self._active_people}'
                          f'\tPhysical memory use: {memory_use:.2f} MB')
@@ -789,11 +796,11 @@ class InfectionModel:
         def _inner_loop(iter):
             while True:
                 if self.affected_people >= self.stop_simulation_threshold:
-                    logging.debug(f"The outbreak reached a high number {self.stop_simulation_threshold}")
+                    logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break
                 event = q.get()
                 if not self.process_event(event):
-                    logging.debug(f"Processing event {event} returned False")
+                    logging.info(f"Processing event {event} returned False")
                     q.task_done()
                     break
                 q.task_done()
@@ -820,11 +827,11 @@ class InfectionModel:
         for i, seed in enumerate(seeds):
             self.parse_random_seed(seed)
             self.setup_simulation()
-            logger.debug('Filling queue based on initial conditions...')
+            logger.info('Filling queue based on initial conditions...')
             self._fill_queue_based_on_initial_conditions()
-            logger.debug('Filling queue based on auxiliary functions...')
+            logger.info('Filling queue based on auxiliary functions...')
             self._fill_queue_based_on_auxiliary_functions()
-            logger.debug('Initialization step is done!')
+            logger.info('Initialization step is done!')
             outbreak = _inner_loop(i + 1)
             outbreak_proba = (i * outbreak_proba + outbreak) / (i + 1)
             if not outbreak:
@@ -834,7 +841,10 @@ class InfectionModel:
                 no_outbreaks += 1
         c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
         c_norm = c/0.376
-        init_people = self._params[INITIAL_CONDITIONS][CARDINALITIES].get(CONTRACTION, 0) + self._params[INITIAL_CONDITIONS][CARDINALITIES].get(INFECTIOUS, 0)
+        init_people = 0 # TODO support different import methods
+        if isinstance(self._params[INITIAL_CONDITIONS], dict):
+            cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
+            init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
         output_log = f'\nMean Time\tMean #Affected\tWins freq.\tc\tc_norm\tInit #people\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'
         logger.info(output_log)
         run_id = f'{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
@@ -859,7 +869,7 @@ class InfectionModel:
         # TODO  and think how to better group them, ie namedtuple state_stats?
 
         self._fear_factor = {}
-        self._infection_status = defaultdict(lambda: InfectionStatus.Healthy)
+        self._infection_status = defaultdict(self.default_infection_status)
         self._infections_dict = {}
         self._progression_times_dict = {}
 

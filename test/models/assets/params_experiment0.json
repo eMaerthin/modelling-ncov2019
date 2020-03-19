@@ -1,0 +1,71 @@
+{
+  "output_root_dir": "outputs",
+  "experiment_id": "exponential_import",
+  "save_input_data": true,
+  "transmission_probabilities": {
+    "sporadic": 0.001,
+    "transport": 0.01,
+    "friendship": 1,
+    "household": 1,
+    "workplace": 0.1,
+    "constant": 0.376
+  },
+  "fear_factors": {
+    "household": {
+      "fear_function": "fear_disabled"
+    },
+    "default": {
+      "fear_function": "fear_tanh",
+      "scale_factor": 5000,
+      "limit_value": 0.2,
+      "detected_multiplier": 1,
+      "deaths_multiplier": 10
+    }
+  },
+  "initial_conditions": [],
+  "import_intensity": {
+    "function": "exponential",
+    "multiplier": 1,
+    "rate": 0.14,
+    "cap": 1000,
+    "infectious": 0.1
+  },
+  "case_severity_distribution": {
+    "asymptomatic": 0.006,
+    "mild": 0.809,
+    "severe": 0.138,
+    "critical": 0.047
+  },
+  "death_probability": {
+    "asymptomatic": 0.0,
+    "mild": 0.0,
+    "severe": 0.0,
+    "critical": 0.49
+  },
+  "epidemic_status": "not_detected",
+  "stop_simulation_threshold": 1000,
+  "disease_progression": {
+    "default": {
+      "t0": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/incubation_period_distribution.npy",
+        "approximate_distribution": "lognormal"
+      },
+      "t1": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/t1_distribution.npy",
+        "approximate_distribution": "gamma"
+      },
+      "t2": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/t1_t2_distribution.npy",
+        "approximate_distribution": "gamma"
+      },
+      "tdeath": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/onset_death_distribution.npy",
+        "approximate_distribution": "lognormal"
+      }
+    }
+  }
+}

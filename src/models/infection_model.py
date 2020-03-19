@@ -72,6 +72,18 @@ class InfectionModel:
         self._infections_dict = {}
         self._progression_times_dict = {}
 
+        t0_f, t0_args, t0_kwargs = self.setup_random_distribution(T0)
+        self.rv_t0 = lambda: t0_f(*t0_args, **t0_kwargs)
+
+        t1_f, t1_args, t1_kwargs = self.setup_random_distribution(T1)
+        self.rv_t1 = lambda: t1_f(*t1_args, **t1_kwargs)
+
+        t2_f, t2_args, t2_kwargs = self.setup_random_distribution(T2)
+        self.rv_t2 = lambda: t2_f(*t2_args, **t2_kwargs)
+
+        tdeath_f, tdeath_args, tdeath_kwargs = self.setup_random_distribution(TDEATH)
+        self.rv_tdeath = lambda: tdeath_f(*tdeath_args, **tdeath_kwargs)
+
     def get_detection_status_(self, person_id):
         return self._detection_status.get(person_id, default_detection_status)
 
@@ -111,6 +123,9 @@ class InfectionModel:
         d = self._df_households.to_dict()
         self._households_inhabitants = d[ID] #self._df_households[ID]
         self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
+        if not self._params[LOG_OUTPUTS]:
+            self._df_households = None
+            self._df_individuals = None
 
     @staticmethod
     def append_event(event: Event) -> None:
@@ -274,49 +289,45 @@ class InfectionModel:
             values = [keys[r] for r in realizations]
             df = pd.DataFrame(values, index=self._individuals_indices[cond])
             d = {**d, **df.to_dict()[0]}
-
         return d
 
-    @staticmethod
-    def generate_random_sample(**kwargs) -> float:
-        def cached_random_gen(**kwargs):
-            distribution = kwargs.get(DISTRIBUTION, default_distribution[DISTRIBUTION])
-            if distribution == FROM_FILE:
-                filepath = kwargs.get('filepath', None).replace('$ROOT_DIR', config.ROOT_DIR)
-                Schema(lambda x: os.path.exists(x)).validate(filepath)
-                array = np.load(filepath)
-                approximate_distribution = kwargs.get('approximate_distribution', None)
-                if approximate_distribution == LOGNORMAL:
-                    shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
-                    return scipy.stats.lognorm.rvs, [shape], {'loc': loc, 'scale': scale}
+    def setup_random_distribution(self, t):
+        params = self.disease_progression[t]
+        distribution = params.get(DISTRIBUTION, default_distribution[DISTRIBUTION])
+        if distribution == FROM_FILE:
+            filepath = params.get('filepath', None).replace('$ROOT_DIR', config.ROOT_DIR)
+            Schema(lambda x: os.path.exists(x)).validate(filepath)
+            array = np.load(filepath)
+            approximate_distribution = params.get('approximate_distribution', None)
+            if approximate_distribution == LOGNORMAL:
+                shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
+                return scipy.stats.lognorm.rvs, [shape], {'loc':loc, 'scale':scale}
 
-                if approximate_distribution == GAMMA:
-                    shape, loc, scale = scipy.stats.gamma.fit(array, floc=0)
-                    return scipy.stats.gamma.rvs, [shape], {'loc': loc, 'scale': scale}
+            if approximate_distribution == GAMMA:
+                shape, loc, scale = scipy.stats.gamma.fit(array, floc=0)
+                return scipy.stats.gamma.rvs, [shape], {'loc':loc, 'scale':scale}
 
-                if approximate_distribution:
-                    raise NotImplementedError(f'Approximating to this distribution {approximate_distribution}'
-                                              f'is not yet supported but we can quickly add it if needed')
+            if approximate_distribution:
+                raise NotImplementedError(f'Approximating to this distribution {approximate_distribution}'
+                                          f'is not yet supported but we can quickly add it if needed')
 
-                raise NotImplementedError(f'Currently not supporting empirical distribution'
-                                          f' without approximating it')
+            raise NotImplementedError(f'Currently not supporting empirical distribution'
+                                      f' without approximating it')
 
-            if distribution == LOGNORMAL:
-                mean = kwargs.get('mean', 0.0)
-                sigma = kwargs.get('sigma', 1.0)
-                return np.random.lognormal, [], {'mean': mean, 'sigma': sigma}
+        if distribution == LOGNORMAL:
+            mean = params.get('mean', 0.0)
+            sigma = params.get('sigma', 1.0)
+            return np.random.lognormal, [], {'mean':mean, 'sigma':sigma}
 
-            if distribution == EXPONENTIAL:
-                lambda_ = kwargs.get('lambda', 1.0)
-                return np.random.exponential, [], {'scale': 1/lambda_}
+        if distribution == EXPONENTIAL:
+            lambda_ = params.get('lambda', 1.0)
+            return np.random.exponential, [], {'scale':1/lambda_}
 
-            if distribution == POISSON:
-                lambda_ = kwargs.get('lambda', 1.0)
-                return np.random.poisson, [], {'lam': lambda_}
+        if distribution == POISSON:
+            lambda_ = params.get('lambda', 1.0)
+            return np.random.poisson, [], {'lam':lambda_}
 
-            raise ValueError(f'Sampling from distribution {distribution} is not yet supported but we can quickly add it')
-        f, args, kwargs = cached_random_gen(**kwargs)
-        return f(*args, **kwargs)
+        raise ValueError(f'Sampling from distribution {distribution} is not yet supported but we can quickly add it')
 
     def add_potential_contractions_from_transport_kernel(self, person_id):
         pass
@@ -347,7 +358,7 @@ class InfectionModel:
         start = prog_times[T0]
         end = prog_times[T2]
         if end is None:
-            end = start + 14 # TODO: Fix the bug, this should Recovery Time
+            end = prog_times[TRECOVERY]
         total_infection_rate = (end - start) * self.gamma('household')
         household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
         inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]
@@ -426,12 +437,12 @@ class InfectionModel:
         """
         if initial_infection_status == InfectionStatus.Contraction:
             tminus1 = event_time
-            t0 = tminus1 + self.generate_random_sample(**self.disease_progression[T0])
+            t0 = tminus1 + self.rv_t0() #generate_random_sample(**self.disease_progression[T0])
             self.append_event(Event(t0, person_id, T0, person_id, DISEASE_PROGRESSION, tminus1))
         elif initial_infection_status == InfectionStatus.Infectious:
             t0 = event_time
             # tminus1 does not to be defined, but for completeness let's calculate it
-            tminus1 = t0 - self.generate_random_sample(**self.disease_progression[T0])
+            tminus1 = t0 - self.rv_t0() #self.generate_random_sample(**self.disease_progression[T0])
         else:
             raise ValueError(f'invalid initial infection status {initial_infection_status}')
         t2 = None
@@ -440,10 +451,10 @@ class InfectionModel:
             ExpectedCaseSeverity.Severe,
             ExpectedCaseSeverity.Critical
         ]:
-            t2 = t0 + self.generate_random_sample(**self.disease_progression[T2])
+            t2 = t0 + self.rv_t2() #self.generate_random_sample(**self.disease_progression[T2])
             self.append_event(Event(t2, person_id, T2, person_id, DISEASE_PROGRESSION, t0))
 
-        t1 = t0 + self.generate_random_sample(**self.disease_progression[T1])
+        t1 = t0 + self.rv_t1() #self.generate_random_sample(**self.disease_progression[T1])
         if not t2 or t1 < t2:
             self.append_event(Event(t1, person_id, T1, person_id, DISEASE_PROGRESSION, t0))
         else:
@@ -452,7 +463,7 @@ class InfectionModel:
         trecovery = None
         tdeath = None
         if np.random.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id].value]:
-            tdeath = t0 + self.generate_random_sample(**self.disease_progression[TDEATH])
+            tdeath = t0 + self.rv_tdeath() #self.generate_random_sample(**self.disease_progression[TDEATH])
             self.append_event(Event(tdeath, person_id, TDEATH, person_id, DISEASE_PROGRESSION, t0))
         else:
             if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Mild:

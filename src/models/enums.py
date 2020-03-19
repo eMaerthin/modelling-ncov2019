@@ -98,26 +98,3 @@ class SupportedDistributions(EnumWithPublicValue2MemberMap):
     Poisson = POISSON
     Gamma = GAMMA
     FromFile = FROM_FILE
-
-
-def _convert_enum(enum_class, x):
-    for status in enum_class:
-        if x == status.value:
-            return status
-    raise ValueError(f'invalid status provided: {x}')
-
-
-def convert_infection_status(x):
-    return _convert_enum(InfectionStatus, x)
-
-
-def convert_expected_case_severity(x):
-    return _convert_enum(ExpectedCaseSeverity, x)
-
-
-def convert_import_intensity_functions(x):
-    return _convert_enum(ImportIntensityFunctions, x)
-
-
-def convert_fear_functions(x):
-    return _convert_enum(FearFunctions, x)

@@ -70,7 +70,7 @@ default_death_probability = {
 default_random_seed = 42
 
 default_log_outputs = True
-default_max_time = float('inf')
+default_max_time = 1000 #float('inf')
 
 default_icu_availability = 100
 default_hospital_beds_availability = 5000

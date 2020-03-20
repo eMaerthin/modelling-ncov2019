@@ -9,6 +9,15 @@ class EnumWithPublicValue2MemberMap(enum.Enum):
     def map(cls):
         return cls._value2member_map_
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return other.value == self.value
+        else:
+            return other == self.value
+
+    def __hash__(self):
+        return hash(self.value)
+
 
 class Gender(EnumWithPublicValue2MemberMap):
     male = 0

@@ -695,6 +695,7 @@ class InfectionModel:
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
         plt.close()
+        legend = []
         cond = [k for k, v in self._expected_case_severity.items() if v == ExpectedCaseSeverity.Critical]
         critical = df_r1.loc[df_r1.index.isin(cond)]
         plus = critical.t2.values
@@ -709,20 +710,26 @@ class InfectionModel:
         df = df[df.t <= df_r2.contraction_time.max(axis=0)]
         cumv = df.d.cumsum().values
         plt.plot(df.t.values, cumv)
+        legend.append('ICU required')
+        largest_x = cumv.max()
+        icu_availability = self._params[ICU_AVAILABILITY]
+
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
-        plt.plot(d_cases, np.arange(1, 1 + len(d_cases)))
-        icu_availability = self._params[ICU_AVAILABILITY]
-        largest_x = max(d_cases.values[-1], cumv.max())
+        if len(d_cases) > 0:
+            plt.plot(d_cases, np.arange(1, 1 + len(d_cases)))
+            largest_x = max(d_cases.values[-1], cumv.max())
+            legend.append('deceased')
         plt.plot([0, largest_x], [icu_availability] * 2)
-        legend = ['ICU beds required', '# deceased cases', 'ICU beds available']
+        legend.append('ICU capacity')
         cumv_filter_flag = cumv > icu_availability
         if cumv[cumv_filter_flag].any():
             critical_t = df.t.values[cumv_filter_flag].min()
             plt.plot([critical_t] * 2, [0, largest_x])
             legend.append(f'Critical time {critical_t:.1f}')
         plt.legend(legend, loc='best') #'upper left')
-        plt.title(f'ICU beds needed assuming 4 weeks for recovery \n {self._params[EXPERIMENT_ID]}')
+        plt.title('assuming ICU required for 4 weeks while recovering'
+                  f'\n Experiment id: {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'icu_beds_analysis.png'))
 
     def store_event_queue(self, simulation_output_dir):
@@ -816,7 +823,7 @@ class InfectionModel:
 
     def run_simulation(self):
         def _inner_loop(iter):
-            while True:
+            while not q.empty():
                 if self.affected_people >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break
@@ -862,7 +869,7 @@ class InfectionModel:
                 mean_affected_when_no_outbreak = (mean_affected_when_no_outbreak * no_outbreaks + self._affected_people) / ( no_outbreaks + 1)
                 no_outbreaks += 1
         c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
-        c_norm = c/0.376 # TODO this should not be hardcoded, and one should recalculate this
+        c_norm = c/0.427 # TODO this should not be hardcoded, and one should recalculate this
         init_people = 0 # TODO support different import methods
         if isinstance(self._params[INITIAL_CONDITIONS], dict):
             cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]

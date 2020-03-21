@@ -87,6 +87,8 @@ default_serial_interval = {
     MAX_TIME: 30.0
 }
 
+default_turn_on_detection = True
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -108,7 +110,8 @@ defaults = {
     LOG_TIME_FREQ: default_log_time_freq,
     LOG_OUTPUTS: default_log_outputs,
     SERIAL_INTERVAL: default_serial_interval,
-    DETECTION_MILD_PROBA: default_detection_mild_proba
+    DETECTION_MILD_PROBA: default_detection_mild_proba,
+    TURN_ON_DETECTION: default_turn_on_detection,
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

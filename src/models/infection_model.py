@@ -9,6 +9,7 @@ import random
 import time
 import pickle
 import psutil
+from shutil import copyfile
 
 from git import Repo
 from matplotlib import pyplot as plt
@@ -489,7 +490,7 @@ class InfectionModel:
             self.append_event(Event(trecovery, person_id, TRECOVERY, person_id, DISEASE_PROGRESSION, t0))
 
         """ Following is for checking whther tdetection should be picked up"""
-        calculate_tdetection = True
+        calculate_tdetection = self._params[TURN_ON_DETECTION]
         if self._expected_case_severity[person_id] in [
             ExpectedCaseSeverity.Mild,
             ExpectedCaseSeverity.Asymptomatic
@@ -765,12 +766,12 @@ class InfectionModel:
         self.df_progression_times.to_csv(os.path.join(simulation_output_dir, 'output_df_progression_times.csv'))
         self.df_infections.to_csv(os.path.join(simulation_output_dir, 'output_df_potential_contractions.csv'))
         self._save_population_parameters(simulation_output_dir)
+        copyfile(self.params_path, os.path.join(simulation_output_dir,
+                                                f'input_{os.path.basename(self.params_path)}'))
+
         if self._params[SAVE_INPUT_DATA]:
-            from shutil import copyfile
             copyfile(self.df_individuals_path, os.path.join(simulation_output_dir,
                                                             f'input_{os.path.basename(self.df_individuals_path)}'))
-            copyfile(self.params_path, os.path.join(simulation_output_dir,
-                                                    f'input_{os.path.basename(self.params_path)}'))
             household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
                                                 'input_df_households.csv')
             if not os.path.exists(household_input_path):
@@ -795,20 +796,10 @@ class InfectionModel:
         self.store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
         self.store_event_queue(simulation_output_dir)
-        self.store_expected_case_severity(simulation_output_dir)
-        self.store_infection_status(simulation_output_dir)
         self.doubling_time(simulation_output_dir)
         self.icu_beds(simulation_output_dir)
         self.draw_death_age_cohorts(simulation_output_dir)
         self._params[EXPERIMENT_ID] = hack
-
-    def store_expected_case_severity(self, simulation_output_dir):
-        with open(os.path.join(simulation_output_dir, 'save_expected_case_severity.pkl'), 'wb') as f:
-            pickle.dump(self._expected_case_severity, f)
-
-    def store_infection_status(self, simulation_output_dir):
-        with open(os.path.join(simulation_output_dir, 'save_infection_status.pkl'), 'wb') as f:
-            pickle.dump(self._infection_status, f)
 
     def icu_beds(self, simulation_output_dir):
         df_r1 = self.df_progression_times

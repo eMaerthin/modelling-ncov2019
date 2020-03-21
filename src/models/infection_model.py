@@ -58,7 +58,6 @@ class InfectionModel:
         self._households_capacities = {}
         self._households_inhabitants = {}
 
-        self.event_queue = []
         self._affected_people = 0
         self._active_people = 0
         self._quarantined_people = 0
@@ -732,7 +731,8 @@ class InfectionModel:
 
     def _save_population_parameters(self, simulation_output_dir):
         run_id = f'{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
-        self.store_parameter(simulation_output_dir, self._expected_case_severity, 'expected_case_severity.pkl')
+        if self._params[SAVE_EXPECTED_SEVERITY]:
+            self.store_parameter(simulation_output_dir, self._expected_case_severity, 'expected_case_severity.pkl')
         self.store_parameter(simulation_output_dir, self._infection_status, 'infection_status.pkl')
         self.store_parameter(simulation_output_dir, self._detection_status, 'detection_status.pkl')
         self.store_parameter(simulation_output_dir, self._quarantine_status, 'quarantine_status.pkl')
@@ -789,13 +789,12 @@ class InfectionModel:
         serial_interval_median = self.save_serial_interval(simulation_output_dir)
         hack = self._params[EXPERIMENT_ID]
         c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
-        c_norm = c / 0.427  # TODO this should not be hardcoded, and one should recalculate this
+        c_norm = c * self._params[AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL]
 
         self._params[EXPERIMENT_ID] = f'{self._params[EXPERIMENT_ID]} (median serial interval: {serial_interval_median:.2f} days, R*: {c_norm:.3f})'
         self.store_graphs(simulation_output_dir)
         self.store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
-        self.store_event_queue(simulation_output_dir)
         self.doubling_time(simulation_output_dir)
         self.icu_beds(simulation_output_dir)
         self.draw_death_age_cohorts(simulation_output_dir)
@@ -819,6 +818,8 @@ class InfectionModel:
         df_minus2 = pd.DataFrame({'t': minus2, 'd': -np.ones_like(minus2)})
         df = df_plus.append(df_minus1).append(df_minus2).sort_values(by='t')
         df = df[df.t <= max_time]
+        if len(df) == 0:
+            return
         cumv = df.d.cumsum().values
         plt.plot(df.t.values, cumv)
         legend.append('ICU required')
@@ -841,10 +842,6 @@ class InfectionModel:
         plt.title('assuming ICU required for 4 weeks while recovering'
                   f'\n{self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'icu_beds_analysis.png'))
-
-    def store_event_queue(self, simulation_output_dir):
-        with open(os.path.join(simulation_output_dir, 'save_state_event_queue.pkl'), 'wb') as f:
-            pickle.dump(self.event_queue, f)
 
     def add_new_infection(self, person_id, infection_status,
                           initiated_by, initiated_through):
@@ -1028,13 +1025,13 @@ class InfectionModel:
 
 
     def setup_simulation(self):
-        self.event_queue = []
 
+        # TODO  and think how to better group them, ie namedtuple state_stats?
         self._affected_people = 0
         self._active_people = 0
+        self._detected_people = 0
+        self._quarantined_people = 0
         self._deaths = 0
-        # TODO add more online stats like: self._active_people = 0
-        # TODO  and think how to better group them, ie namedtuple state_stats?
 
         self._fear_factor = {}
         self._infection_status = {}

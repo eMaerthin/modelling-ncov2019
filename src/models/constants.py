@@ -63,6 +63,9 @@ FROM_FILE = 'from_file'
 DETECTION = 'detection'
 QUARANTINE = 'quarantine'
 
+AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL = 'average_infectivity_time_constant_kernel'
+SAVE_EXPECTED_SEVERITY = 'save_expected_severity'
+
 TURN_ON_DETECTION = 'turn_on_detection'
 DETECTION_MILD_PROBA = 'detection_mild_proba'
 

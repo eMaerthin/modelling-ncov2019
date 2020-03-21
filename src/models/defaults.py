@@ -12,6 +12,10 @@ default_stop_simulation_threshold = 10000
 
 default_detection_status = DetectionStatus.NotDetected.value
 
+default_quarantine_status = QuarantineStatus.NoQuarantine.value
+
+default_detection_mild_proba = 0.5
+
 default_distribution = {
     DISTRIBUTION: 'poisson'
 }
@@ -78,6 +82,11 @@ default_med_personnel_availability = 400
 
 default_log_time_freq = 1.0
 
+default_serial_interval = {
+    MIN_TIME: 0.0,
+    MAX_TIME: 30.0
+}
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -97,7 +106,9 @@ defaults = {
     HOSPITAL_BEDS_AVAILABILITY: default_hospital_beds_availability,
     MED_PERSONNEL_AVAILABILITY: default_med_personnel_availability,
     LOG_TIME_FREQ: default_log_time_freq,
-    LOG_OUTPUTS: default_log_outputs
+    LOG_OUTPUTS: default_log_outputs,
+    SERIAL_INTERVAL: default_serial_interval,
+    DETECTION_MILD_PROBA: default_detection_mild_proba
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

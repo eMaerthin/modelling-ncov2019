@@ -31,10 +31,13 @@ case_severity_distribution_schema = Schema(And({
     CRITICAL: And(Use(float), lambda x: x >= 0),
 }, lambda x: sum(x.values()) == 1))
 
+def probability_condition(x):
+    return 0.0 <= x <= 1.0
+
 fear_factor_schema = Schema({
     Optional(FEAR_FUNCTION, default=default_fear_factor[FEAR_FUNCTION]): Or(*FearFunctions.map()),
     Optional(SCALE_FACTOR, default=default_fear_factor[SCALE_FACTOR]): And(Or(Use(float), Use(int)), lambda x: x > 0),
-    Optional(LIMIT_VALUE, default=default_fear_factor[LIMIT_VALUE]): And(Or(Use(float), Use(int)), lambda x: 1.0 >= x >= 0.0),
+    Optional(LIMIT_VALUE, default=default_fear_factor[LIMIT_VALUE]): And(Or(Use(float), Use(int)), probability_condition),
     Optional(DETECTED_MULTIPLIER, default=default_fear_factor[DETECTED_MULTIPLIER]): And(Or(Use(float), Use(int)), lambda x: x >= 0),
     Optional(DEATHS_MULTIPLIER, default=default_fear_factor[DEATHS_MULTIPLIER]): And(Or(Use(float), Use(int)), lambda x: x >= 0),
 })
@@ -48,7 +51,7 @@ import_intensity_schema = Schema({
     Optional(MULTIPLIER, default=1): And(Or(int, float), lambda x: x >= 0),
     Optional(RATE, default=1): And(Or(int, float), lambda x: x >= 0),
     Optional(CAP, default=float('inf')): And(Or(int, float), lambda x: x >= 0),
-    Optional(INFECTIOUS, default=0.0): And(float, lambda x: 0.0 <= x <= 1.0),
+    Optional(INFECTIOUS, default=0.0): And(float, probability_condition),
 })
 
 initial_conditions_schema1 = [{
@@ -68,15 +71,23 @@ initial_conditions_schema2 = {
 global_time_schema = Schema(And(Or(int, float), lambda x: x >= 0))
 
 death_probability_schema = Schema({
-    ASYMPTOMATIC: And(Use(float), lambda x: 0.0 <= x <= 1.0),
-    MILD: And(Use(float), lambda x: 0.0 <= x <= 1.0),
-    SEVERE: And(Use(float), lambda x: 0.0 <= x <= 1.0),
-    CRITICAL: And(Use(float), lambda x: 0.0 <= x <= 1.0),
+    ASYMPTOMATIC: And(Use(float), probability_condition),
+    MILD: And(Use(float), probability_condition),
+    SEVERE: And(Use(float), probability_condition),
+    CRITICAL: And(Use(float), probability_condition),
 })
 
 random_seed_schema = Schema(Or(str, int, None))
 availability_schema = Schema(And(int, lambda x: x > 0))
 log_time_freq_schema = Schema(Or(And(float, lambda x: x > 0), And(int, lambda x: x > 0), None))
+
+serial_interval_schema = Schema(And({
+    MIN_TIME: And(Use(float), lambda x: 0.0 <= x),
+    MAX_TIME: And(Use(float), lambda x: 0.0 <= x)
+}, lambda x: x[MIN_TIME] <= x[MAX_TIME]))
+
+detection_mild_proba_schema = Schema(And(float, probability_condition))
+
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
     STOP_SIMULATION_THRESHOLD: Schema(And(Use(int), lambda n: n > 0)),
@@ -103,4 +114,6 @@ infection_model_schemas = {
     MED_PERSONNEL_AVAILABILITY: availability_schema,
     LOG_TIME_FREQ: log_time_freq_schema,
     LOG_OUTPUTS: Schema(bool),
+    SERIAL_INTERVAL: serial_interval_schema,
+    DETECTION_MILD_PROBA: detection_mild_proba_schema
 }

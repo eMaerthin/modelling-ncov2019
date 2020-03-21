@@ -63,6 +63,7 @@ FROM_FILE = 'from_file'
 DETECTION = 'detection'
 QUARANTINE = 'quarantine'
 
+TURN_ON_DETECTION = 'turn_on_detection'
 DETECTION_MILD_PROBA = 'detection_mild_proba'
 
 SELECTION_ALGORITHM = 'selection_algorithm'

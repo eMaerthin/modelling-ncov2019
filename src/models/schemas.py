@@ -115,5 +115,6 @@ infection_model_schemas = {
     LOG_TIME_FREQ: log_time_freq_schema,
     LOG_OUTPUTS: Schema(bool),
     SERIAL_INTERVAL: serial_interval_schema,
-    DETECTION_MILD_PROBA: detection_mild_proba_schema
+    DETECTION_MILD_PROBA: detection_mild_proba_schema,
+    TURN_ON_DETECTION: Schema(bool),
 }

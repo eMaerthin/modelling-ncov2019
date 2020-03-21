@@ -117,4 +117,6 @@ infection_model_schemas = {
     SERIAL_INTERVAL: serial_interval_schema,
     DETECTION_MILD_PROBA: detection_mild_proba_schema,
     TURN_ON_DETECTION: Schema(bool),
+    AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL: global_time_schema,
+    SAVE_EXPECTED_SEVERITY: Schema(bool),
 }

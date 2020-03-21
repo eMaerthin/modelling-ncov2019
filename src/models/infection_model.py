@@ -60,11 +60,14 @@ class InfectionModel:
         self.event_queue = []
         self._affected_people = 0
         self._active_people = 0
+        self._quarantined_people = 0
+        self._detected_people = 0
         self._deaths = 0
 
         self._set_up_data_frames()
         self._infection_status = {}
         self._detection_status = {}
+        self._quarantine_status = {}
         self._expected_case_severity = self.draw_expected_case_severity()
         self._infections_dict = {}
         self._progression_times_dict = {}
@@ -87,8 +90,13 @@ class InfectionModel:
         self.fear_scale = dict()
         self.fear_limit_value = dict()
 
+        self.serial_intervals = []
+
     def get_detection_status_(self, person_id):
         return self._detection_status.get(person_id, default_detection_status)
+
+    def get_quarantine_status_(self, person_id):
+        return self._quarantine_status.get(person_id, default_quarantine_status)
 
     def get_infection_status(self, person_id):
         return self._infection_status.get(person_id, InfectionStatus.Healthy.value)
@@ -261,6 +269,18 @@ class InfectionModel:
     @property
     def affected_people(self):
         return self._affected_people
+
+    @property
+    def detected_people(self):
+        return self._detected_people
+
+    @property
+    def quarantined_people(self):
+        return self._quarantined_people
+
+    @property
+    def active_people(self):
+        return self._active_people
 
     @property
     def deaths(self):
@@ -450,7 +470,7 @@ class InfectionModel:
             # if t2 < t1 then we reset t1 to avoid misleading in data exported from the simulation
             t1 = None
 
-        # TODO We should model tdetection as well (tdetection = None)
+        tdetection = None
         trecovery = None
         tdeath = None
         if np.random.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id]]:
@@ -461,12 +481,26 @@ class InfectionModel:
                 ExpectedCaseSeverity.Mild,
                 ExpectedCaseSeverity.Asymptomatic
             ]:
-                trecovery = t0 + 14
+                trecovery = t0 + 14  # TODO: this should not be hardcoded!
             else:
                 trecovery = t0 + 42
             self.append_event(Event(trecovery, person_id, TRECOVERY, person_id, DISEASE_PROGRESSION, t0))
+
+        """ Following is for checking whther tdetection should be picked up"""
+        calculate_tdetection = True
+        if self._expected_case_severity[person_id] in [
+            ExpectedCaseSeverity.Mild,
+            ExpectedCaseSeverity.Asymptomatic
+        ]:
+            if np.random.uniform() > self._params[DETECTION_MILD_PROBA]:  # TODO: this should not be hardcoded!
+                calculate_tdetection = False
+        if calculate_tdetection:
+            """ If t2 is defined (severe/critical), then use this time; if not; use some offset from t0 """
+            tdetection = t2 or t0 + 2  # TODO: this should not be hardcoded
+            self.append_event(Event(tdetection, person_id, TDETECTION, person_id, DETECTION, t0))
+
         self._progression_times_dict[person_id] = {ID: person_id, TMINUS1: tminus1, T0: t0, T1: t1, T2: t2,
-                                                   TDEATH: tdeath, TRECOVERY: trecovery}
+                                                   TDEATH: tdeath, TRECOVERY: trecovery, TDETECTION: tdetection}
 
         if initial_infection_status == InfectionStatus.Infectious:
             self.handle_t0(person_id)
@@ -558,18 +592,18 @@ class InfectionModel:
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
         cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
         cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
-        cond1.hist(alpha=0.3, bins=bins, histtype='stepfilled', stacked=True)
-        cond2.hist(alpha=0.3, bins=bins, histtype='stepfilled', stacked=True)
-        cond3.hist(alpha=0.3, bins=bins, histtype='stepfilled', stacked=True)
+        cond1.hist(alpha=0.3, bins=bins, histtype='step')
+        cond2.hist(alpha=0.3, bins=bins, histtype='step')
+        cond3.hist(alpha=0.3, bins=bins, histtype='step')
         hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
         ho_cases = hospitalized_cases[hospitalized_cases <= r2_max_time].sort_values()
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= r2_max_time].sort_values()
         recovery_cases = df_r1[~df_r1.trecovery.isna()].sort_values(by='trecovery').trecovery
         r_cases = recovery_cases[recovery_cases <= r2_max_time].sort_values()
-        ho_cases.hist(alpha=0.7, bins=bins, histtype='stepfilled', stacked=True)
-        d_cases.hist(alpha=0.9, bins=bins, histtype='stepfilled', stacked=True)
-        r_cases.hist(alpha=0.95, bins=bins, histtype='stepfilled', stacked=True)
+        ho_cases.hist(alpha=0.7, bins=bins, histtype='step')
+        d_cases.hist(alpha=0.9, bins=bins, histtype='step')
+        r_cases.hist(alpha=0.95, bins=bins, histtype='step')
         plt.plot([r2_max_time], [0], 'ro', markersize=5)
         plt.legend(['by constant kernel',
                     'by household kernel', '# hospitalized cases', '# deceased cases'],
@@ -645,6 +679,21 @@ class InfectionModel:
         os.makedirs(simulation_output_dir)
         return simulation_output_dir
 
+    def save_serial_interval(self, simulation_output_dir):
+        from scipy import stats
+        np_intervals = np.array(self.serial_intervals)
+        serial_interval_median = np.median(np_intervals)
+        description = stats.describe(np_intervals)
+        serial_interval_str = f'serial interval: measured from {self._params[SERIAL_INTERVAL][MIN_TIME]}'\
+                              f' to {self._params[SERIAL_INTERVAL][MAX_TIME]};'\
+                              f' median={serial_interval_median}, stats describe: {description}'
+        logger.info(serial_interval_str)
+        np.save(os.path.join(simulation_output_dir, 'serial_intervals.npy'), np_intervals)
+        output_log_file = os.path.join(simulation_output_dir, 'serial_interval_stats.txt')
+        with open(output_log_file, "w") as out:
+            out.write(serial_interval_str)
+        return serial_interval_median
+
     def log_outputs(self):
         simulation_output_dir = self._save_dir()
         run_id = f'{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
@@ -657,10 +706,10 @@ class InfectionModel:
                                                             f'input_{os.path.basename(self.df_individuals_path)}'))
             copyfile(self.params_path, os.path.join(simulation_output_dir,
                                                     f'input_{os.path.basename(self.params_path)}'))
-        household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
-                                            'input_df_households.csv')
-        if not os.path.exists(household_input_path):
-            self._df_households.to_csv(household_input_path)
+            household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
+                                                'input_df_households.csv')
+            if not os.path.exists(household_input_path):
+                self._df_households.to_csv(household_input_path)
         repo = Repo(config.ROOT_DIR)
         git_active_branch_log = os.path.join(simulation_output_dir, 'git_active_branch_log.txt')
         with open(git_active_branch_log, 'w') as f:
@@ -671,6 +720,7 @@ class InfectionModel:
         with open(git_status, 'w') as f:
             f.write(repo.git.status())
 
+        self.save_serial_interval(simulation_output_dir)
         self.store_graphs(simulation_output_dir)
         self.store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
@@ -703,29 +753,29 @@ class InfectionModel:
         survived = critical[critical.tdeath.isna()]
         minus1 = survived.t2.values + FOUR_WEEKS #TODO
         minus2 = deceased.tdeath.values
+        max_time = df_r2.contraction_time.max(axis=0)
         df_plus = pd.DataFrame({'t': plus, 'd': np.ones_like(plus)})
         df_minus1 = pd.DataFrame({'t': minus1, 'd': -np.ones_like(minus1)})
         df_minus2 = pd.DataFrame({'t': minus2, 'd': -np.ones_like(minus2)})
         df = df_plus.append(df_minus1).append(df_minus2).sort_values(by='t')
-        df = df[df.t <= df_r2.contraction_time.max(axis=0)]
+        df = df[df.t <= max_time]
         cumv = df.d.cumsum().values
         plt.plot(df.t.values, cumv)
         legend.append('ICU required')
-        largest_x = cumv.max()
+        largest_y = cumv.max()
         icu_availability = self._params[ICU_AVAILABILITY]
 
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
-        d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+        d_cases = death_cases[death_cases <= max_time].sort_values()
         if len(d_cases) > 0:
             plt.plot(d_cases, np.arange(1, 1 + len(d_cases)))
-            largest_x = max(d_cases.values[-1], cumv.max())
             legend.append('deceased')
-        plt.plot([0, largest_x], [icu_availability] * 2)
+        plt.plot([0, max_time], [icu_availability] * 2)
         legend.append('ICU capacity')
         cumv_filter_flag = cumv > icu_availability
         if cumv[cumv_filter_flag].any():
             critical_t = df.t.values[cumv_filter_flag].min()
-            plt.plot([critical_t] * 2, [0, largest_x])
+            plt.plot([critical_t] * 2, [0, largest_y])
             legend.append(f'Critical time {critical_t:.1f}')
         plt.legend(legend, loc='best') #'upper left')
         plt.title('assuming ICU required for 4 weeks while recovering'
@@ -747,6 +797,11 @@ class InfectionModel:
             CONTRACTION_TIME: self.global_time,
             KERNEL: initiated_through
         }
+        if self.global_time >= self._params[SERIAL_INTERVAL][MIN_TIME]:
+            if self.global_time < self._params[SERIAL_INTERVAL][MAX_TIME]:
+                if initiated_by is not None:
+                    serial_interval = self.global_time - self._progression_times_dict[initiated_by][TMINUS1]
+                    self.serial_intervals.append(serial_interval)
 
         self._affected_people += 1
         self.generate_disease_progression(person_id,
@@ -760,8 +815,11 @@ class InfectionModel:
         if int(time / self._params[LOG_TIME_FREQ]) != int(self._global_time / self._params[LOG_TIME_FREQ]):
             memory_use = ps.memory_info().rss / 1024 / 1024
             logger.info(f'Time: {time:.2f}'
-                         f'\tAffected people: {self.affected_people}'
-                         f'\tActive: {self._active_people}'
+                         f'\tAffected: {self.affected_people}'
+                         f'\tDetected: {self.detected_people}'
+                         f'\tQuarantined: {self.quarantined_people}'
+                         f'\tActive: {self.active_people}'
+                         f'\tDeaths: {self.deaths}'
                          f'\tPhysical memory use: {memory_use:.2f} MB')
         self._global_time = time
         if self._global_time > self._max_time:
@@ -787,10 +845,15 @@ class InfectionModel:
             if current_status == InfectionStatus.Healthy:
                 if initiated_inf_status in active_states:
                     new_infection = False
+                    # TODO below is a spaghetti code that shoud be sorted out! SORRY!
                     if initiated_through != HOUSEHOLD:
                         if initiated_inf_status != InfectionStatus.StayHome:
                             new_infection = True
-                    else:
+                        if self.get_quarantine_status_(initiated_by) == QuarantineStatus.Quarantine:
+                            new_infection = False
+                        if self.get_quarantine_status_(person_id) == QuarantineStatus.Quarantine:
+                            new_infection = False
+                    else:  # HOUSEHOLD kernel:
                         new_infection = True
                     if new_infection:
                         self.add_new_infection(person_id, InfectionStatus.Contraction.value,
@@ -812,10 +875,29 @@ class InfectionModel:
                 self._infection_status[person_id] = InfectionStatus.Death.value
                 self._deaths += 1
                 self._active_people -= 1
-        elif type_ == TRECOVERY:
+        elif type_ == TRECOVERY: # TRECOVERY is exclusive with regards to TDEATH (when this comment was added)
             if self.get_infection_status(person_id) != InfectionStatus.Recovered:
                 self._active_people -= 1
                 self._infection_status[person_id] = InfectionStatus.Recovered
+        elif type_ == TDETECTION:
+            if self.get_infection_status(person_id) not in [
+                InfectionStatus.Recovered,
+                InfectionStatus.Healthy
+            ]:
+                if self.get_detection_status_(person_id) == DetectionStatus.NotDetected:
+                    self._detection_status[person_id] = DetectionStatus.Detected.value
+                    self._detected_people += 1
+                    household_id = self._individuals_household_id[person_id]
+                    for inhabitant in self._households_inhabitants[household_id]:
+                        if self.get_quarantine_status_(inhabitant) == QuarantineStatus.NoQuarantine:
+                            if self.get_infection_status(inhabitant) != InfectionStatus.Death:
+                                self._quarantine_status[inhabitant] = QuarantineStatus.Quarantine.value
+                                self._quarantined_people += 1
+                                if self.get_infection_status(inhabitant) != InfectionStatus.Healthy:
+                                    # TODO: this has to be implemented better, just a temporary solution:
+                                    self.append_event(Event(self.global_time + 2.0, inhabitant,
+                                                            TDETECTION, inhabitant, 'quarantine_followed_detection',
+                                                            self.global_time))
         else:
             raise ValueError(f'unexpected status of event: {event}')
 
@@ -874,14 +956,14 @@ class InfectionModel:
         if isinstance(self._params[INITIAL_CONDITIONS], dict):
             cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
             init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
-        output_log = f'\nMean Time\tMean #Affected\tWins freq.\tc\tc_norm\tInit #people\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'
+        output_log = f'\nMean Time\tMean #Affected\tWins freq.\tc\tc_norm\tInit #people'\
+                     f'\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}'\
+                     f'\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
         with open(output_log_file, "w") as out:
             out.write(output_log)
-
-
 
 
     def setup_simulation(self):
@@ -917,6 +999,7 @@ def runner(params_path, df_individuals_path, run_simulation, df_households_path=
     im.run_simulation()
 
 
+# TODO: think about separate thread/process to generate random numbers, facilitate sampling
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)

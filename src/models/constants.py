@@ -46,6 +46,7 @@ T2 = 't2' # stay_home->hospital SEVERE/CRITICAL TODO it WAS before : stay_home->
 #T3 = 't3' # TODO let's check if we need this: # stay_home/see_doctor->hospital SEVERE/CRITICAL
 TDEATH = 'tdeath'
 TRECOVERY = 'trecovery'
+TDETECTION = 'tdetection'
 
 ASYMPTOMATIC = 'asymptomatic'
 MILD = 'mild'
@@ -60,8 +61,9 @@ POISSON = 'poisson'
 FROM_FILE = 'from_file'
 
 DETECTION = 'detection'
-QUARANTINE_AT_HOME = 'quarantine_at_home'
-QUARANTINE_AT_HOSPITAL = 'quarantine_at_hospital'
+QUARANTINE = 'quarantine'
+
+DETECTION_MILD_PROBA = 'detection_mild_proba'
 
 SELECTION_ALGORITHM = 'selection_algorithm'
 CARDINALITIES = 'cardinalities'
@@ -103,6 +105,10 @@ MULTIPLIER = 'multiplier'
 RATE = 'rate'
 CAP = 'cap'
 NO_IMPORT = 'no_import'
+
+SERIAL_INTERVAL = 'serial_interval'
+MIN_TIME = 'min_time'
+
 
 OUTPUT_ROOT_DIR = 'output_root_dir'
 SAVE_INPUT_DATA = 'save_input_data'

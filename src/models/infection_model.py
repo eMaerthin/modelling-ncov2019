@@ -91,6 +91,8 @@ class InfectionModel:
         self.fear_limit_value = dict()
 
         self.serial_intervals = []
+        self.experimental_ub = None
+        self.experimental_lb = None
 
     def get_detection_status_(self, person_id):
         return self._detection_status.get(person_id, default_detection_status)
@@ -673,6 +675,15 @@ class InfectionModel:
         df_r2 = self.df_infections
         plt.close()
         vals = df_r2.contraction_time.sort_values()
+        if self.experimental_ub is None:
+            self.experimental_ub = vals
+        else:
+            self.experimental_ub = np.minimum(vals, self.experimental_ub)
+        if self.experimental_lb is None:
+            self.experimental_lb = vals
+        else:
+            self.experimental_lb = np.maximum(vals, self.experimental_lb)
+
         plt.semilogy(vals, np.arange(1, 1 + len(vals)))
         legend=['Prevalence']
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
@@ -700,6 +711,17 @@ class InfectionModel:
         plt.legend(legend, loc='best')
         plt.title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'summary_semilogy.png'))
+
+    def test_bandwidth_plot(self, simulation_output_dir):
+        plt.close()
+        plt.semilogy(self.experimental_ub, np.arange(1, 1 + len(self.experimental_ub)))
+        plt.semilogy(self.experimental_lb, np.arange(1, 1 + len(self.experimental_lb)))
+
+        legend = ['Prevalence UB', 'Prevalence LB']
+
+        plt.legend(legend, loc='best')
+        plt.title(f'Test of bandwidth plot (showing min/max across multiple runs)')
+        plt.savefig(os.path.join(simulation_output_dir, 'test_bandwidth_plot_summary_semilogy.png'))
 
     @staticmethod
     def store_parameter(simulation_output_dir, parameter, filename):
@@ -1009,6 +1031,7 @@ class InfectionModel:
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
+        self.test_bandwidth_plot(simulation_output_dir)
         with open(output_log_file, "w") as out:
             out.write(output_log)
 

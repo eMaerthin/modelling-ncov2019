@@ -538,7 +538,7 @@ class InfectionModel:
         vals = df_r2.contraction_time.sort_values()
         legend = []
         if plot_doubling(vals):
-            legend.append('Trend line for total # infected')
+            legend.append('Trend line for prevalence')
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
         cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
         cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
@@ -586,29 +586,54 @@ class InfectionModel:
     def store_bins(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
-        plt.close()
+        fig, (ax0, ax1) = plt.subplots(nrows=2, ncols=1)
+        legend = []
         r2_max_time = df_r2.contraction_time.max()
-        bins = np.arange(np.minimum(730, 1 + r2_max_time))
+        if self.active_people < 10:
+            ax0.plot([r2_max_time], [0], 'ro', markersize=5)
+            legend.append('Last reported infection time')
+
+        bins = int(np.minimum(730, 1 + r2_max_time))
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
         cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
         cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
-        cond1.hist(alpha=0.3, bins=bins, histtype='step')
-        cond2.hist(alpha=0.3, bins=bins, histtype='step')
-        cond3.hist(alpha=0.3, bins=bins, histtype='step')
+        arr = []
+        if len(cond1) > 0:
+            arr.append(cond1)
+            legend.append('Imported')
+        if len(cond2) > 0:
+            arr.append(cond2)
+            legend.append('Inf. through constant kernel')
+        if len(cond3) > 0:
+            arr.append(cond3)
+            legend.append('Inf. in the household')
+        ax0.hist(arr, bins, histtype='bar', stacked=True)
+        ax0.legend(legend, loc='best')
+        arr = []
+        legend = []
         hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
         ho_cases = hospitalized_cases[hospitalized_cases <= r2_max_time].sort_values()
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= r2_max_time].sort_values()
         recovery_cases = df_r1[~df_r1.trecovery.isna()].sort_values(by='trecovery').trecovery
         r_cases = recovery_cases[recovery_cases <= r2_max_time].sort_values()
-        ho_cases.hist(alpha=0.7, bins=bins, histtype='step')
-        d_cases.hist(alpha=0.9, bins=bins, histtype='step')
-        r_cases.hist(alpha=0.95, bins=bins, histtype='step')
-        plt.plot([r2_max_time], [0], 'ro', markersize=5)
-        plt.legend(['by constant kernel',
-                    'by household kernel', '# hospitalized cases', '# deceased cases'],
-                   loc='upper left')
-        plt.title(f'1 day binning of simulated covid19\n {self._params[EXPERIMENT_ID]}')
+        if len(d_cases) > 0:
+            arr.append(d_cases)
+            legend.append('Deceased')
+        if len(ho_cases) > 0:
+            arr.append(ho_cases)
+            legend.append('Hospitalized')
+        if len(r_cases) > 0:
+            arr.append(r_cases)
+            legend.append('Recovered')
+        ax1.hist(arr, bins, histtype='bar', stacked=True)
+        ax1.legend(legend, loc='best')
+        ax0.set_title(f'Daily summaries of simulated covid19\n {self._params[EXPERIMENT_ID]}')
+        ax0.set_ylabel('Daily reported cases')
+        ax0.set_xlabel('Time in days')
+        ax1.set_ylabel('Daily reported cases')
+        ax1.set_xlabel('Time in days')
+        fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'bins.png'))
 
     def store_graphs(self, simulation_output_dir):
@@ -616,21 +641,30 @@ class InfectionModel:
         df_r2 = self.df_infections
         vals = df_r2.contraction_time.sort_values()
         plt.plot(vals, np.arange(1, 1 + len(vals)))
+        legend=['Prevalence']
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
         cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
         cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
-        plt.plot(cond1, np.arange(1, 1 + len(cond1)))
-        plt.plot(cond2, np.arange(1, 1 + len(cond2)))
-        plt.plot(cond3, np.arange(1, 1 + len(cond3)))
+        if len(cond1) > 0:
+            plt.plot(cond1, np.arange(1, 1 + len(cond1)))
+            legend.append('Imported')
+        if len(cond2) > 0:
+            plt.plot(cond2, np.arange(1, 1 + len(cond2)))
+            legend.append('Inf. through constant kernel')
+        if len(cond3) > 0:
+            plt.plot(cond3, np.arange(1, 1 + len(cond3)))
+            legend.append('Inf. through household')
         hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
         ho_cases = hospitalized_cases[hospitalized_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
-        plt.plot(ho_cases, np.arange(1, 1 + len(ho_cases)))
-        plt.plot(d_cases, np.arange(1, 1 + len(d_cases)))
-        plt.legend(['Total # infected', '# Imported cases', 'Infected through constant kernel',
-                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'],
-                   loc='upper left')
+        if len(ho_cases) > 0:
+            plt.plot(ho_cases, np.arange(1, 1 + len(ho_cases)))
+            legend.append('Hospitalized')
+        if len(d_cases) > 0:
+            plt.plot(d_cases, np.arange(1, 1 + len(d_cases)))
+            legend.append('Deceased')
+        plt.legend(legend, loc='best')
         plt.title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'summary.png'))
 
@@ -640,21 +674,30 @@ class InfectionModel:
         plt.close()
         vals = df_r2.contraction_time.sort_values()
         plt.semilogy(vals, np.arange(1, 1 + len(vals)))
+        legend=['Prevalence']
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
         cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
         cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
-        plt.semilogy(cond1, np.arange(1, 1 + len(cond1)))
-        plt.semilogy(cond2, np.arange(1, 1 + len(cond2)))
-        plt.semilogy(cond3, np.arange(1, 1 + len(cond3)))
+        if len(cond1) > 0:
+            plt.semilogy(cond1, np.arange(1, 1 + len(cond1)))
+            legend.append('Imported')
+        if len(cond2) > 0:
+            plt.semilogy(cond2, np.arange(1, 1 + len(cond2)))
+            legend.append('Inf. through constant kernel')
+        if len(cond3) > 0:
+            plt.semilogy(cond3, np.arange(1, 1 + len(cond3)))
+            legend.append('Inf. through household')
         hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
         ho_cases = hospitalized_cases[hospitalized_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
-        plt.semilogy(ho_cases, np.arange(1, 1 + len(ho_cases)))
-        plt.semilogy(d_cases, np.arange(1, 1 + len(d_cases)))
-        plt.legend(['Total # infected', '# Imported cases', 'Infected through constant kernel',
-                    'Infected through household kernel', '# hospitalized cases', '# deceased cases'],
-                    loc='upper left')
+        if len(ho_cases) > 0:
+            plt.semilogy(ho_cases, np.arange(1, 1 + len(ho_cases)))
+            legend.append('Hospitalized')
+        if len(d_cases) > 0:
+            plt.semilogy(d_cases, np.arange(1, 1 + len(d_cases)))
+            legend.append('Deceased')
+        plt.legend(legend, loc='best')
         plt.title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'summary_semilogy.png'))
 
@@ -669,6 +712,7 @@ class InfectionModel:
         self.store_parameter(simulation_output_dir, self._expected_case_severity, 'expected_case_severity.pkl')
         self.store_parameter(simulation_output_dir, self._infection_status, 'infection_status.pkl')
         self.store_parameter(simulation_output_dir, self._detection_status, 'detection_status.pkl')
+        self.store_parameter(simulation_output_dir, self._quarantine_status, 'quarantine_status.pkl')
 
     def _save_dir(self, prefix=''):
         underscore_if_prefix = '_' if len(prefix) > 0 else ''
@@ -680,10 +724,9 @@ class InfectionModel:
         return simulation_output_dir
 
     def save_serial_interval(self, simulation_output_dir):
-        from scipy import stats
         np_intervals = np.array(self.serial_intervals)
         serial_interval_median = np.median(np_intervals)
-        description = stats.describe(np_intervals)
+        description = scipy.stats.describe(np_intervals)
         serial_interval_str = f'serial interval: measured from {self._params[SERIAL_INTERVAL][MIN_TIME]}'\
                               f' to {self._params[SERIAL_INTERVAL][MAX_TIME]};'\
                               f' median={serial_interval_median}, stats describe: {description}'
@@ -720,7 +763,12 @@ class InfectionModel:
         with open(git_status, 'w') as f:
             f.write(repo.git.status())
 
-        self.save_serial_interval(simulation_output_dir)
+        serial_interval_median = self.save_serial_interval(simulation_output_dir)
+        hack = self._params[EXPERIMENT_ID]
+        c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
+        c_norm = c / 0.427  # TODO this should not be hardcoded, and one should recalculate this
+
+        self._params[EXPERIMENT_ID] = f'{self._params[EXPERIMENT_ID]} (median serial interval: {serial_interval_median:.2f} days, R*: {c_norm:.3f})'
         self.store_graphs(simulation_output_dir)
         self.store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
@@ -730,14 +778,13 @@ class InfectionModel:
         self.doubling_time(simulation_output_dir)
         self.icu_beds(simulation_output_dir)
         self.draw_death_age_cohorts(simulation_output_dir)
+        self._params[EXPERIMENT_ID] = hack
 
     def store_expected_case_severity(self, simulation_output_dir):
-        import pickle
         with open(os.path.join(simulation_output_dir, 'save_expected_case_severity.pkl'), 'wb') as f:
             pickle.dump(self._expected_case_severity, f)
 
     def store_infection_status(self, simulation_output_dir):
-        import pickle
         with open(os.path.join(simulation_output_dir, 'save_infection_status.pkl'), 'wb') as f:
             pickle.dump(self._infection_status, f)
 
@@ -779,11 +826,10 @@ class InfectionModel:
             legend.append(f'Critical time {critical_t:.1f}')
         plt.legend(legend, loc='best') #'upper left')
         plt.title('assuming ICU required for 4 weeks while recovering'
-                  f'\n Experiment id: {self._params[EXPERIMENT_ID]}')
+                  f'\n{self._params[EXPERIMENT_ID]}')
         plt.savefig(os.path.join(simulation_output_dir, 'icu_beds_analysis.png'))
 
     def store_event_queue(self, simulation_output_dir):
-        import pickle
         with open(os.path.join(simulation_output_dir, 'save_state_event_queue.pkl'), 'wb') as f:
             pickle.dump(self.event_queue, f)
 
@@ -895,9 +941,10 @@ class InfectionModel:
                                 self._quarantined_people += 1
                                 if self.get_infection_status(inhabitant) != InfectionStatus.Healthy:
                                     # TODO: this has to be implemented better, just a temporary solution:
-                                    self.append_event(Event(self.global_time + 2.0, inhabitant,
-                                                            TDETECTION, inhabitant, 'quarantine_followed_detection',
-                                                            self.global_time))
+                                    new_detection_time = self.global_time + 2.0
+                                    self._progression_times_dict[inhabitant][TDETECTION] = new_detection_time
+                                    self.append_event(Event(new_detection_time, inhabitant, TDETECTION, None,
+                                                            'quarantine_followed_detection', self.global_time))
         else:
             raise ValueError(f'unexpected status of event: {event}')
 

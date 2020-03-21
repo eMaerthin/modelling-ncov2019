@@ -1,4 +1,5 @@
 {
+  "random_seed": "range(3)",
   "output_root_dir": "outputs",
   "experiment_id": "exponential_import",
   "save_input_data": false,

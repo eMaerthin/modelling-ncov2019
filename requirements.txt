@@ -20,3 +20,7 @@ schema==0.7.1
 scipy==1.4.1
 tqdm==4.43.0
 xlrd==1.2.0
+scipy==1.4.1
+openpyxl==3.0.3
+statsmodels==0.11.0
+scikit-learn==0.22.1

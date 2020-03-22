@@ -41,6 +41,7 @@ default_disease_progression = {
 default_fear_factor = {
     FEAR_FUNCTION: default_fear_function,
     SCALE_FACTOR: 10,
+    LOC_FACTOR: 0,
     LIMIT_VALUE: 0.5,
     DETECTED_MULTIPLIER: 0,
     DEATHS_MULTIPLIER: 1

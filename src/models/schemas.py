@@ -87,7 +87,7 @@ serial_interval_schema = Schema(And({
     MAX_TIME: And(Use(float), lambda x: 0.0 <= x)
 }, lambda x: x[MIN_TIME] <= x[MAX_TIME]))
 
-detection_mild_proba_schema = Schema(And(float, probability_condition))
+detection_mild_proba_schema = Schema(And(Or(int, float), probability_condition))
 
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),

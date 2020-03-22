@@ -664,14 +664,14 @@ class InfectionModel:
         d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
         det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
-
-        quarantined_cases = df_r1[~df_r1.quarantine.isna()].sort_values(by='quarantine').quarantine
-        q_cases = quarantined_cases[quarantined_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
-
         self.plot_values(d_cases, 'Deceased', ax)
         self.plot_values(ho_cases, 'Hospitalized', ax)
         self.plot_values(det_cases, 'Detected', ax)
-        self.plot_values(q_cases, 'Quarantined', ax)
+
+        if QUARANTINE in df_r1.columns:
+            quarantined_cases = df_r1[~df_r1.quarantine.isna()].sort_values(by='quarantine').quarantine
+            q_cases = quarantined_cases[quarantined_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+            self.plot_values(q_cases, 'Quarantined', ax)
 
         ax.legend()
         ax.set_title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
@@ -709,13 +709,14 @@ class InfectionModel:
         detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
         det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
 
-        quarantined_cases = df_r1[~df_r1.quarantine.isna()].sort_values(by='quarantine').quarantine
-        q_cases = quarantined_cases[quarantined_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
-
         self.plot_values(d_cases, 'Deceased', ax, type='semilogy')
         self.plot_values(ho_cases, 'Hospitalized', ax, type='semilogy')
         self.plot_values(det_cases, 'Detected', ax, type='semilogy')
-        self.plot_values(q_cases, 'Quarantined', ax, type='semilogy')
+
+        if QUARANTINE in df_r1.columns:
+            quarantined_cases = df_r1[~df_r1.quarantine.isna()].sort_values(by='quarantine').quarantine
+            q_cases = quarantined_cases[quarantined_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+            self.plot_values(q_cases, 'Quarantined', ax, type='semilogy')
 
         ax.legend()
         ax.set_title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')

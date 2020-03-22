@@ -37,6 +37,7 @@ def probability_condition(x):
 fear_factor_schema = Schema({
     Optional(FEAR_FUNCTION, default=default_fear_factor[FEAR_FUNCTION]): Or(*FearFunctions.map()),
     Optional(SCALE_FACTOR, default=default_fear_factor[SCALE_FACTOR]): And(Or(Use(float), Use(int)), lambda x: x > 0),
+    Optional(LOC_FACTOR, default=default_fear_factor[LOC_FACTOR]): Or(Use(float), Use(int)),
     Optional(LIMIT_VALUE, default=default_fear_factor[LIMIT_VALUE]): And(Or(Use(float), Use(int)), probability_condition),
     Optional(DETECTED_MULTIPLIER, default=default_fear_factor[DETECTED_MULTIPLIER]): And(Or(Use(float), Use(int)), lambda x: x >= 0),
     Optional(DEATHS_MULTIPLIER, default=default_fear_factor[DEATHS_MULTIPLIER]): And(Or(Use(float), Use(int)), lambda x: x >= 0),

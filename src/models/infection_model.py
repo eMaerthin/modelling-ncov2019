@@ -84,15 +84,19 @@ class InfectionModel:
         tdeath_f, tdeath_args, tdeath_kwargs = self.setup_random_distribution(TDEATH)
         self.rv_tdeath = lambda: tdeath_f(*tdeath_args, **tdeath_kwargs)
 
+        # TODO: This should be refactored
         self.fear_fun = dict()
         self.fear_weights_detected = dict()
         self.fear_weights_deaths = dict()
         self.fear_scale = dict()
+        self.fear_loc = dict()
         self.fear_limit_value = dict()
 
         self.serial_intervals = []
         self.experimental_ub = None
         self.experimental_lb = None
+
+        self.band_time = None
 
     def get_detection_status_(self, person_id):
         return self._detection_status.get(person_id, default_detection_status)
@@ -359,24 +363,27 @@ class InfectionModel:
         fear_factors = self._params[FEAR_FACTORS]
         fear_factor = fear_factor_schema.validate(fear_factors.get(kernel_id, fear_factors.get(DEFAULT, None)))
         if not fear_factor:
-            return 1.0
+            return fear_functions[FearFunctions.FearDisabled], 0, 0, 0, 0, 0
         f = fear_functions[FearFunctions(fear_factor[FEAR_FUNCTION])]
         limit_value = fear_factor[LIMIT_VALUE]
         scale = fear_factor[SCALE_FACTOR]
+        loc = fear_factor[LOC_FACTOR]
         weights_deaths = fear_factor[DEATHS_MULTIPLIER]
         weights_detected = fear_factor[DETECTED_MULTIPLIER]
-        return f, weights_detected, weights_deaths, scale, limit_value
+        return f, weights_detected, weights_deaths, scale, loc, limit_value
 
     def fear(self, kernel_id) -> float:
         if kernel_id not in self.fear_fun:
+            res = self.set_up_internal_fear(kernel_id)
+            logger.info(res)
             (self.fear_fun[kernel_id], self.fear_weights_detected[kernel_id],
              self.fear_weights_deaths[kernel_id], self.fear_scale[kernel_id],
-             self.fear_limit_value[kernel_id]) = self.set_up_internal_fear(kernel_id)
-        detected = self.affected_people
+             self.fear_loc[kernel_id],  self.fear_limit_value[kernel_id]) = res
+        detected = self.detected_people
         deaths = self.deaths
         return self.fear_fun[kernel_id](detected, deaths, self.fear_weights_detected[kernel_id],
-                                        self.fear_weights_deaths[kernel_id], self.fear_scale[kernel_id],
-                                        self.fear_limit_value[kernel_id])
+                                        self.fear_weights_deaths[kernel_id], self.fear_loc[kernel_id],
+                                        self.fear_scale[kernel_id], self.fear_limit_value[kernel_id])
 
     def gamma(self, kernel_id):
         return self._params[TRANSMISSION_PROBABILITIES][kernel_id] * self.fear(kernel_id)
@@ -483,9 +490,9 @@ class InfectionModel:
                 ExpectedCaseSeverity.Mild,
                 ExpectedCaseSeverity.Asymptomatic
             ]:
-                trecovery = t0 + 14  # TODO: this should not be hardcoded!
+                trecovery = t0 + np.random.uniform(14.0 - 3.0, 14.0 + 3.0)  # TODO: this should not be hardcoded!
             else:
-                trecovery = t0 + 42
+                trecovery = t0 + np.random.uniform(42.0 - 14.0, 42.0 + 14.0)
             self.append_event(Event(trecovery, person_id, TRECOVERY, person_id, DISEASE_PROGRESSION, t0))
 
         """ Following is for checking whther tdetection should be picked up"""
@@ -585,7 +592,7 @@ class InfectionModel:
     def store_bins(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
-        fig, (ax0, ax1) = plt.subplots(nrows=2, ncols=1)
+        fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1)
         legend = []
         r2_max_time = df_r2.contraction_time.max()
         if self.active_people < 10:
@@ -602,10 +609,10 @@ class InfectionModel:
             legend.append('Imported')
         if len(cond2) > 0:
             arr.append(cond2)
-            legend.append('Inf. through constant kernel')
+            legend.append('Constant kernel')
         if len(cond3) > 0:
             arr.append(cond3)
-            legend.append('Inf. in the household')
+            legend.append('Household')
         ax0.hist(arr, bins, histtype='bar', stacked=True, label=legend)
         ax0.legend()
         arr = []
@@ -628,10 +635,17 @@ class InfectionModel:
         ax1.hist(arr, bins, histtype='bar', stacked=True, label=legend)
         ax1.legend()
         ax0.set_title(f'Daily stacked summaries of simulated covid19\n {self._params[EXPERIMENT_ID]}')
-        ax0.set_ylabel('Daily reported cases')
+        ax0.set_ylabel('Infections')
         ax0.set_xlabel('Time in days')
-        ax1.set_ylabel('Daily reported cases')
+        ax1.set_ylabel('Outcome')
         ax1.set_xlabel('Time in days')
+
+        detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+        det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+        ax2.hist(det_cases, bins, histtype='bar', stacked=True, label='Daily officially detected cases')
+        ax2.set_ylabel('Detections')
+        ax2.set_xlabel('Time in days')
+        ax2.legend()
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'bins.png'))
         plt.close(fig)
@@ -644,6 +658,10 @@ class InfectionModel:
                 ax.plot(x, y, label=label)
             elif type == 'semilogy':
                 ax.semilogy(x, y, label=label)
+
+    def prevalance_at(self, time):
+        df_r2 = self.df_infections
+        return len(df_r2[df_r2.contraction_time<=time])
 
     def store_graphs(self, simulation_output_dir):
         df_r1 = self.df_progression_times
@@ -675,6 +693,23 @@ class InfectionModel:
 
         ax.legend()
         ax.set_title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
+        if self._params[FEAR_FACTORS].get(CONSTANT, self._params[FEAR_FACTORS][DEFAULT])[FEAR_FUNCTION] != FearFunctions.FearDisabled:
+            ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+
+            ax2.set_ylabel('fear')  # we already handled the x-label with ax1
+            detected = np.arange(0, 1 + len(det_cases)) #.cumsum().values
+            yvals = []
+            kernel_id = CONSTANT
+            for de_ in detected:
+                yvals.append(self.fear_fun[kernel_id](de_, 0, self.fear_weights_detected[kernel_id],
+                                                      self.fear_weights_deaths[kernel_id],
+                                                      self.fear_loc[kernel_id],
+                                                      self.fear_scale[kernel_id],
+                                                      self.fear_limit_value[kernel_id]))
+            ax2.plot([0]+list(det_cases), yvals, 'k--')
+            ax2.tick_params(axis='y')
+            ax2.set_ylim(bottom=0, top=1)
+            ax2.legend()
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'summary.png'))
         plt.close(fig)
@@ -801,8 +836,10 @@ class InfectionModel:
         hack = self._params[EXPERIMENT_ID]
         c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
         c_norm = c * self._params[AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL]
+        det = self._params[DETECTION_MILD_PROBA] * 100
+        reduced_r = c_norm * self.fear(CONSTANT)
 
-        self._params[EXPERIMENT_ID] = f'{self._params[EXPERIMENT_ID]}\n(median serial interval: {serial_interval_median:.2f} days, R*: {c_norm:.3f})'
+        self._params[EXPERIMENT_ID] = f'{self._params[EXPERIMENT_ID]}\n(median serial interval: {serial_interval_median:.2f} days, R*: {c_norm:.3f}, Det: {det:.1f}%)\n reduction factor: {self.fear(CONSTANT):.3f}, reduced R*: {reduced_r:.3f}'
         self.store_graphs(simulation_output_dir)
         self.store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
@@ -845,6 +882,7 @@ class InfectionModel:
         cumv_filter_flag = cumv > icu_availability
         if cumv[cumv_filter_flag].any():
             critical_t = df.t.values[cumv_filter_flag].min()
+            self.band_time = critical_t
             ax.plot([critical_t] * 2, [0, largest_y], label=f'Critical time {critical_t:.1f}')
         ax.legend() #'upper left')
         ax.set_title('assuming ICU required for 4 weeks while recovering'
@@ -880,12 +918,16 @@ class InfectionModel:
         time = getattr(event, TIME)
         if int(time / self._params[LOG_TIME_FREQ]) != int(self._global_time / self._params[LOG_TIME_FREQ]):
             memory_use = ps.memory_info().rss / 1024 / 1024
+            fearC = self.fear(CONSTANT)
+            fearH = self.fear(HOUSEHOLD)
             logger.info(f'Time: {time:.2f}'
                          f'\tAffected: {self.affected_people}'
                          f'\tDetected: {self.detected_people}'
                          f'\tQuarantined: {self.quarantined_people}'
                          f'\tActive: {self.active_people}'
                          f'\tDeaths: {self.deaths}'
+                         f'\tFearC: {fearC}'
+                         f'\tFearH: {fearH}'
                          f'\tPhysical memory use: {memory_use:.2f} MB')
         self._global_time = time
         if self._global_time > self._max_time:
@@ -1026,9 +1068,19 @@ class InfectionModel:
         if isinstance(self._params[INITIAL_CONDITIONS], dict):
             cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
             init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
-        output_log = f'\nMean Time\tMean #Affected\tWins freq.\tc\tc_norm\tInit #people'\
+        subcritical = self._active_people < 10
+        bandtime = self.band_time
+        prev30 = self.prevalance_at(30)
+        prev60 = self.prevalance_at(60)
+        prev90 = self.prevalance_at(90)
+        prev120 = self.prevalance_at(120)
+        prev150 = self.prevalance_at(150)
+        output_log = f'\nMean_Time\tMean_#Affected\tWins_freq.\tc\tc_norm\tInit_#people'\
+                     f'\tPrevalence_30days\tPrevalence_60days\tPrevalence_90days'\
+                     f'\tPrevalence_120days\tPrevalence_150days\tBand_hit_time\tSubcritical'\
                      f'\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}'\
-                     f'\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'
+                     f'\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'\
+                     f'\t{prev30}\t{prev60}\t{prev90}\t{prev120}\t{prev150}\t{bandtime}\t{subcritical}'
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')

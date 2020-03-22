@@ -8,18 +8,27 @@ from src.features.population_generator_common import nodes_to_dataframe
 from datetime import datetime
 import numpy as np
 from tqdm import tqdm
+from xlrd import XLRDError
+
 
 project_dir = Path(__file__).resolve().parents[2]
 poland_folder = project_dir / 'data' / 'processed' / 'poland'
 
 
 class PopulationGenerator:
+    """Generator class for Polish population. The generation process is split into voivodships, since there is
+    separate data on age/gender as well as on number of households within each voivodship.
+    Age and gender are the latest known. The household data is the prognosis done by GUS in 2016 for the year 2020. """
     household_csv_houshold_index_col = 'household_index'
     household_csv_idx_col = 'idx'
     simulation_population_csv = 'population.csv'
     simulation_household_csv = 'household.csv'
 
     def __init__(self, voivodship: Path) -> None:
+        """Given a path to a voivodship folder, the initializer reads:
+         * age/gender dataframe and splits it into children (<18 y.o.) and adults (18+)
+         * households dataframe (that contains joint distribution of number of children x number of adults in a
+         household. """
         self.voivodship = voivodship
         self.age_gender_df = pd.read_excel(str(poland_folder / age_gender_xlsx.file_name),
                                            sheet_name=self.voivodship.name)
@@ -35,36 +44,47 @@ class PopulationGenerator:
         print(self.number_of_households)
 
     def _preprocess_household_headcount_ac(self) -> pd.DataFrame:
+        """If the household excel for a voivodship was processed already, the function reads the results from the
+        relevant excel file and returns them. Otherwise it reads the part of the GUS-provided excel file that is
+        corresponding to year 2020 and formats these data into more convenient format. Finally, saves into a file and
+        returns the dataframe. """
         try:
             df2 = pd.read_excel(str(self.voivodship / households_headcount_ac_xlsx.file_name),
                                 sheet_name=households_headcount_ac_xlsx.sheet_name)
-        except Exception as e:  # XLRDError No sheet named <'processed'>
-            print(str(e))
+        except XLRDError:
+            # read raw data - skip rows corresponding to previous years, read only this year and skip the total column
             df = pd.read_excel(str(self.voivodship / households_headcount_ac_xlsx_raw.file_name),
                                sheet_name=households_headcount_ac_xlsx_raw.sheet_name, header=None,
                                skiprows=29, nrows=6, usecols=[1, 3, 4, 5, 6, 7, 8],
                                names=['children', 0, 1, 2, 3, 4, 5], index_col=0)
 
+            # adults=0, children=0 is NaN, fix that and convert to int
             df = df.fillna(0)
             df = df.astype(int)
 
+            # make all indices int
             as_list = df.index.tolist()
             idx = as_list.index('5+')
             as_list[idx] = 5
             df.index = as_list
             df.index.name = 'children'
 
+            # melt the dataframe into three columns: children, adults, households (number of occurrences)
             df2 = pd.melt(df.reset_index(), id_vars=['children'], var_name='adults', value_name='households')
             df2 = df2.astype(int)
+            # get the total headcount in a household
             df2['headcount'] = df2.children + df2.adults
+            # probability of such a household
             df2['probability'] = df2['households'] / df2['households'].sum()
 
+            # save to excel file
             with closing(pd.ExcelWriter(str(self.voivodship / households_headcount_ac_xlsx.file_name),
                                         engine='openpyxl')) as writer:
                 df2.to_excel(writer, sheet_name=households_headcount_ac_xlsx.sheet_name, index=False)
         return df2
 
     def _draw_a_household(self) -> Tuple[int, int]:
+        """Randomly select a household given the probability of occurrence"""
         idx = np.random.choice(self.households_headcount_ac_df.index.tolist(),
                                p=self.households_headcount_ac_df['probability'])
         row = self.households_headcount_ac_df.iloc[idx]
@@ -72,6 +92,8 @@ class PopulationGenerator:
 
     def _draw_from_subpopulation(self, subpopulation: pd.DataFrame, headcount: int, household_idx: int,
                                  current_index: int) -> Tuple[List[BasicNode], int]:
+        """Randomly draw `headcount` people from `subpopulation` given the probability of age/gender combination within this
+        subpopulation and lodge them together in a household given by `household_idx`. """
         nodes = []
 
         for _ in range(headcount):
@@ -86,19 +108,26 @@ class PopulationGenerator:
 
     def _draw_children(self, children_count: int, household_idx: int, current_index: int) -> Tuple[
         List[BasicNode], int]:
+        """Randomly draw `children_count` children and lodge them together in a household given by `household_idx`.
+        """
         return self._draw_from_subpopulation(self.children_df, children_count, household_idx, current_index)
 
     def _draw_adults(self, adults_count: int, household_idx: int, current_index: int) -> Tuple[List[BasicNode], int]:
+        """Randomly draw `adults_count` adults and lodge them together in a household given by `household_idx`.
+        """
         return self._draw_from_subpopulation(self.adults_df, adults_count, household_idx, current_index)
 
     def _prepare_simulation_folder(self, simulations_folder):
+        """Within the given `simulations_folder` create a voivodship folder to save population and households data. """
         simulations_folder = simulations_folder / self.voivodship.name
         simulations_folder.mkdir()
         return simulations_folder
 
     def run(self, household_index: int, population_index: int, simulation_folder: Optional[Path] = None) \
             -> Tuple[int, int]:
-
+        """Main generation function. Given a starting household_index and a starting population_index, as well as
+        the path to a folder where simulation results are to be saved, this function generates population and
+        households in a voivodship the generator was initialized with. """
         simulation_folder = self._prepare_simulation_folder(simulation_folder)
 
         nodes: List[BasicNode] = []
@@ -113,6 +142,7 @@ class PopulationGenerator:
             nodes.extend(adults)
             households[current_household_idx] = [child.idx for child in children] + [adult.idx for adult in adults]
 
+            # Every 1000 households save the generated households and population and clear memory.
             if idx % 1000 == 0:
                 hdf = pd.DataFrame(data={self.household_csv_houshold_index_col: list(households.keys()),
                                          self.household_csv_idx_col: list(households.values())})
@@ -138,6 +168,7 @@ class PopulationGenerator:
 
 
 def prepare_simulations_folder(simulations_folder: Path = None):
+    """Creates a parent folder for generated population. """
     if simulations_folder is None:
         simulations_folder = project_dir / 'data' / 'simulations' / datetime.now().strftime('%Y%m%d_%H%M')
     if not simulations_folder.is_dir():
@@ -147,7 +178,7 @@ def prepare_simulations_folder(simulations_folder: Path = None):
 
 if __name__ == '__main__':
     voivodships = [x for x in poland_folder.iterdir() if x.is_dir() and len(x.name) == 1]
-    # change to subprocesses
+    # TODO: consider changing to subprocesses
     next_household_index = 0
     next_person_index = 0
     simulations_folder = prepare_simulations_folder()

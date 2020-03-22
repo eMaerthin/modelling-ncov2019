@@ -1,5 +1,8 @@
+"""This script gives a representation of an individual within a population. There are two classes, BaseNode and Node
+with basic data of an individual and all data, respectively."""
 import numpy as np
 from enum import Enum
+
 
 prop_idx = 'idx'
 prop_age = 'age'

@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 @dataclass
 class XlsxFile:
+    """Data structure representing an Excel file (XLSX format) given by the name of the file and the name of a sheet
+    to read data from"""
     file_name: str
     sheet_name: str
 
@@ -26,5 +28,3 @@ production_age = XlsxFile('production_age.xlsx', 'Sheet1')
 
 households_headcount_ac_xlsx_raw = XlsxFile('households_headcount_ac.xlsx', 'Tabl3')
 households_headcount_ac_xlsx = XlsxFile('households_headcount_ac.xlsx', 'processed')
-
-

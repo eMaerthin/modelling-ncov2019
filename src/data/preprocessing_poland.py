@@ -7,24 +7,10 @@ from src.data.datasets import *
 import numpy as np
 
 
-def prepare_family_structure_from_voivodship_old(data_folder):
-    voivodship = os.path.basename(data_folder)[0]
-    families_per_household_df = pd.read_excel(os.path.join(data_folder, families_per_household_xlsx.file_name))
-
-    family_structure_df = pd.read_excel(
-        os.path.join(data_folder, os.pardir, voivodship, household_family_structure_old_xlsx.file_name),
-        sheet_name=household_family_structure_old_xlsx.sheet_name)
-
-    columns = family_structure_df.columns[1:]
-    for col in columns:
-        family_structure_df[col] = round(
-            family_structure_df[col] * families_per_household_df.loc[0, col] / family_structure_df[col].sum())\
-            .astype(int)
-
-    family_structure_df.to_excel(os.path.join(data_folder, household_family_structure_old_xlsx.file_name), index=False)
-
-
 def prepare_family_structure_from_voivodship(data_folder):
+    """
+    Preprocesses the family structure excel for a voivodship from pivoted to melted table for easier further processing.
+    """
     voivodship = os.path.basename(data_folder)[0]
     voivodship_folder = os.path.join(data_folder, os.pardir, voivodship)
     df = pd.read_excel(os.path.join(voivodship_folder, household_family_structure_xlsx.file_name),
@@ -37,30 +23,12 @@ def prepare_family_structure_from_voivodship(data_folder):
     df2.to_excel(os.path.join(data_folder, household_family_structure_xlsx.file_name), index=False)
 
 
-def generate_household_indices_old(data_folder):
-    headcount2 = []
-    family_type = []
-
-    family_structure_df = pd.read_excel(os.path.join(data_folder, household_family_structure_old_xlsx.file_name))
-
-    for i, row in family_structure_df.iterrows():
-        headcount2.extend([row['Household size']] * int(row['One family']))
-        family_type.extend([1] * row['One family'])
-        headcount2.extend([row['Household size']] * int(row['Two families']))
-        family_type.extend([2] * row['Two families'])
-        headcount2.extend([row['Household size']] * int(row['Three families']))
-        family_type.extend([3] * row['Three families'])
-        headcount2.extend([row['Household size']] * int(row['One person']))
-        family_type.extend([0] * row['One person'])
-        headcount2.extend([row['Household size']] * int(row['Nonfamily']))
-        family_type.extend([0] * row['Nonfamily'])
-
-    household_df = pd.DataFrame(
-        data={'headcount': headcount2, 'family_type': family_type, 'household_index': list(range(len(headcount2)))})
-    household_df.set_index('household_index').to_excel(os.path.join(data_folder, households_old_xlsx.file_name))
-
-
 def _generation_configuration_for_household(df, headcount, family_type, relationship, house_master):
+    """
+    Given a headcount, family type (0,1,2,3), relationship between families
+    (if applicable) and who the housemaster is (in multi-family households), this method returns all matching
+    households in the df dataframe.
+    """
     if family_type == 1:
         if house_master not in (np.nan, '', None):
             return df[(df.family_type == family_type) & (df.relationship == relationship)
@@ -76,6 +44,17 @@ def _generation_configuration_for_household(df, headcount, family_type, relation
 
 
 def generate_household_indices(data_folder):
+    """Generates and saves to an excel file a dataframe of households. Each household consists of:
+     * an index,
+     * headcount,
+     * family_type (0,1,2,3 - number of families in the household)
+     * relationship - between families, if more than one lives in the household
+     * house_master - in 2 and 3 families households, which family does the housemaster belong to
+     * family_structure_regex - auxiliary description of a household
+     * young - flag whether people younger than 30 years old live in a household
+     * middle - flag, whether people between 30 and 59 inclusive live in a household
+     * elderly - flag, whether people older than 59 live in a household
+     """
     household_headcount = []
     family_type = []
     relationship = []
@@ -124,6 +103,22 @@ def generate_household_indices(data_folder):
 
 
 def generate_generations_configuration(voivodship_folder, data_folder):
+    """
+    This function does the preprocessing of Census data for age generations living together in households:
+
+    Generations - a table that contains probability of living together. In the original table there are seven columns:
+    * young alone -> cat1
+    * middle-aged alone -> cat2
+    * elderly alone -> cat3
+    * young and middle-aged together -> cat4
+    * young and elderly together -> cat5
+    * middle-aged and elderly together -> cat6
+    * young, middle-aged and elderly together -> cat7
+    The function takes occurrences of each category and models them as three boolean columns: young, middle, elderly.
+
+    Additionally, family_type field is changed from descriptive, string form into a number (0, 1, 2, 3) that represents
+    the number of families living in a household.
+    """
     v_config_df = pd.read_excel(os.path.join(voivodship_folder, generations_configuration_xlsx.file_name),
                                 sheet_name='preprocessed', header=[0, 1])
     melted = pd.melt(v_config_df, id_vars=[('Unnamed: 0_level_0', 'family_type'),

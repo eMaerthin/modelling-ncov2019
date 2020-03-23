@@ -7,7 +7,9 @@ from functools import (lru_cache, partial)
 import json
 import logging
 import random
+import sys
 import time
+import numpy as np
 
 import fire
 from git import Repo
@@ -30,6 +32,8 @@ from queue import (PriorityQueue)
 q = PriorityQueue()
 
 import pandas as pd
+
+DEBUG = True
 
 
 class InfectionModel:
@@ -91,36 +95,52 @@ class InfectionModel:
         :return:
         """
         logger.info('Set up data frames: Reading population csv...')
-        self.individuals = read_pop_exp_csv(self.df_individuals_path)
-        self._individuals_age =  self.individuals[AGE]
-        self._individuals_household_id = self.individuals[HOUSEHOLD_ID]
-        self._individuals_indices = self.individuals[ID]
+        individuals = read_pop_exp_csv(self.df_individuals_path)
+        _individuals_age = np.array(individuals[AGE])
+        _individuals_indices = np.array(individuals[ID])
+        _individuals_household_id = dict(zip(_individuals_indices, individuals[HOUSEHOLD_ID]))
 
-        #self._df_individuals = pd.read_csv(self.df_individuals_path)
-        #self._df_individuals.index = self._df_individuals.idx
-        #self._individuals_age = self._df_individuals[AGE].values
-        #self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
-        #self._individuals_indices = self._df_individuals.index.values
+        self._df_individuals = pd.read_csv(self.df_individuals_path)
+        self._df_individuals.index = self._df_individuals.idx
+        self._individuals_age = self._df_individuals[AGE].values
+        self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
+        self._individuals_indices = self._df_individuals.index.values
+
+        if all(self._individuals_age == _individuals_age):
+            self.individuals_age = _individuals_age
+        if all(self._individuals_indices== _individuals_indices):
+            self._individuals_indices = _individuals_indices
+        if self._individuals_household_id == _individuals_household_id:
+            self._individuals_household_id = _individuals_household_id
 
         logger.info('Set up data frames without pandas: Building households df...')
 
         if os.path.exists(self.df_households_path):
-            self.households = read_households_csv(self.df_households_path)
+            _households_inhabitants = read_households_csv(self.df_households_path)
         else:
-            
+            _households_inhabitants = get_household2inhabitants(self.individuals[HOUSEHOLD_ID], self.individuals[ID])    
 
-        # if os.path.exists(self.df_households_path):
-            # self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
-            #                                  converters={ID: ast.literal_eval})
+        _households_capacities = {k: len(v) for k,v in _households_inhabitants.items()}
+
+
+        if os.path.exists(self.df_households_path):
+            self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
+                                              converters={ID: ast.literal_eval})
         else:
             self.households = get_household2inhabitants()
             self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
             os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)
             self._df_households.to_csv(self.df_households_path)
+            
         self._df_households[CAPACITY] = self._df_households[ID].apply(lambda x: len(x))
         d = self._df_households.to_dict()
         self._households_inhabitants = d[ID] #self._df_households[ID]
         self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
+        
+        if self._households_inhabitants == _households_inhabitants:
+            self._households_inhabitants = _households_inhabitants
+        if self._households_capacities == _households_capacities:
+            self._households_capacities = _households_capacities
 
 
     def append_event(self, event: Event) -> None:
@@ -177,7 +197,7 @@ class InfectionModel:
         infectious_prob = import_intensity[INFECTIOUS]
         event_times = _generate_event_times(func=func, rate=rate, multiplier=multiplier, cap=cap)
         for event_time in event_times:
-            person_id = self.df_individuals.index[np.random.randint(len(self.df_individuals))]
+            person_id = self._individuals_indices[np.random.randint(len(self._individuals_indices))]
             t_state = TMINUS1
             if np.random.rand() < infectious_prob:
                 t_state = T0
@@ -417,7 +437,7 @@ class InfectionModel:
             if self._df_individuals.loc[person_id, EMPLOYMENT_STATUS] > 0:
                 self.add_potential_contractions_from_employment_kernel(person_id)
         '''
-        household_id = self._individuals_household_id[person_id]  # self._df_individuals.loc[person_id, HOUSEHOLD_ID]
+        household_id = int(self._individuals_household_id[person_id])  # self._df_individuals.loc[person_id, HOUSEHOLD_ID]
         capacity = self._households_capacities[household_id]  # self._df_households.loc[household_id][ID]
         if capacity > 1:
             self.add_potential_contractions_from_household_kernel(person_id)

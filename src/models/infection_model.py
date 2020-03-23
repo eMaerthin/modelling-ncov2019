@@ -63,6 +63,7 @@ class InfectionModel:
         self._quarantined_people = 0
         self._detected_people = 0
         self._deaths = 0
+        self._hospitalized = 0
 
         self._set_up_data_frames()
         self._infection_status = {}
@@ -565,6 +566,30 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'doubling_times.png'))
         plt.close(fig)
 
+    def lancet_draw_death_age_cohorts(self, simulation_output_dir):
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+        df_in = self.df_individuals
+        lims = default_age_cohorts_with_descriptions
+
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        for limm, limM, descr in lims:
+            cond1 = df_in.age >= limm
+            cond2 = df_in.age < limM
+            cond = np.logical_and(cond1, cond2)
+            filtered = df_r1.loc[df_r1.index.isin(df_in[cond].index)]
+            death_cases = filtered[~filtered.tdeath.isna()].sort_values(by='tdeath').tdeath
+            d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+            d_times = np.arange(1, 1 + len(d_cases))
+            ax.plot(np.append(d_cases, df_r2.contraction_time.max(axis=0)),
+                    np.append(d_times, len(d_cases)), label=descr)
+
+        ax.legend()
+        experiment_id = self._params[EXPERIMENT_ID]
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'lancet_supplementary_deceased_cases_age_analysis.png'))
+        plt.close(fig)
+
     def draw_death_age_cohorts(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
@@ -588,6 +613,42 @@ class InfectionModel:
         ax.set_title(f'cumulative deceased cases per age group \n {experiment_id}')
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'deceased_cases_age_analysis.png'))
+        plt.close(fig)
+
+    def lancet_store_bins(self, simulation_output_dir):
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+
+        fig, ax0 = plt.subplots()
+        r2_max_time = df_r2.contraction_time.max()
+        if self.active_people < 10:
+            ax0.plot([r2_max_time], [0], 'ro', markersize=5, label='Last reported infection time')
+
+        bins = None
+        if r2_max_time < 730:
+            bins = list(range(int(1 + r2_max_time)))
+        else:
+            bins = np.int(np.minimum(730, 1 + r2_max_time))
+        cond3 = df_r2.contraction_time.sort_values()
+        legend = []
+        arr = []
+        if len(cond3) > 0:
+            arr.append(cond3)
+            legend.append('Infections')
+            ax0.hist(arr, bins, histtype='bar', stacked=False, label=legend)
+        arr = []
+        legend = []
+        hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
+        ho_cases = hospitalized_cases[hospitalized_cases <= r2_max_time].sort_values()
+        if len(ho_cases) > 0:
+            arr.append(ho_cases)
+            legend.append('Hospitalized')
+        ax0.hist(arr, bins, histtype='bar', stacked=False, label=legend)
+        ax0.legend()
+        ax0.set_ylabel('Incidents')
+        ax0.set_xlabel('Time in days')
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'lancet_bins.png'))
         plt.close(fig)
 
     def store_bins(self, simulation_output_dir):
@@ -725,6 +786,52 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'summary.png'))
         plt.close(fig)
 
+
+    def lancet_store_graphs(self, simulation_output_dir):
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        vals = df_r2.contraction_time.sort_values()
+        self.plot_values(vals, 'Prevalence', ax)
+        hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
+        ho_cases = hospitalized_cases[hospitalized_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+        death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
+        d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+        detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+        det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+        self.plot_values(d_cases, 'Deceased', ax)
+        self.plot_values(ho_cases, 'Hospitalized', ax)
+        self.plot_values(det_cases, 'Detected', ax)
+
+        if QUARANTINE in df_r1.columns:
+            quarantined_cases = df_r1[~df_r1.quarantine.isna()].sort_values(by='quarantine').quarantine
+            q_cases = quarantined_cases[quarantined_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+            self.plot_values(q_cases, 'Quarantined', ax)
+
+        ax.legend()
+        #ax.set_title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
+        if self._params[FEAR_FACTORS].get(CONSTANT, self._params[FEAR_FACTORS][DEFAULT])[FEAR_FUNCTION] != FearFunctions.FearDisabled:
+            ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+
+            ax2.set_ylabel('fear')  # we already handled the x-label with ax1
+            detected = np.arange(0, 1 + len(det_cases)) #.cumsum().values
+            yvals = []
+            kernel_id = CONSTANT
+            for de_ in detected:
+                yvals.append(self.fear_fun[kernel_id](de_, 0, self.fear_weights_detected[kernel_id],
+                                                      self.fear_weights_deaths[kernel_id],
+                                                      self.fear_loc[kernel_id],
+                                                      self.fear_scale[kernel_id],
+                                                      self.fear_limit_value[kernel_id]))
+            ax2.plot([0]+list(det_cases), yvals, 'k--')
+            ax2.tick_params(axis='y')
+            ax2.set_ylim(bottom=0, top=1)
+            ax2.legend()
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'lancet_summary.png'))
+        plt.close(fig)
+
     def store_semilogy(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
@@ -857,13 +964,55 @@ class InfectionModel:
             self._params[EXPERIMENT_ID] = f'{self._params[EXPERIMENT_ID]})'
         if self._params[FEAR_FACTORS].get(CONSTANT, self._params[FEAR_FACTORS][DEFAULT])[FEAR_FUNCTION] != FearFunctions.FearDisabled:
             self._params[EXPERIMENT_ID] = f'{self._params[EXPERIMENT_ID]}\n reduction factor: {(1 - self.fear(CONSTANT)):.3f}, reduced R*: {reduced_r:.3f}'
-        self.store_graphs(simulation_output_dir)
-        self.store_bins(simulation_output_dir)
+        self.lancet_store_graphs(simulation_output_dir)
+        self.lancet_store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
         self.doubling_time(simulation_output_dir)
-        self.icu_beds(simulation_output_dir)
-        self.draw_death_age_cohorts(simulation_output_dir)
+        self.lancet_icu_beds(simulation_output_dir)
+        self.lancet_draw_death_age_cohorts(simulation_output_dir)
         self._params[EXPERIMENT_ID] = hack
+
+    def lancet_icu_beds(self, simulation_output_dir):
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        legend = []
+        cond = [k for k, v in self._expected_case_severity.items() if v == ExpectedCaseSeverity.Critical]
+        critical = df_r1.loc[df_r1.index.isin(cond)]
+        plus = critical.t2.values
+        deceased = critical[~critical.tdeath.isna()]
+        survived = critical[critical.tdeath.isna()]
+        minus1 = survived.t2.values + FOUR_WEEKS  # TODO
+        minus2 = deceased.tdeath.values
+        max_time = df_r2.contraction_time.max(axis=0)
+        df_plus = pd.DataFrame({'t': plus, 'd': np.ones_like(plus)})
+        df_minus1 = pd.DataFrame({'t': minus1, 'd': -np.ones_like(minus1)})
+        df_minus2 = pd.DataFrame({'t': minus2, 'd': -np.ones_like(minus2)})
+        df = df_plus.append(df_minus1).append(df_minus2).sort_values(by='t')
+        df = df[df.t <= max_time]
+        if len(df) == 0:
+            return
+        cumv = df.d.cumsum().values
+        ax.plot(df.t.values, cumv, label='ICU required')
+        largest_y = cumv.max()
+        icu_availability = self._params[ICU_AVAILABILITY]
+
+        death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
+        d_cases = death_cases[death_cases <= max_time].sort_values()
+        if len(d_cases) > 0:
+            ax.plot(d_cases, np.arange(1, 1 + len(d_cases)), label='deceased')
+            largest_y = max(largest_y, len(d_cases))
+        ax.plot([0, max_time], [icu_availability] * 2, label=f'ICU capacity ({icu_availability})')
+        cumv_filter_flag = cumv > icu_availability
+        if cumv[cumv_filter_flag].any():
+            critical_t = df.t.values[cumv_filter_flag].min()
+            self.band_time = critical_t
+            ax.plot([critical_t] * 2, [0, largest_y], label=f'Critical time {critical_t:.1f}')
+        ax.legend()  # 'upper left')
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'lancet_icu_beds_analysis.png'))
+        plt.close(fig)
 
     def icu_beds(self, simulation_output_dir):
         df_r1 = self.df_progression_times
@@ -1001,10 +1150,12 @@ class InfectionModel:
                 InfectionStatus.Infectious
             ]:
                 self._infection_status[person_id] = InfectionStatus.Hospital.value
+                self._hospitalized += 1
         elif type_ == TDEATH:
             if self.get_infection_status(person_id) != InfectionStatus.Death:
                 self._infection_status[person_id] = InfectionStatus.Death.value
                 self._deaths += 1
+                self._hospitalized -= 1
                 self._active_people -= 1
         elif type_ == TRECOVERY: # TRECOVERY is exclusive with regards to TDEATH (when this comment was added)
             if self.get_infection_status(person_id) != InfectionStatus.Recovered:
@@ -1041,6 +1192,10 @@ class InfectionModel:
     def run_simulation(self):
         def _inner_loop(iter):
             while not q.empty():
+                if self._hospitalized >= self._params[ICU_AVAILABILITY]:
+                    logging.info('icu')
+                    self.band_time = self._global_time
+                    break
                 if self.affected_people >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break
@@ -1057,6 +1212,8 @@ class InfectionModel:
             if self._params[LOG_OUTPUTS]:
                 logger.info('Log outputs')
                 self.log_outputs()
+            if self._hospitalized >= self._params[ICU_AVAILABILITY]:
+                return True
             if self.affected_people >= self.stop_simulation_threshold:
                 return True
             return False
@@ -1067,11 +1224,11 @@ class InfectionModel:
         elif isinstance(self._params[RANDOM_SEED], int):
             seeds = [self._params[RANDOM_SEED]]
         runs = 0
-        output_log = 'Time_when_no_outbreak;Total_#Affected;Total_#Detected;Total_#Deceased;Total_#Quarantined;'\
+        output_log = 'Last_processed_time;Total_#Affected;Total_#Detected;Total_#Deceased;Total_#Quarantined;'\
                      'c;c_norm;Init_#people;Prevalence_30days;Prevalence_60days;Prevalence_90days;'\
                      'Prevalence_120days;Prevalence_150days;Prevalence_180days;Band_hit_time;Subcritical;'\
                      'Prevalence_360days;runs;fear;detection_rate;increase_10;increase_20;increase_30;increase_40;'\
-                     'increase_50;increase_100;increase_150\n'
+                     'increase_50;increase_100;increase_150;incidents_per_last_day;over_icu\n'
         for i, seed in enumerate(seeds):
             runs += 1
             self.parse_random_seed(seed)
@@ -1082,9 +1239,7 @@ class InfectionModel:
             self._fill_queue_based_on_auxiliary_functions()
             logger.info('Initialization step is done!')
             outbreak = _inner_loop(i + 1)
-            no_outbreak_time = None
-            if not outbreak:
-                no_outbreak_time = self._global_time
+            last_processed_time = self._global_time
 
             c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
             c_norm = c*self._params[AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL]
@@ -1094,6 +1249,8 @@ class InfectionModel:
                 init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
             subcritical = self._active_people < init_people/2 # at 200 days
             bandtime = self.band_time
+            if not bandtime:
+                return 0
             prev30 = self.prevalance_at(30)
             prev60 = self.prevalance_at(60)
             prev90 = self.prevalance_at(90)
@@ -1114,11 +1271,12 @@ class InfectionModel:
             mean_increase_at_50 = self.mean_day_increase_until(50)
             mean_increase_at_100 = self.mean_day_increase_until(100)
             mean_increase_at_150 = self.mean_day_increase_until(150)
-            output_log = f'{output_log}{no_outbreak_time};{affected};{detected};{deceased};{quarantined};'\
+            incidents_per_last_day = self.prevalance_at(self._global_time) - self.prevalance_at(self._global_time - 1)
+            output_log = f'{output_log}{last_processed_time };{affected};{detected};{deceased};{quarantined};'\
                          f'{c};{c_norm};{init_people};{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};'\
                          f'{bandtime};{subcritical};{prev360};{runs};{fear_};{detection_rate};'\
                          f'{mean_increase_at_10};{mean_increase_at_20};{mean_increase_at_30};{mean_increase_at_40};'\
-                         f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150}\n'
+                         f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150};{incidents_per_last_day};{outbreak}\n'
 
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
@@ -1136,6 +1294,7 @@ class InfectionModel:
         self._detected_people = 0
         self._quarantined_people = 0
         self._deaths = 0
+        self._hospitalized = 0
 
         self._fear_factor = {}
         self._infection_status = {}

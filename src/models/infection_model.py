@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt
 import scipy.optimize
 import scipy.stats
 
+from src.read_csv import read_pop_exp_csv, read_households_csv
 from src.models.schemas import *
 from src.models.defaults import *
 from src.models.states_and_functions import *
@@ -26,6 +27,8 @@ from dotenv import find_dotenv, load_dotenv
 
 from queue import (PriorityQueue)
 q = PriorityQueue()
+
+import pandas as pd
 
 
 class InfectionModel:
@@ -87,17 +90,23 @@ class InfectionModel:
         :return:
         """
         logger.info('Set up data frames: Reading population csv...')
-        self._df_individuals = pd.read_csv(self.df_individuals_path)
-        self._df_individuals.index = self._df_individuals.idx
-        self._individuals_age = self._df_individuals[AGE].values
-        self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
-        self._individuals_indices = self._df_individuals.index.values
+        self.individuals = read_pop_exp_csv(self.df_individuals_path)
+        self._individuals_age =  self.individuals[AGE]
+        self._individuals_household_id = self.individuals[HOUSEHOLD_ID]
+        self._individuals_indices = self.individuals[ID]
 
-        logger.info('Set up data frames: Building households df...')
+        #self._df_individuals = pd.read_csv(self.df_individuals_path)
+        #self._df_individuals.index = self._df_individuals.idx
+        #self._individuals_age = self._df_individuals[AGE].values
+        #self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
+        #self._individuals_indices = self._df_individuals.index.values
+
+        logger.info('Set up data frames without pandas: Building households df...')
 
         if os.path.exists(self.df_households_path):
             self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
                                               converters={ID: ast.literal_eval})
+
         else:
             self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
             os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)

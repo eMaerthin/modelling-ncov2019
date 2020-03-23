@@ -4,7 +4,7 @@ import csv
 
 
 def iter_csv(path, delimiter=',', **reader_kwds):
-    with open(p) as csvfile:
+    with open(path) as csvfile:
         spamreader = csv.reader(csvfile, delimiter=delimiter, **reader_kwds)
         for row in spamreader:
             yield row
@@ -38,14 +38,3 @@ def read_households_csv(path):
     household   = [int(hi) for hi,_ in d]
     capacities  = [len(i) for i in inhabitants]
     return household, inhabitants, capacities
-
-
-# if __name__ == '__main__':
-    # from pathlib import Path
-    # import pandas as pd
-    # f = Path("/home/matteo/Projects/corona/modelling-ncov2019/data/vroclav") 
-    # x = read_pop_exp_csv(f/"population_experiment0.csv")
-    # x['household_index']
-    # x.keys()
-    # p = f/'households_experiment0.csv'
-    # y = pd.read_csv(p)

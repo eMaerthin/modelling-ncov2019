@@ -12,7 +12,6 @@ import time
 import fire
 from git import Repo
 from matplotlib import pyplot as plt
-import pandas as pd
 import scipy.optimize
 import scipy.stats
 

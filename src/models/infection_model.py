@@ -1101,7 +1101,7 @@ class InfectionModel:
                      f'\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}'\
                      f'\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'\
                      f'\t{prev30}\t{prev60}\t{prev90}\t{prev120}\t{prev150}\t{prev180}\t{bandtime}'\
-                     f'\t{subcritical}\t{prev360}\t{runs}\t{fear}\t{detection_rate}'
+                     f'\t{subcritical}\t{prev360}\t{runs}\t{fear_}\t{detection_rate}'
 
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')

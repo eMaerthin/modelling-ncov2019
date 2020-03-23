@@ -63,7 +63,7 @@ class InfectionModel:
         self._quarantined_people = 0
         self._detected_people = 0
         self._deaths = 0
-        self._hospitalized = 0
+        self._hospitalized_critical = 0
 
         self._set_up_data_frames()
         self._infection_status = {}
@@ -983,7 +983,7 @@ class InfectionModel:
         plus = critical.t2.values
         deceased = critical[~critical.tdeath.isna()]
         survived = critical[critical.tdeath.isna()]
-        minus1 = survived.t2.values + FOUR_WEEKS  # TODO
+        minus1 = survived.trecovery.values #FOUR_WEEKS  # TODO
         minus2 = deceased.tdeath.values
         max_time = df_r2.contraction_time.max(axis=0)
         df_plus = pd.DataFrame({'t': plus, 'd': np.ones_like(plus)})
@@ -1150,17 +1150,27 @@ class InfectionModel:
                 InfectionStatus.Infectious
             ]:
                 self._infection_status[person_id] = InfectionStatus.Hospital.value
-                self._hospitalized += 1
+                if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
+                    self._hospitalized_critical += 1
         elif type_ == TDEATH:
-            if self.get_infection_status(person_id) != InfectionStatus.Death:
-                self._infection_status[person_id] = InfectionStatus.Death.value
+            if self.get_infection_status(person_id) not in [
+                InfectionStatus.Death,
+                InfectionStatus.Recovered
+            ]:
                 self._deaths += 1
-                self._hospitalized -= 1
-                self._active_people -= 1
+                if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
+                    self._hospitalized_critical += 1
+                    self._active_people -= 1
+                self._infection_status[person_id] = InfectionStatus.Death.value
+
         elif type_ == TRECOVERY: # TRECOVERY is exclusive with regards to TDEATH (when this comment was added)
-            if self.get_infection_status(person_id) != InfectionStatus.Recovered:
+            if self.get_infection_status(person_id) not in [
+                InfectionStatus.Recovered,
+                InfectionStatus.Death
+            ]:
                 self._active_people -= 1
-                self._hospitalized -= 1
+                if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
+                    self._hospitalized_critical -= 1
                 self._infection_status[person_id] = InfectionStatus.Recovered
         elif type_ == TDETECTION:
             if self.get_infection_status(person_id) not in [
@@ -1193,7 +1203,7 @@ class InfectionModel:
     def run_simulation(self):
         def _inner_loop(iter):
             while not q.empty():
-                if self._hospitalized >= self._params[ICU_AVAILABILITY]:
+                if self._hospitalized_critical >= self._params[ICU_AVAILABILITY]:
                     logging.info('icu')
                     self.band_time = self._global_time
                     break
@@ -1213,7 +1223,7 @@ class InfectionModel:
             if self._params[LOG_OUTPUTS]:
                 logger.info('Log outputs')
                 self.log_outputs()
-            if self._hospitalized >= self._params[ICU_AVAILABILITY]:
+            if self._hospitalized_critical >= self._params[ICU_AVAILABILITY]:
                 return True
             if self.affected_people >= self.stop_simulation_threshold:
                 return True
@@ -1273,7 +1283,7 @@ class InfectionModel:
             mean_increase_at_100 = self.mean_day_increase_until(100)
             mean_increase_at_150 = self.mean_day_increase_until(150)
             incidents_per_last_day = self.prevalance_at(self._global_time) - self.prevalance_at(self._global_time - 1)
-            hospitalized=self._hospitalized
+            hospitalized=self._hospitalized_critical
             output_log = f'{output_log}{last_processed_time };{affected};{detected};{deceased};{quarantined};'\
                          f'{c};{c_norm};{init_people};{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};'\
                          f'{bandtime};{subcritical};{prev360};{runs};{fear_};{detection_rate};'\
@@ -1296,7 +1306,7 @@ class InfectionModel:
         self._detected_people = 0
         self._quarantined_people = 0
         self._deaths = 0
-        self._hospitalized = 0
+        self._hospitalized_critical = 0
 
         self._fear_factor = {}
         self._infection_status = {}

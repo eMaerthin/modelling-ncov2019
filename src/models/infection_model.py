@@ -1060,7 +1060,9 @@ class InfectionModel:
         mean_time_when_no_outbreak = 0.0
         mean_affected_when_no_outbreak = 0.0
         no_outbreaks = 0
+        runs = 0
         for i, seed in enumerate(seeds):
+            runs += 1
             self.parse_random_seed(seed)
             self.setup_simulation()
             logger.info('Filling queue based on initial conditions...')
@@ -1088,13 +1090,19 @@ class InfectionModel:
         prev90 = self.prevalance_at(90)
         prev120 = self.prevalance_at(120)
         prev150 = self.prevalance_at(150)
-        prev360 = self.prevalence_at(360)
+        prev180 = self.prevalance_at(180)
+        prev360 = self.prevalance_at(360)
+        fear_ = self.fear(CONSTANT)
+        detection_rate = self._params[DETECTION_MILD_PROBA]
         output_log = f'\nMean_Time\tMean_#Affected\tWins_freq.\tc\tc_norm\tInit_#people'\
                      f'\tPrevalence_30days\tPrevalence_60days\tPrevalence_90days'\
-                     f'\tPrevalence_120days\tPrevalence_150days\tBand_hit_time\tSubcritical\tPrevalence_360days'\
+                     f'\tPrevalence_120days\tPrevalence_150days\tPrevalence_180days'\
+                     f'\tBand_hit_time\tSubcritical\tPrevalence_360days\truns\tfear\tdetection_rate'\
                      f'\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}'\
                      f'\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'\
-                     f'\t{prev30}\t{prev60}\t{prev90}\t{prev120}\t{prev150}\t{bandtime}\t{subcritical}\t{prev360}'
+                     f'\t{prev30}\t{prev60}\t{prev90}\t{prev120}\t{prev150}\t{prev180}\t{bandtime}'\
+                     f'\t{subcritical}\t{prev360}\t{runs}\t{fear}\t{detection_rate}'
+
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')

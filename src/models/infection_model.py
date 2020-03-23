@@ -16,6 +16,7 @@ import scipy.optimize
 import scipy.stats
 
 from src.read_csv import read_pop_exp_csv, read_households_csv
+from src.df_like_ops import get_household2inhabitants
 from src.models.schemas import *
 from src.models.defaults import *
 from src.models.states_and_functions import *
@@ -104,10 +105,15 @@ class InfectionModel:
         logger.info('Set up data frames without pandas: Building households df...')
 
         if os.path.exists(self.df_households_path):
-            self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
-                                              converters={ID: ast.literal_eval})
-
+            self.households = read_households_csv(self.df_households_path)
         else:
+            
+
+        # if os.path.exists(self.df_households_path):
+            # self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
+            #                                  converters={ID: ast.literal_eval})
+        else:
+            self.households = get_household2inhabitants()
             self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
             os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)
             self._df_households.to_csv(self.df_households_path)

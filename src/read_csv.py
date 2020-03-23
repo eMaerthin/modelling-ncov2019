@@ -4,7 +4,7 @@ import csv
 
 
 def iter_csv(path, delimiter=',', **reader_kwds):
-    with open(p) as csvfile:
+    with open(path) as csvfile:
         spamreader = csv.reader(csvfile, delimiter=delimiter, **reader_kwds)
         for row in spamreader:
             yield row

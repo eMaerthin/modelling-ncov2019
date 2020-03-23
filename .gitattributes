@@ -1,6 +1,7 @@
-data/*/*.zip filter=lfs diff=lfs merge=lfs -text
-data/*/*.csv filter=lfs diff=lfs merge=lfs -text
-data/*/*.xlsx filter=lfs diff=lfs merge=lfs -text
+data/**/*.zip filter=lfs diff=lfs merge=lfs -text
+data/**/*.csv filter=lfs diff=lfs merge=lfs -text
+data/**/*.xlsx filter=lfs diff=lfs merge=lfs -text
+data/**/*.ods filter=lfs diff=lfs merge=lfs -text
 references/*.pdf filter=lfs diff=lfs merge=lfs -text
 notebooks/*.ipynb filter=lfs diff=lfs merge=lfs -text
 test/models/assets/dummy_distribution.npy filter=lfs diff=lfs merge=lfs -text

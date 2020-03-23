@@ -98,6 +98,7 @@ class InfectionModel:
 
         self.band_time = None
         self._last_affected = None
+        self._per_day_increases = {}
 
     def get_detection_status_(self, person_id):
         return self._detection_status.get(person_id, default_detection_status)
@@ -665,6 +666,14 @@ class InfectionModel:
         df_r2 = self.df_infections
         return len(df_r2[df_r2.contraction_time<=time])
 
+    def mean_day_increase_until(self, time):
+        mean_increase = 0.0
+        i = 0
+        for k, v in self._per_day_increases.items():
+            if k <= time:
+                mean_increase = (mean_increase * i + v) / (i + 1)
+        return mean_increase
+
     def store_graphs(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
@@ -932,6 +941,7 @@ class InfectionModel:
             if self._last_affected:
                 per_day_increase = (self.affected_people - self._last_affected)/self._last_affected*100
             self._last_affected = self.affected_people
+            self._per_day_increases[int(self._global_time)] = per_day_increase
             logger.info(f'Time: {time:.2f}'
                          f'\tAffected: {self.affected_people}'
                          f'\tDetected: {self.detected_people}'
@@ -1056,11 +1066,12 @@ class InfectionModel:
             seeds = eval(self._params[RANDOM_SEED])
         elif isinstance(self._params[RANDOM_SEED], int):
             seeds = [self._params[RANDOM_SEED]]
-        outbreak_proba = 0.0
-        mean_time_when_no_outbreak = 0.0
-        mean_affected_when_no_outbreak = 0.0
-        no_outbreaks = 0
         runs = 0
+        output_log = 'Time_when_no_outbreak;Total_#Affected;Total_#Detected;Total_#Deceased;Total_#Quarantined;'\
+                     'c;c_norm;Init_#people;Prevalence_30days;Prevalence_60days;Prevalence_90days;'\
+                     'Prevalence_120days;Prevalence_150days;Prevalence_180days;Band_hit_time;Subcritical;'\
+                     'Prevalence_360days;runs;fear;detection_rate;increase_10;increase_20;increase_30;increase_40;'\
+                     'increase_50;increase_100;increase_150\n'
         for i, seed in enumerate(seeds):
             runs += 1
             self.parse_random_seed(seed)
@@ -1071,37 +1082,43 @@ class InfectionModel:
             self._fill_queue_based_on_auxiliary_functions()
             logger.info('Initialization step is done!')
             outbreak = _inner_loop(i + 1)
-            outbreak_proba = (i * outbreak_proba + outbreak) / (i + 1)
+            no_outbreak_time = None
             if not outbreak:
-                mean_time_when_no_outbreak = (mean_time_when_no_outbreak * no_outbreaks + self._global_time) / (
-                            no_outbreaks + 1)
-                mean_affected_when_no_outbreak = (mean_affected_when_no_outbreak * no_outbreaks + self._affected_people) / ( no_outbreaks + 1)
-                no_outbreaks += 1
-        c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
-        c_norm = c*self._params[AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL]
-        init_people = 0 # TODO support different import methods
-        if isinstance(self._params[INITIAL_CONDITIONS], dict):
-            cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
-            init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
-        subcritical = self._active_people < 10
-        bandtime = self.band_time
-        prev30 = self.prevalance_at(30)
-        prev60 = self.prevalance_at(60)
-        prev90 = self.prevalance_at(90)
-        prev120 = self.prevalance_at(120)
-        prev150 = self.prevalance_at(150)
-        prev180 = self.prevalance_at(180)
-        prev360 = self.prevalance_at(360)
-        fear_ = self.fear(CONSTANT)
-        detection_rate = self._params[DETECTION_MILD_PROBA]
-        output_log = f'\nMean_Time\tMean_#Affected\tWins_freq.\tc\tc_norm\tInit_#people'\
-                     f'\tPrevalence_30days\tPrevalence_60days\tPrevalence_90days'\
-                     f'\tPrevalence_120days\tPrevalence_150days\tPrevalence_180days'\
-                     f'\tBand_hit_time\tSubcritical\tPrevalence_360days\truns\tfear\tdetection_rate'\
-                     f'\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}'\
-                     f'\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'\
-                     f'\t{prev30}\t{prev60}\t{prev90}\t{prev120}\t{prev150}\t{prev180}\t{bandtime}'\
-                     f'\t{subcritical}\t{prev360}\t{runs}\t{fear_}\t{detection_rate}'
+                no_outbreak_time = self._global_time
+
+            c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
+            c_norm = c*self._params[AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL]
+            init_people = 0 # TODO support different import methods
+            if isinstance(self._params[INITIAL_CONDITIONS], dict):
+                cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
+                init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
+            subcritical = self._active_people < init_people/2 # at 200 days
+            bandtime = self.band_time
+            prev30 = self.prevalance_at(30)
+            prev60 = self.prevalance_at(60)
+            prev90 = self.prevalance_at(90)
+            prev120 = self.prevalance_at(120)
+            prev150 = self.prevalance_at(150)
+            prev180 = self.prevalance_at(180)
+            prev360 = self.prevalance_at(360)
+            fear_ = self.fear(CONSTANT)
+            detection_rate = self._params[DETECTION_MILD_PROBA]
+            affected = self.affected_people
+            detected = self.detected_people
+            deceased = self.deaths
+            quarantined = self.quarantined_people
+            mean_increase_at_10 = self.mean_day_increase_until(10)
+            mean_increase_at_20 = self.mean_day_increase_until(20)
+            mean_increase_at_30 = self.mean_day_increase_until(30)
+            mean_increase_at_40 = self.mean_day_increase_until(40)
+            mean_increase_at_50 = self.mean_day_increase_until(50)
+            mean_increase_at_100 = self.mean_day_increase_until(100)
+            mean_increase_at_150 = self.mean_day_increase_until(150)
+            output_log = f'{output_log}{no_outbreak_time};{affected};{detected};{deceased};{quarantined};'\
+                         f'{c};{c_norm};{init_people};{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};'\
+                         f'{bandtime};{subcritical};{prev360};{runs};{fear_};{detection_rate};'\
+                         f'{mean_increase_at_10};{mean_increase_at_20};{mean_increase_at_30};{mean_increase_at_40};'\
+                         f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150}\n'
 
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
@@ -1124,11 +1141,16 @@ class InfectionModel:
         self._infection_status = {}
         self._infections_dict = {}
         self._progression_times_dict = {}
+        self._per_day_increases = {}
 
         self._global_time = self._params[START_TIME]
         self._max_time = self._params[MAX_TIME]
         self._expected_case_severity = self.draw_expected_case_severity()
 
+        self._last_affected = None
+        self.band_time = None
+        self._quarantine_status = {}
+        self._detection_status = {}
 
 logger = logging.getLogger(__name__)
 

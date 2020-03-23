@@ -10,6 +10,7 @@ import random
 import sys
 import time
 import numpy as np
+from pathlib import Path
 
 import fire
 from git import Repo
@@ -19,6 +20,7 @@ import scipy.stats
 
 from src.read_csv import read_pop_exp_csv, read_households_csv
 from src.df_like_ops import get_household2inhabitants
+from src.json import PathlibFriendlyEncoder, AllString
 from src.models.schemas import *
 from src.models.defaults import *
 from src.models.states_and_functions import *
@@ -34,7 +36,7 @@ q = PriorityQueue()
 import pandas as pd
 
 DEBUG = True
-
+II = 0
 
 class InfectionModel:
     def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
@@ -95,52 +97,53 @@ class InfectionModel:
         :return:
         """
         logger.info('Set up data frames: Reading population csv...')
-        individuals = read_pop_exp_csv(self.df_individuals_path)
-        _individuals_age = np.array(individuals[AGE])
-        _individuals_indices = np.array(individuals[ID])
-        _individuals_household_id = dict(zip(_individuals_indices, individuals[HOUSEHOLD_ID]))
+        self._individuals = read_pop_exp_csv(self.df_individuals_path)
+        self._individuals_age = np.array(self._individuals[AGE])
+        self._individuals_indices = np.array(self._individuals[ID])
+        self._individuals_household_id = dict(zip(self._individuals_indices, self._individuals[HOUSEHOLD_ID]))
 
-        self._df_individuals = pd.read_csv(self.df_individuals_path)
-        self._df_individuals.index = self._df_individuals.idx
-        self._individuals_age = self._df_individuals[AGE].values
-        self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
-        self._individuals_indices = self._df_individuals.index.values
 
-        if all(self._individuals_age == _individuals_age):
-            self.individuals_age = _individuals_age
-        if all(self._individuals_indices== _individuals_indices):
-            self._individuals_indices = _individuals_indices
-        if self._individuals_household_id == _individuals_household_id:
-            self._individuals_household_id = _individuals_household_id
+        #self._df_individuals = pd.read_csv(self.df_individuals_path)
+        #self._df_individuals.index = self._df_individuals.idx
+        #self._individuals_age = self._df_individuals[AGE].values
+        #self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
+        #self._individuals_indices = self._df_individuals.index.values
+
+        #if all(self._individuals_age == _individuals_age):
+        #    self.individuals_age = _individuals_age
+        #if all(self._individuals_indices== _individuals_indices):
+        #    self._individuals_indices = _individuals_indices
+        #if self._individuals_household_id == _individuals_household_id:
+        #    self._individuals_household_id = _individuals_household_id
 
         logger.info('Set up data frames without pandas: Building households df...')
 
         if os.path.exists(self.df_households_path):
-            _households_inhabitants = read_households_csv(self.df_households_path)
+            self._households_inhabitants = read_households_csv(self.df_households_path)
         else:
-            _households_inhabitants = get_household2inhabitants(self.individuals[HOUSEHOLD_ID], self.individuals[ID])    
+            self._households_inhabitants = get_household2inhabitants(self._individuals[HOUSEHOLD_ID], self._individuals[ID])    
 
-        _households_capacities = {k: len(v) for k,v in _households_inhabitants.items()}
+        self._households_capacities = {k: len(v) for k,v in self._households_inhabitants.items()}
 
 
-        if os.path.exists(self.df_households_path):
-            self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
-                                              converters={ID: ast.literal_eval})
-        else:
-            self.households = get_household2inhabitants()
-            self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
-            os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)
-            self._df_households.to_csv(self.df_households_path)
+        #if os.path.exists(self.df_households_path):
+        #    self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
+        #                                      converters={ID: ast.literal_eval})
+        #else:
+        #    self.households = get_household2inhabitants()
+        #    self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
+        #    os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)
+        #    self._df_households.to_csv(self.df_households_path)
             
-        self._df_households[CAPACITY] = self._df_households[ID].apply(lambda x: len(x))
-        d = self._df_households.to_dict()
-        self._households_inhabitants = d[ID] #self._df_households[ID]
-        self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
+        #self._df_households[CAPACITY] = self._df_households[ID].apply(lambda x: len(x))
+        #d = self._df_households.to_dict()
+        #self._households_inhabitants = d[ID] #self._df_households[ID]
+        #self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
         
-        if self._households_inhabitants == _households_inhabitants:
-            self._households_inhabitants = _households_inhabitants
-        if self._households_capacities == _households_capacities:
-            self._households_capacities = _households_capacities
+        #if self._households_inhabitants == _households_inhabitants:
+        #    self._households_inhabitants = _households_inhabitants
+        #if self._households_capacities == _households_capacities:
+        #    self._households_capacities = _households_capacities
 
 
     def append_event(self, event: Event) -> None:
@@ -310,6 +313,7 @@ class InfectionModel:
     @staticmethod
     def generate_random_sample(**kwargs) -> float:
         def cached_random_gen(**kwargs):
+            global II
             distribution = kwargs.get(DISTRIBUTION, default_distribution[DISTRIBUTION])
             if distribution == FROM_FILE:
                 filepath = kwargs.get('filepath', None).replace('$ROOT_DIR', config.ROOT_DIR)
@@ -317,6 +321,8 @@ class InfectionModel:
                 array = np.load(filepath)
                 approximate_distribution = kwargs.get('approximate_distribution', None)
                 if approximate_distribution == LOGNORMAL:
+                    II += 1
+                    print(II)
                     shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
                     return scipy.stats.lognorm.rvs, [shape], {'loc': loc, 'scale': scale}
 
@@ -642,6 +648,7 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'summary_semilogy.png'))
 
     def log_outputs(self):
+        import pandas as pd
         run_id = f'{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
         simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR],
                                              self._params[EXPERIMENT_ID],
@@ -681,6 +688,53 @@ class InfectionModel:
         self.doubling_time(simulation_output_dir)
         self.icu_beds(simulation_output_dir)
         self.draw_death_age_cohorts(simulation_output_dir)
+
+    def dump_outputs(self):
+        import json
+        x = {}
+        x['run_id'] = run_id = f'{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
+        simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR],
+                                             self._params[EXPERIMENT_ID],
+                                             run_id)
+        os.makedirs(simulation_output_dir)
+        x['progression_times'] = self._progression_times_dict
+        #x[EXPECTED_CASE_SEVERITY] = self._expected_case_severity
+        x['infections'] = self._infections_dict
+        #x[EXPECTED_CASE_SEVERITY] = self._expected_case_severity
+        #x[INFECTION_STATUS] = self._infection_status
+        x[DETECTION] = self._detection_status
+        #x['households_inhabitants'] = self._households_inhabitants
+        #x['households_capacities'] = self._households_capacities
+        with open(str(Path(simulation_output_dir)/'output.json'), 'w') as f:
+            json.dump(x, f, cls=AllString)
+
+        if self._params[SAVE_INPUT_DATA]:
+            from shutil import copyfile
+            copyfile(self.df_individuals_path, os.path.join(simulation_output_dir,
+                                                            f'input_{os.path.basename(self.df_individuals_path)}'))
+            copyfile(self.params_path, os.path.join(simulation_output_dir,
+                                                    f'input_{os.path.basename(self.params_path)}'))
+        household_input_path = os.path.join(self._params[OUTPUT_ROOT_DIR], self._params[EXPERIMENT_ID],
+                                            'input_df_households.csv')
+        if not os.path.exists(household_input_path):
+            self._df_households.to_csv(household_input_path)
+        repo = Repo(config.ROOT_DIR)
+        git_active_branch_log = os.path.join(simulation_output_dir, 'git_active_branch_log.txt')
+        with open(git_active_branch_log, 'w') as f:
+            f.write(f'Active branch name {repo.active_branch.name}\n')
+            f.write(str(repo.active_branch.log()))
+        git_status = os.path.join(simulation_output_dir, 'git_status.txt')
+        with open(git_status, 'w') as f:
+            f.write(repo.git.status())
+
+        #self.store_graphs(simulation_output_dir)
+        #self.store_bins(simulation_output_dir)
+        #self.store_semilogy(simulation_output_dir)
+        #self.store_event_queue(simulation_output_dir)
+        #self.doubling_time(simulation_output_dir)
+        #self.icu_beds(simulation_output_dir)
+        #self.draw_death_age_cohorts(simulation_output_dir)
+        
 
     def icu_beds(self, simulation_output_dir):
         df_r1 = self.df_progression_times
@@ -813,7 +867,10 @@ class InfectionModel:
             q.get_nowait()
             q.task_done()
         logger.info('Log outputs')
-        self.log_outputs()
+        #self.log_outputs()
+        #self.dump_outputs()
+
+
 
 
 logger = logging.getLogger(__name__)

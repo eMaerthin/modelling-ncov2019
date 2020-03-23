@@ -33,8 +33,4 @@ def read_households_csv(path):
     """
     it_csv = iter_csv(path)
     cols = next(it_csv)
-    d = list(it_csv)
-    inhabitants = [ast.literal_eval(i) for hi, i in d]
-    household   = [int(hi) for hi,_ in d]
-    capacities  = [len(i) for i in inhabitants]
-    return household, inhabitants, capacities
+    return {int(h): ast.literal_eval(i) for h, i in it_csv}

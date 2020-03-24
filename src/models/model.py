@@ -9,6 +9,7 @@ import numpy as np
 from pathlib import Path
 import pickle
 import psutil
+from collections import defaultdict
 
 import scipy.optimize
 import scipy.stats
@@ -23,7 +24,6 @@ from src.models.states_and_functions import *
 from queue import (PriorityQueue)
 
 q = PriorityQueue()
-np.random.seed(seed=233423)
 
 class InfectionModel:
     def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
@@ -46,12 +46,6 @@ class InfectionModel:
         self._max_time = None
         self._expected_case_severity = None
 
-        self.affected_people = 0
-        self.active_people = 0
-        self.quarantined_people = 0
-        self.detected_people = 0
-        self.deaths = 0
-
         logger.info('Set up individuals.')
         self._individuals = read_pop_exp_csv(self.df_individuals_path)
         self._individuals_age = np.array(self._individuals[AGE])
@@ -65,9 +59,6 @@ class InfectionModel:
             self._households_inhabitants = get_household2inhabitants(self._individuals[HOUSEHOLD_ID], self._individuals[ID])    
         self._households_capacities = {k: len(v) for k,v in self._households_inhabitants.items()}
 
-        self._infection_status = {}
-        self._detection_status = {}
-        self._quarantine_status = {}
         self._expected_case_severity = self.draw_expected_case_severity()
         self._infections_dict = {}
         self._progression_times_dict = {}
@@ -94,14 +85,6 @@ class InfectionModel:
         self.experimental_ub = None
         self.experimental_lb = None
 
-    def get_detection_status_(self, person_id):
-        return self._detection_status.get(person_id, default_detection_status)
-
-    def get_quarantine_status_(self, person_id):
-        return self._quarantine_status.get(person_id, default_quarantine_status)
-
-    def get_infection_status(self, person_id):
-        return self._infection_status.get(person_id, InfectionStatus.Healthy.value)
 
     @staticmethod
     def parse_random_seed(random_seed):
@@ -260,6 +243,7 @@ class InfectionModel:
             filepath = params.get('filepath', None).replace('$ROOT_DIR', config.ROOT_DIR)
             Schema(lambda x: os.path.exists(x)).validate(filepath)
             array = np.load(filepath)
+            print(array)
             approximate_distribution = params.get('approximate_distribution', None)
             if approximate_distribution == LOGNORMAL:
                 shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
@@ -334,7 +318,7 @@ class InfectionModel:
         #selected_rows = set(np.random.choice(possible_choices, infected, replace=True))
         selected_rows = set(random.choices(possible_choices, k=infected))
         for person_idx in selected_rows:
-            if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
+            if self.infection_status[person_idx] == InfectionStatus.Healthy:
                 contraction_time = np.random.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
 
@@ -354,19 +338,19 @@ class InfectionModel:
         selected_rows_ids = random.sample(r, k=infected)
         selected_rows = possible_choices[selected_rows_ids]
         for person_idx in selected_rows:
-            if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
+            if self.infection_status[person_idx] == InfectionStatus.Healthy:
                 contraction_time = np.random.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
 
     def handle_t0(self, person_id):
         self.active_people += 1
-        if self.get_infection_status(person_id) in [
+        if self.infection_status[person_id] in [
             InfectionStatus.Healthy,
             InfectionStatus.Contraction
         ]:
-            self._infection_status[person_id] = InfectionStatus.Infectious.value
+            self.infection_status[person_id] = InfectionStatus.Infectious.value
         else:
-            raise AssertionError(f'Unexpected state detected: {self.get_infection_status(person_id)}'
+            raise AssertionError(f'Unexpected state detected: {self.infection_status[person_id]}'
                                  f'person_id: {person_id}')
         household_id = self._individuals_household_id[person_id]
         capacity = self._households_capacities[household_id]
@@ -388,7 +372,7 @@ class InfectionModel:
             tminus1 = event_time
             t0 = tminus1 + self.rv_t0()
             self.append_event(Event(t0, person_id, T0, person_id, DISEASE_PROGRESSION, tminus1))
-            self._infection_status[person_id] = initial_infection_status
+            self.infection_status[person_id] = initial_infection_status
         elif initial_infection_status == InfectionStatus.Infectious:
             t0 = event_time
             # tminus1 does not to be defined, but for completeness let's calculate it
@@ -448,7 +432,7 @@ class InfectionModel:
 
     def add_new_infection(self, person_id, infection_status,
                           initiated_by, initiated_through):
-        self._detection_status[person_id] = DetectionStatus.NotDetected.value
+        self.detection_status[person_id] = DetectionStatus.NotDetected.value
 
         self._infections_dict[len(self._infections_dict)] = {
             SOURCE: initiated_by,
@@ -490,7 +474,7 @@ class InfectionModel:
         # TODO the remaining attribute will be useful when we will take into account for backtracing
         # issued_time = getattr(event, ISSUED_TIME)
         if initiated_by is None and initiated_through != DISEASE_PROGRESSION:
-            if self.get_infection_status(person_id) == InfectionStatus.Healthy:
+            if self.infection_status[person_id] == InfectionStatus.Healthy:
                 if type_ == TMINUS1:
                     self.add_new_infection(person_id, InfectionStatus.Contraction.value,
                                            initiated_by, initiated_through)
@@ -499,18 +483,17 @@ class InfectionModel:
                                            initiated_by, initiated_through)
         elif type_ == TMINUS1:
             # check if this action is still valid first
-            initiated_inf_status = self._infection_status[initiated_by]
-            current_status = self.get_infection_status(person_id)
-            if current_status == InfectionStatus.Healthy:
+            initiated_inf_status = self.infection_status[initiated_by]
+            if self.infection_status[person_id] == InfectionStatus.Healthy:
                 if initiated_inf_status in active_states:
                     new_infection = False
                     # TODO below is a spaghetti code that shoud be sorted out! SORRY!
                     if initiated_through != HOUSEHOLD:
                         if initiated_inf_status != InfectionStatus.StayHome:
                             new_infection = True
-                        if self.get_quarantine_status_(initiated_by) == QuarantineStatus.Quarantine:
+                        if self.quarantine_status[initiated_by] == QuarantineStatus.Quarantine:
                             new_infection = False
-                        if self.get_quarantine_status_(person_id) == QuarantineStatus.Quarantine:
+                        if self.quarantine_status[person_id] == QuarantineStatus.Quarantine:
                             new_infection = False
                     else:  # HOUSEHOLD kernel:
                         new_infection = True
@@ -518,44 +501,44 @@ class InfectionModel:
                         self.add_new_infection(person_id, InfectionStatus.Contraction.value,
                                                initiated_by, initiated_through)
         elif type_ == T0:
-            if self.get_infection_status(person_id) == InfectionStatus.Contraction:
+            if self.infection_status[person_id] == InfectionStatus.Contraction:
                 self.handle_t0(person_id)
         elif type_ == T1:
-            if self.get_infection_status(person_id) == InfectionStatus.Infectious:
-                self._infection_status[person_id] = InfectionStatus.StayHome.value
+            if self.infection_status[person_id] == InfectionStatus.Infectious:
+                self.infection_status[person_id] = InfectionStatus.StayHome.value
         elif type_ == T2:
-            if self.get_infection_status(person_id) in [
+            if self.infection_status[person_id] in [
                 InfectionStatus.StayHome,
                 InfectionStatus.Infectious
             ]:
-                self._infection_status[person_id] = InfectionStatus.Hospital.value
+                self.infection_status[person_id] = InfectionStatus.Hospital.value
         elif type_ == TDEATH:
-            if self.get_infection_status(person_id) != InfectionStatus.Death:
-                self._infection_status[person_id] = InfectionStatus.Death.value
+            if self.infection_status[person_id] != InfectionStatus.Death:
+                self.infection_status[person_id] = InfectionStatus.Death.value
                 self.deaths += 1
                 self.active_people -= 1
         elif type_ == TRECOVERY: # TRECOVERY is exclusive with regards to TDEATH (when this comment was added)
-            if self.get_infection_status(person_id) != InfectionStatus.Recovered:
+            if self.infection_status[person_id] != InfectionStatus.Recovered:
                 self.active_people -= 1
-                self._infection_status[person_id] = InfectionStatus.Recovered
+                self.infection_status[person_id] = InfectionStatus.Recovered
         elif type_ == TDETECTION:
-            if self.get_infection_status(person_id) not in [
+            if self.infection_status[person_id] not in [
                 InfectionStatus.Recovered,
                 InfectionStatus.Healthy
             ]:
-                if self.get_detection_status_(person_id) == DetectionStatus.NotDetected:
-                    self._detection_status[person_id] = DetectionStatus.Detected.value
+                if self.detection_status[person_id] == DetectionStatus.NotDetected:
+                    self.detection_status[person_id] = DetectionStatus.Detected.value
                     self.detected_people += 1
                     household_id = self._individuals_household_id[person_id]
                     for inhabitant in self._households_inhabitants[household_id]:
-                        if self.get_quarantine_status_(inhabitant) == QuarantineStatus.NoQuarantine:
-                            if self.get_infection_status(inhabitant) != InfectionStatus.Death:
-                                self._quarantine_status[inhabitant] = QuarantineStatus.Quarantine.value
+                        if self.quarantine_status[inhabitant] == QuarantineStatus.NoQuarantine:
+                            if self.infection_status[inhabitant] != InfectionStatus.Death:
+                                self.quarantine_status[inhabitant] = QuarantineStatus.Quarantine.value
                                 self.quarantined_people += 1
                                 if inhabitant not in self._progression_times_dict:
                                     self._progression_times_dict[inhabitant] = {}
                                 self._progression_times_dict[inhabitant][QUARANTINE] = self.global_time
-                                if self.get_infection_status(inhabitant) != InfectionStatus.Healthy:
+                                if self.infection_status[inhabitant] != InfectionStatus.Healthy:
                                     # TODO: this has to be implemented better, just a temporary solution:
                                     new_detection_time = self.global_time + 2.0
                                     self._progression_times_dict[inhabitant][TDETECTION] = new_detection_time
@@ -596,7 +579,7 @@ class InfectionModel:
         no_outbreaks = 0
         for i, seed in enumerate(seeds):
             self.parse_random_seed(seed)
-            self.setup_simulation()
+            self.reset_simulation_params()
             logger.info('Filling queue based on initial conditions...')
             self._fill_queue_based_on_initial_conditions()
             logger.info('Filling queue based on auxiliary functions...')
@@ -610,16 +593,19 @@ class InfectionModel:
                 mean_affected_when_no_outbreak = (mean_affected_when_no_outbreak * no_outbreaks + self.affected_people) / ( no_outbreaks + 1)
                 no_outbreaks += 1
 
-    def setup_simulation(self):
+    def reset_simulation_params(self):
         # TODO  and think how to better group them, ie namedtuple state_stats?
-        self.affected_people = 0
+        self.affected_people = 0 
         self.active_people = 0
         self.detected_people = 0
         self.quarantined_people = 0
         self.deaths = 0
 
+        self.detection_status  = defaultdict(lambda:default_detection_status)
+        self.quarantine_status = defaultdict(lambda:default_quarantine_status)
+        self.infection_status  = defaultdict(lambda: InfectionStatus.Healthy.value)
+
         self._fear_factor = {}
-        self._infection_status = {}
         self._infections_dict = {}
         self._progression_times_dict = {}
 

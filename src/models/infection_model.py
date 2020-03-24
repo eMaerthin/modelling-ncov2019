@@ -1203,10 +1203,10 @@ class InfectionModel:
     def run_simulation(self):
         def _inner_loop(iter):
             while not q.empty():
-                if self._icu_needed >= self._params[ICU_AVAILABILITY]:
-                    logging.info('icu')
-                    self.band_time = self._global_time
-                    break
+                #if self._icu_needed >= self._params[ICU_AVAILABILITY]:
+                #    logging.info('icu')
+                #    self.band_time = self._global_time
+                #    break
                 if self.affected_people >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break
@@ -1223,8 +1223,8 @@ class InfectionModel:
             if self._params[LOG_OUTPUTS]:
                 logger.info('Log outputs')
                 self.log_outputs()
-            if self._icu_needed >= self._params[ICU_AVAILABILITY]:
-                return True
+            #if self._icu_needed >= self._params[ICU_AVAILABILITY]:
+            #    return True
             if self.affected_people >= self.stop_simulation_threshold:
                 return True
             return False
@@ -1260,8 +1260,8 @@ class InfectionModel:
                 init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
             subcritical = self._active_people < init_people/2 # at 200 days
             bandtime = self.band_time
-            if not bandtime:
-                return 0
+            #if bandtime:
+            #    return 0
             prev30 = self.prevalance_at(30)
             prev60 = self.prevalance_at(60)
             prev90 = self.prevalance_at(90)

@@ -130,20 +130,6 @@ class InfectionModel:
         self._individuals_age = np.array(self._individuals[AGE])
         self._individuals_indices = np.array(self._individuals[ID])
         self._individuals_household_id = dict(zip(self._individuals_indices, self._individuals[HOUSEHOLD_ID]))
-
-
-        #self._df_individuals = pd.read_csv(self.df_individuals_path)
-        #self._df_individuals.index = self._df_individuals.idx
-        #self._individuals_age = self._df_individuals[AGE].values
-        #self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
-        #self._individuals_indices = self._df_individuals.index.values
-
-        #if all(self._individuals_age == _individuals_age):
-        #    self.individuals_age = _individuals_age
-        #if all(self._individuals_indices== _individuals_indices):
-        #    self._individuals_indices = _individuals_indices
-        #if self._individuals_household_id == _individuals_household_id:
-        #    self._individuals_household_id = _individuals_household_id
         logger.info('Set up data frames without pandas: Building households df...')
 
         if os.path.exists(self.df_households_path):
@@ -151,25 +137,6 @@ class InfectionModel:
         else:
             self._households_inhabitants = get_household2inhabitants(self._individuals[HOUSEHOLD_ID], self._individuals[ID])    
         self._households_capacities = {k: len(v) for k,v in self._households_inhabitants.items()}
-
-        #if os.path.exists(self.df_households_path):
-        #    self._df_households = pd.read_csv(self.df_households_path, index_col=HOUSEHOLD_ID,
-        #                                      converters={ID: ast.literal_eval})
-        #else:
-        #    self.households = get_household2inhabitants()
-        #    self._df_households = pd.DataFrame({ID: self._df_individuals.groupby(HOUSEHOLD_ID)[ID].apply(list)})
-        #    os.makedirs(os.path.dirname(self.df_households_path), exist_ok=True)
-        #    self._df_households.to_csv(self.df_households_path)
-            
-        #self._df_households[CAPACITY] = self._df_households[ID].apply(lambda x: len(x))
-        #d = self._df_households.to_dict()
-        #self._households_inhabitants = d[ID] #self._df_households[ID]
-        #self._households_capacities = d[CAPACITY] #self._df_households[CAPACITY]
-        
-        #if self._households_inhabitants == _households_inhabitants:
-        #    self._households_inhabitants = _households_inhabitants
-        #if self._households_capacities == _households_capacities:
-        #    self._households_capacities = _households_capacities
         if not self._params[LOG_OUTPUTS]:
             self._households = None
             self._individuals = None

@@ -32,7 +32,6 @@ from dotenv import find_dotenv, load_dotenv
 from queue import (PriorityQueue)
 q = PriorityQueue()
 
-import pandas as pd
 
 
 class InfectionModel:

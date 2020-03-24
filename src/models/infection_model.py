@@ -1203,10 +1203,11 @@ class InfectionModel:
     def run_simulation(self):
         def _inner_loop(iter):
             while not q.empty():
-                #if self._icu_needed >= self._params[ICU_AVAILABILITY]:
-                #    logging.info('icu')
-                #    self.band_time = self._global_time
-                #    break
+                if self._icu_needed >= self._params[ICU_AVAILABILITY]:
+                    logging.info('icu')
+                    self.band_time = self._global_time
+                    break
+                #print(f'{self._icu_needed} - {self._params[ICU_AVAILABILITY]}')
                 if self.affected_people >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break
@@ -1223,8 +1224,8 @@ class InfectionModel:
             if self._params[LOG_OUTPUTS]:
                 logger.info('Log outputs')
                 self.log_outputs()
-            #if self._icu_needed >= self._params[ICU_AVAILABILITY]:
-            #    return True
+            if self._icu_needed >= self._params[ICU_AVAILABILITY]:
+                return True
             if self.affected_people >= self.stop_simulation_threshold:
                 return True
             return False
@@ -1260,8 +1261,8 @@ class InfectionModel:
                 init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
             subcritical = self._active_people < init_people/2 # at 200 days
             bandtime = self.band_time
-            #if bandtime:
-            #    return 0
+            if bandtime:
+                return 0
             prev30 = self.prevalance_at(30)
             prev60 = self.prevalance_at(60)
             prev90 = self.prevalance_at(90)
@@ -1284,12 +1285,13 @@ class InfectionModel:
             mean_increase_at_150 = self.mean_day_increase_until(150)
             incidents_per_last_day = self.prevalance_at(self._global_time) - self.prevalance_at(self._global_time - 1)
             hospitalized=self._icu_needed
-            output_log = f'{output_log}{last_processed_time };{affected};{detected};{deceased};{quarantined};'\
+            output_add = f'{last_processed_time };{affected};{detected};{deceased};{quarantined};'\
                          f'{c};{c_norm};{init_people};{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};'\
                          f'{bandtime};{subcritical};{prev360};{runs};{fear_};{detection_rate};'\
                          f'{mean_increase_at_10};{mean_increase_at_20};{mean_increase_at_30};{mean_increase_at_40};'\
                          f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150};{incidents_per_last_day};{outbreak};{hospitalized}\n'
-
+            logger.info(output_add)
+            output_log = f'{output_log}{output_add}'
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')

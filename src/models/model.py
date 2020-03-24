@@ -40,10 +40,9 @@ class InfectionModel:
                                                     'input_df_households.csv')  # TODO: ensure households are valid!
         if df_households_path == '':
             self.df_households_path = default_household_input_path
+
         self.global_time = None
         self._max_time = None
-        self._expected_case_severity = None
-
         logger.info('Set up individuals.')
         self._individuals = read_pop_exp_csv(self.df_individuals_path)
         self._individuals_age = np.array(self._individuals[AGE])
@@ -56,8 +55,6 @@ class InfectionModel:
         else:
             self._households_inhabitants = get_household2inhabitants(self._individuals[HOUSEHOLD_ID], self._individuals[ID])    
         self._households_capacities = {k: len(v) for k,v in self._households_inhabitants.items()}
-
-        self._expected_case_severity = self.draw_expected_case_severity()
         self._infections_dict = {}
         self._progression_times_dict = {}
 
@@ -585,7 +582,7 @@ class InfectionModel:
 
         seeds = [seeds[0]]
 
-        
+
         for i, seed in enumerate(seeds):
             self.parse_random_seed(seed)
             self.reset_simulation_params()

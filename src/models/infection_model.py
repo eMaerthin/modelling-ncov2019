@@ -271,7 +271,7 @@ class InfectionModel:
             #    np.arange(len(age_induced_severity_distribution)),
             #    distribution_hist
             #))
-            realizations = dis.rvs(size=len(self._individuals_indices[cond]))
+            #realizations = dis.rvs(size=len(self._individuals_indices[cond]))
             realizations = mocos_helper.sample_with_replacement_shuffled(distribution_hist, len(self._individuals_indices[cond]))
             values = [keys[r] for r in realizations]
             df = pd.DataFrame(values, index=self._individuals_indices[cond])

@@ -23,6 +23,33 @@ from queue import (PriorityQueue)
 
 q = PriorityQueue()
 
+class distribution(object):
+    def fit(self):
+        raise NotImplementedError
+    def rvs(self):
+        raise NotImplementedError
+
+class LogNorm(distribution):
+    def fit(self, sample):
+        lsample = np.log(sample)
+        self.lmean = lsample.mean()
+        self.lstd = lsample.std()
+
+    def rvs(self):
+        return np.exp(np.random.normal(self.lmean, self.lstd))
+
+
+class Gamma(distribution):
+    def fit(self, sample):
+        sample_mean = np.mean(sample)
+        sample_var = np.var(sample)
+        self.alpha = sample_mean**2 / sample_var
+        self.beta = sample_var / sample_mean
+
+    def rvs(self):
+        return np.random.gamma(self.alpha, self.beta)
+
+
 class InfectionModel:
     def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
         self.params_path = params_path
@@ -58,17 +85,10 @@ class InfectionModel:
         self._infections_dict = {}
         self._progression_times_dict = {}
 
-        t0_f, t0_args, t0_kwargs = self.setup_random_distribution(T0)
-        self.rv_t0 = lambda: t0_f(*t0_args, **t0_kwargs)
-
-        t1_f, t1_args, t1_kwargs = self.setup_random_distribution(T1)
-        self.rv_t1 = lambda: t1_f(*t1_args, **t1_kwargs)
-
-        t2_f, t2_args, t2_kwargs = self.setup_random_distribution(T2)
-        self.rv_t2 = lambda: t2_f(*t2_args, **t2_kwargs)
-
-        tdeath_f, tdeath_args, tdeath_kwargs = self.setup_random_distribution(TDEATH)
-        self.rv_tdeath = lambda: tdeath_f(*tdeath_args, **tdeath_kwargs)
+        self.d_t0 = self.setup_random_distribution(T0)
+        self.d_t1 = self.setup_random_distribution(T1)
+        self.d_t2 = self.setup_random_distribution(T2)
+        self.d_tdeath = self.setup_random_distribution(TDEATH)
 
         self.fear_fun = dict()
         self.fear_weights_detected = dict()
@@ -247,13 +267,16 @@ class InfectionModel:
             Schema(lambda x: os.path.exists(x)).validate(filepath)
             array = np.load(filepath)
             approximate_distribution = params.get('approximate_distribution', None)
+
             if approximate_distribution == LOGNORMAL:
-                shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
-                return scipy.stats.lognorm.rvs, [shape], {'loc':loc, 'scale':scale}
+                lognorm = LogNorm()
+                lognorm.fit(array)
+                return lognorm
 
             if approximate_distribution == GAMMA:
-                shape, loc, scale = scipy.stats.gamma.fit(array, floc=0)
-                return scipy.stats.gamma.rvs, [shape], {'loc':loc, 'scale':scale}
+                gamma = Gamma()
+                gamma.fit(array)
+                return gamma
 
             if approximate_distribution:
                 raise NotImplementedError(f'Approximating to this distribution {approximate_distribution}'
@@ -372,13 +395,13 @@ class InfectionModel:
         """
         if initial_infection_status == InfectionStatus.Contraction:
             tminus1 = event_time
-            t0 = tminus1 + self.rv_t0()
+            t0 = tminus1 + self.d_t0.rvs()
             self.append_event(Event(t0, person_id, T0, person_id, DISEASE_PROGRESSION, tminus1))
             self.infection_status[person_id] = initial_infection_status
         elif initial_infection_status == InfectionStatus.Infectious:
             t0 = event_time
             # tminus1 does not to be defined, but for completeness let's calculate it
-            tminus1 = t0 - self.rv_t0()
+            tminus1 = t0 - self.d_t0.rvs()
         else:
             raise ValueError(f'invalid initial infection status {initial_infection_status}')
         t2 = None
@@ -386,10 +409,10 @@ class InfectionModel:
             ExpectedCaseSeverity.Severe,
             ExpectedCaseSeverity.Critical
         ]:
-            t2 = t0 + self.rv_t2()
+            t2 = t0 + self.d_t2.rvs()
             self.append_event(Event(t2, person_id, T2, person_id, DISEASE_PROGRESSION, t0))
 
-        t1 = t0 + self.rv_t1()
+        t1 = t0 + self.d_t1.rvs()
         if not t2 or t1 < t2:
             self.append_event(Event(t1, person_id, T1, person_id, DISEASE_PROGRESSION, t0))
         else:
@@ -400,7 +423,7 @@ class InfectionModel:
         trecovery = None
         tdeath = None
         if np.random.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id]]:
-            tdeath = t0 + self.rv_tdeath()
+            tdeath = t0 + self.d_tdeath.rvs()
             self.append_event(Event(tdeath, person_id, TDEATH, person_id, DISEASE_PROGRESSION, t0))
         else:
             if self._expected_case_severity[person_id] in [

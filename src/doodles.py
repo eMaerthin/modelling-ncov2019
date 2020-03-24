@@ -16,17 +16,24 @@ onset_death = np.load("/home/matteo/Projects/corona/modelling-ncov2019/test/mode
 # death: lognormal
 
 
+sample = incubation
+l_sample = np.log(sample)
+lmean = l_sample.mean()
+lstd = l_sample.std()
+X = np.exp(np.random.normal(lmean, lstd))
+
+sample = t1
+alpha, beta = fit_gamma_parameters(sample)
+X = np.random.gamma(alpha, beta, 1000)
+
+plt.hist(sample, density=True)
+plt.hist(X, density=True, alpha=.4)
+plt.show()
+
 def par0(sample):
     lsample = np.log(sample)
     loc = 0
-    scale = np.exp(lsample.mean())
-    shape = lsample.std()
-    return shape, loc, scale
-
-def par1(sample):
-    loc = min(sample) - np.std(sample)/100
-    lsample = np.log(sample - loc)
-    scale = np.exp(lsample.mean())
+    scale = sample.mean()
     shape = lsample.std()
     return shape, loc, scale
 
@@ -62,7 +69,6 @@ def compareGammas(sample, estim_par_foo):
     plt.show()
 
 compareGammas(t1, fit_gamma_parameters)
-
 
 plt.hist(t1)
 plt.show()

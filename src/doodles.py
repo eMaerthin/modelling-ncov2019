@@ -1,58 +1,48 @@
-from pathlib import Path
-import pandas as pd
 import numpy as np
-from collections import defaultdict
+import ast
+import scipy.stats
+import seaborn as sns
 
-f = Path("/home/matteo/Projects/corona/modelling-ncov2019/data/vroclav") 
-p1 = f/"population_experiment0.csv"
-x = read_pop_exp_csv(p1)
-w = dict(zip(x['idx'], x['household_index']))
-147430 in w
-w[147430]
+import mocos_helper as MH 
+
+import matplotlib.pyplot as plt
+
+incubation = np.load("/home/matteo/Projects/corona/modelling-ncov2019/test/models/assets/incubation_period_distribution.npy")
+t1 = np.load("/home/matteo/Projects/corona/modelling-ncov2019/test/models/assets/t1_distribution.npy")
+t1_t2 = np.load("/home/matteo/Projects/corona/modelling-ncov2019/test/models/assets/t1_t2_distribution.npy")
+onset_death = np.load("/home/matteo/Projects/corona/modelling-ncov2019/test/models/assets/onset_death_distribution.npy")
+
+# incubation period, modelled as lognormal
+# t1, t1_2 -> gamma
+# death: lognormal
+
+sample = incubation
+
+def par0(sample):
+    lsample = np.log(sample)
+    loc = 0
+    scale = np.exp(lsample.mean())
+    shape = lsample.std()
+    return shape, loc, scale
+
+def par1(sample):
+    loc = min(sample) - np.std(sample)/100
+    lsample = np.log(sample - loc)
+    scale = np.exp(lsample.mean())
+    shape = lsample.std()
+    return shape, loc, scale
+
+def compare(sample, estim_par_foo):
+    params = estim_par_foo(sample)
+    logN = scipy.stats.lognorm(*params)
+    x = np.linspace(min(sample), max(sample), 100)
+    plt.plot(x, logN.pdf(x))
+    sns.distplot(sample, rug=True, hist=False, rug_kws={"color": "g"},
+    kde_kws={"color": "k", "lw": 3})
+    plt.show()
 
 
-p2 = f/'households_experiment0.csv'
-y = pd.read_csv(p2, converters={'idx':ast.literal_eval},
-                index_col='household_index')
-y['capacity'] = y.idx.apply(lambda x: len(x))
-y.to_dict().keys()
-y.to_dict()['idx'][1011]
-y.to_dict()['capacity'][1011]
 
-z[147340]
-df_individuals = pd.read_csv(p1)
-df_individuals.index = df_individuals.idx
-df_individuals['household_index'].to_dict()
+compare(sample, par0)
+compare(sample, par1)
 
-
-w = y.to_dict()['idx']
-
-y.index == np.arange(0,len(y))
-
-x = read_households_csv(p2)
-cap = {k: len(v) for k,v in x.items()}
-
-
-y.to_dict()['capacity'] == cap
-ycap = y.to_dict()['capacity']
-all(cap[l] == ycap[l] for l in cap)
-
-_household_capacities[147340]
-
-
-def get_household2inhabitants(household, inhabitants):
-    household2inhabitants = defaultdict(list)
-    for h, i in zip(household, inhabitants):
-        household2inhabitants[h].append(i)
-    return household2inhabitants
-
-get_household2inhabitants(x['household_index'], x['idx'])
-
-path = p2
-
-it_csv = iter_csv(path)
-cols = next(it_csv)
-d = list(it_csv)
-inhabitants = [ast.literal_eval(i) for hi, i in d]
-household   = [int(hi) for hi,_ in d]
-capacities  = [len(i) for i in inhabitants]

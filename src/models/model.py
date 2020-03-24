@@ -1,4 +1,3 @@
-import ast
 from functools import (partial)
 import json
 import logging
@@ -7,7 +6,6 @@ import sys
 import time
 import numpy as np
 from pathlib import Path
-import pickle
 import psutil
 from collections import defaultdict
 
@@ -231,7 +229,15 @@ class InfectionModel:
                 np.arange(len(age_induced_severity_distribution)),
                 distribution_hist
             ))
+            print(np.arange(len(age_induced_severity_distribution)))
+            print(distribution_hist)
+
             realizations = dis.rvs(size=len(self._individuals_indices[cond]))
+            # list(MH.sample_with_replacement(self.distribution_hist, len(self._individuals_indices[cond])))
+            print(realizations)
+            print(len(realizations))
+            print()
+
             for indiv, realization in zip(self._individuals_indices[cond], realizations):
                 d[indiv] = keys[realization]
         return d
@@ -243,7 +249,6 @@ class InfectionModel:
             filepath = params.get('filepath', None).replace('$ROOT_DIR', config.ROOT_DIR)
             Schema(lambda x: os.path.exists(x)).validate(filepath)
             array = np.load(filepath)
-            print(array)
             approximate_distribution = params.get('approximate_distribution', None)
             if approximate_distribution == LOGNORMAL:
                 shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
@@ -577,6 +582,10 @@ class InfectionModel:
         mean_time_when_no_outbreak = 0.0
         mean_affected_when_no_outbreak = 0.0
         no_outbreaks = 0
+
+        seeds = [seeds[0]]
+
+        
         for i, seed in enumerate(seeds):
             self.parse_random_seed(seed)
             self.reset_simulation_params()

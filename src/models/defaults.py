@@ -12,6 +12,10 @@ default_stop_simulation_threshold = 10000
 
 default_detection_status = DetectionStatus.NotDetected.value
 
+default_quarantine_status = QuarantineStatus.NoQuarantine.value
+
+default_detection_mild_proba = 0.5
+
 default_distribution = {
     DISTRIBUTION: 'poisson'
 }
@@ -69,13 +73,25 @@ default_death_probability = {
 
 default_random_seed = 42
 
-default_max_time = float('inf')
+default_log_outputs = True
+default_max_time = 1000 #float('inf')
 
 default_icu_availability = 100
 default_hospital_beds_availability = 5000
 default_med_personnel_availability = 400
 
 default_log_time_freq = 1.0
+
+default_serial_interval = {
+    MIN_TIME: 0.0,
+    MAX_TIME: 30.0
+}
+
+default_turn_on_detection = True
+
+default_average_infectivity_time_constant_kernel = 2.339
+
+default_save_expected_severity = False
 
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
@@ -95,7 +111,13 @@ defaults = {
     ICU_AVAILABILITY: default_icu_availability,
     HOSPITAL_BEDS_AVAILABILITY: default_hospital_beds_availability,
     MED_PERSONNEL_AVAILABILITY: default_med_personnel_availability,
-    LOG_TIME_FREQ: default_log_time_freq
+    LOG_TIME_FREQ: default_log_time_freq,
+    LOG_OUTPUTS: default_log_outputs,
+    SERIAL_INTERVAL: default_serial_interval,
+    DETECTION_MILD_PROBA: default_detection_mild_proba,
+    TURN_ON_DETECTION: default_turn_on_detection,
+    AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL: default_average_infectivity_time_constant_kernel,
+    SAVE_EXPECTED_SEVERITY: default_save_expected_severity,
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

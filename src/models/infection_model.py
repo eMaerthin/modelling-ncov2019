@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import scipy.optimize
 import scipy.stats
+import cppyy
 import mocos_helper
 
 from src.models.schemas import *
@@ -264,12 +265,14 @@ class InfectionModel:
             for x in case_severity_dict:
                 if x != CRITICAL:
                     age_induced_severity_distribution[x] = case_severity_dict[x] / (1 - case_severity_dict[CRITICAL]) * (1 - age_induced_severity_distribution[CRITICAL])
-            distribution_hist = np.array([age_induced_severity_distribution[x] for x in case_severity_dict])
-            dis = scipy.stats.rv_discrete(values=(
-                np.arange(len(age_induced_severity_distribution)),
-                distribution_hist
-            ))
+            #distribution_hist = np.array([age_induced_severity_distribution[x] for x in case_severity_dict])
+            distribution_hist = cppyy.gbl.std.vector("double")(age_induced_severity_distribution[x] for x in case_severity_dict)
+            #dis = scipy.stats.rv_discrete(values=(
+            #    np.arange(len(age_induced_severity_distribution)),
+            #    distribution_hist
+            #))
             realizations = dis.rvs(size=len(self._individuals_indices[cond]))
+            realizations = mocos_helper.sample_with_replacement_shuffled(distribution_hist, len(self._individuals_indices[cond]))
             values = [keys[r] for r in realizations]
             df = pd.DataFrame(values, index=self._individuals_indices[cond])
             d = {**d, **df.to_dict()[0]}

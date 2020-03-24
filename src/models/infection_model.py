@@ -18,6 +18,8 @@ from git import Repo
 from matplotlib import pyplot as plt
 import scipy.optimize
 import scipy.stats
+import cppyy
+import mocos_helper
 
 from src.read_csv import read_pop_exp_csv, read_households_csv
 from src.df_like_ops import get_household2inhabitants
@@ -228,12 +230,14 @@ class InfectionModel:
         elif isinstance(initial_conditions, dict):  # schema v2
             if initial_conditions[SELECTION_ALGORITHM] == InitialConditionSelectionAlgorithms.RandomSelection.value:
                 # initially all indices can be drawn
-                choice_set = self._individuals_indices# self._df_individuals.index.values
+                choice_set = list(self._individuals_indices) # create copy, it will be consumed to speed things up later
+                                                             # self._df_individuals.index.values
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
-                        selected_rows = np.random.choice(choice_set, cardinality, replace=False)
+                        choice_set, selected_rows = mocos_helper.randomly_split_list(choice_set, cardinality)
+                        #selected_rows = np.random.choice(choice_set, cardinality, replace=False)
                         # now only previously unselected indices can be drawn in next steps
-                        choice_set = np.array(list(set(choice_set) - set(selected_rows)))
+                        #choice_set = np.array(list(set(choice_set) - set(selected_rows)))
                         t_state = _assign_t_state(infection_status)
                         for row in selected_rows:
                             self.append_event(Event(self.global_time, row, t_state, None, INITIAL_CONDITIONS,
@@ -302,12 +306,14 @@ class InfectionModel:
             for x in case_severity_dict:
                 if x != CRITICAL:
                     age_induced_severity_distribution[x] = case_severity_dict[x] / (1 - case_severity_dict[CRITICAL]) * (1 - age_induced_severity_distribution[CRITICAL])
-            distribution_hist = np.array([age_induced_severity_distribution[x] for x in case_severity_dict])
-            dis = scipy.stats.rv_discrete(values=(
-                np.arange(len(age_induced_severity_distribution)),
-                distribution_hist
-            ))
+            #distribution_hist = np.array([age_induced_severity_distribution[x] for x in case_severity_dict])
+            distribution_hist = cppyy.gbl.std.vector("double")(age_induced_severity_distribution[x] for x in case_severity_dict)
+            #dis = scipy.stats.rv_discrete(values=(
+            #    np.arange(len(age_induced_severity_distribution)),
+            #    distribution_hist
+            #))
             realizations = dis.rvs(size=len(self._individuals_indices[cond]))
+            realizations = mocos_helper.sample_with_replacement_shuffled(distribution_hist, len(self._individuals_indices[cond]))
             values = [keys[r] for r in realizations]
             df = pd.DataFrame(values, index=self._individuals_indices[cond])
             d = {**d, **df.to_dict()[0]}

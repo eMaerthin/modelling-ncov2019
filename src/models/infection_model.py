@@ -591,15 +591,14 @@ class InfectionModel:
         plt.close(fig)
 
     def draw_death_age_cohorts(self, simulation_output_dir):
-        df_r1 = self.df_progression_times
-        df_r2 = self.df_infections
-        df_in = self.df_individuals
+        # df_r1 = self.df_progression_times
+        # df_r2 = self.df_infections
+        # df_in = self.df_individuals
         lims = default_age_cohorts_with_descriptions
-
         fig, ax = plt.subplots(nrows=1, ncols=1)
         for limm, limM, descr in lims:
-            cond1 = df_in.age >= limm
-            cond2 = df_in.age < limM
+            cond1 = self._individuals_age >= limm
+            cond2 = self._individuals_age < limM
             cond = np.logical_and(cond1, cond2)
             filtered = df_r1.loc[df_r1.index.isin(df_in[cond].index)]
             death_cases = filtered[~filtered.tdeath.isna()].sort_values(by='tdeath').tdeath
@@ -1071,7 +1070,7 @@ class InfectionModel:
                 q.task_done()
             if self._params[LOG_OUTPUTS]:
                 logger.info('Log outputs')
-                self.log_outputs()
+                # self.log_outputs()
             if self.affected_people >= self.stop_simulation_threshold:
                 return True
             return False
@@ -1112,7 +1111,7 @@ class InfectionModel:
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
-        self.test_bandwidth_plot(simulation_output_dir)
+        # self.test_bandwidth_plot(simulation_output_dir)
         with open(output_log_file, "w") as out:
             out.write(output_log)
 

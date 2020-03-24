@@ -8,10 +8,11 @@ import numpy as np
 from pathlib import Path
 import psutil
 from collections import defaultdict
+import cppyy
 
 import scipy.optimize
-import scipy.stats
 
+import mocos_helper
 from src.read_csv import read_pop_exp_csv, read_households_csv
 from src.df_like_ops import get_household2inhabitants
 
@@ -198,9 +199,7 @@ class InfectionModel:
                 choice_set = self._individuals_indices
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
-                        selected_rows = np.random.choice(choice_set, cardinality, replace=False)
-                        # now only previously unselected indices can be drawn in next steps
-                        choice_set = np.array(list(set(choice_set) - set(selected_rows)))
+                        choice_set, selected_rows = mocos_helper.randomly_split_list(choice_set, cardinality)
                         t_state = _assign_t_state(infection_status)
                         for row in selected_rows:
                             self.append_event(Event(self.global_time, row, t_state, None, INITIAL_CONDITIONS,
@@ -241,20 +240,8 @@ class InfectionModel:
             for x in case_severity_dict:
                 if x != CRITICAL:
                     age_induced_severity_distribution[x] = case_severity_dict[x] / (1 - case_severity_dict[CRITICAL]) * (1 - age_induced_severity_distribution[CRITICAL])
-            distribution_hist = np.array([age_induced_severity_distribution[x] for x in case_severity_dict])
-            dis = scipy.stats.rv_discrete(values=(
-                np.arange(len(age_induced_severity_distribution)),
-                distribution_hist
-            ))
-            print(np.arange(len(age_induced_severity_distribution)))
-            print(distribution_hist)
-
-            realizations = dis.rvs(size=len(self._individuals_indices[cond]))
-            # list(MH.sample_with_replacement(self.distribution_hist, len(self._individuals_indices[cond])))
-            print(realizations)
-            print(len(realizations))
-            print()
-
+            distribution_hist = cppyy.gbl.std.vector("double")(age_induced_severity_distribution[x] for x in case_severity_dict)
+            realizations = mocos_helper.sample_with_replacement_shuffled(distribution_hist, len(self._individuals_indices[cond]))
             for indiv, realization in zip(self._individuals_indices[cond], realizations):
                 d[indiv] = keys[realization]
         return d

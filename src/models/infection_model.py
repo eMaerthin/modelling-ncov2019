@@ -351,15 +351,14 @@ class InfectionModel:
         if end is None:
             end = start + 14 # TODO: Fix the bug, this should Recovery Time
         total_infection_rate = (end - start) * self.gamma('household')
-        household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
-        inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]
-        possibly_affected_household_members = list(set(inhabitants) - {person_id})
-        infected = np.minimum(np.random.poisson(total_infection_rate, size=1),
-                              len(possibly_affected_household_members))[0]
+        infected = np.random.poisson(total_infection_rate, size=1)
+
         if infected == 0:
             return
-        possible_choices = possibly_affected_household_members
-        selected_rows = np.random.choice(possible_choices, infected, replace=False)
+
+        household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
+        inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]
+        selected_rows = mocos_helper.nonreplace_sample((inhabitant in inhabitants if inhabitant != person_id), infected)
         for person_idx in selected_rows:
             if self._infection_status[person_idx] == InfectionStatus.Healthy:
                 contraction_time = np.random.uniform(low=start, high=end)

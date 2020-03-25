@@ -26,7 +26,7 @@ from src.models.defaults import *
 from src.models.states_and_functions import *
 import click
 
-from dotenv import find_dotenv, load_dotenv
+# from dotenv import find_dotenv, load_dotenv
 
 from queue import (PriorityQueue)
 q = PriorityQueue()
@@ -972,6 +972,7 @@ class InfectionModel:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break
                 event = q.get()
+                print(event)
                 if not self.process_event(event):
                     logging.info(f"Processing event {event} returned False")
                     q.task_done()
@@ -1073,6 +1074,6 @@ if __name__ == '__main__':
 
     # find .env automagically by walking up directories until it's found, then
     # load up the .env entries as environment variables
-    load_dotenv(find_dotenv())
+    # load_dotenv(find_dotenv())
 
     runner()

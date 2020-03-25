@@ -9,6 +9,7 @@ import random
 import time
 import pickle
 import psutil
+import platform
 from shutil import copyfile
 
 import mocos_helper
@@ -297,7 +298,10 @@ class InfectionModel:
             for x in case_severity_dict:
                 if x != CRITICAL:
                     age_induced_severity_distribution[x] = case_severity_dict[x] / (1 - case_severity_dict[CRITICAL]) * (1 - age_induced_severity_distribution[CRITICAL])
-            distribution_hist = cppyy.gbl.std.vector("double")(age_induced_severity_distribution[x] for x in case_severity_dict)
+            if "PyPy" in platform.python_implementation():
+                distribution_hist = cppyy.gbl.std.vector("double")(list(age_induced_severity_distribution[x] for x in case_severity_dict))
+            else:
+                distribution_hist = cppyy.gbl.std.vector("double")(age_induced_severity_distribution[x] for x in case_severity_dict)
             realizations = mocos_helper.sample_with_replacement_shuffled(distribution_hist, len(self._individuals_indices[cond]))
             for indiv, realization in zip(self._individuals_indices[cond], realizations):
                 d[indiv] = keys[realization]

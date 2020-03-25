@@ -358,7 +358,7 @@ class InfectionModel:
 
         household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
         inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]
-        selected_rows = mocos_helper.nonreplace_sample((inhabitant in inhabitants if inhabitant != person_id), infected)
+        selected_rows = mocos_helper.nonreplace_sample((inhabitant for inhabitant in inhabitants if inhabitant != person_id), infected)
         for person_idx in selected_rows:
             if self._infection_status[person_idx] == InfectionStatus.Healthy:
                 contraction_time = np.random.uniform(low=start, high=end)

@@ -1,4 +1,3 @@
-from functools import (partial)
 import json
 import logging
 import random
@@ -35,7 +34,7 @@ class InfectionModel:
         logger.info('Loading params...')
         self._params = {}
         with open(params_path, 'r') as params_file:
-            params = json.loads(params_file.read())  # TODO: check whether this should be moved to different place
+            params = json.loads(params_1file.read())  # TODO: check whether this should be moved to different place
         
         logger.info('Parsing params...')
         for key, schema in infection_model_schemas.items():

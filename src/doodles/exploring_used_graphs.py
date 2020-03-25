@@ -1,9 +1,10 @@
 from collections import Counter
+from itertools import combinations
 import getpass
 import networkx as nx
 import pandas as pd
 from pathlib import Path
-from itertools import combinations
+from pprint import pprint
 
 from src.read_csv import read_pop_exp_csv, read_households_csv
 
@@ -33,5 +34,5 @@ for i_l in H.values():
 print(nx.number_connected_components(G))
 # 277667
 G.cc = list(nx.connected_components(G))
-Counter(len(cc) for cc in G.cc)
+pprint(dict(Counter(len(cc) for cc in G.cc)))
 # Counter({1: 94629, 2: 80612, 3: 54403, 4: 32402, 5: 8472, 6: 4766, 7: 2383}) 

@@ -11,11 +11,14 @@ import pickle
 import psutil
 from shutil import copyfile
 
+import mocos_helper
+
 from git import Repo
 from matplotlib import pyplot as plt
 import pandas as pd
-import scipy.optimize
-import scipy.stats
+
+from src.models.distributions import Gamma, LogNorm
+from src.models.algorithms import bisection
 
 from src.models.schemas import *
 from src.models.defaults import *
@@ -72,17 +75,10 @@ class InfectionModel:
         self._infections_dict = {}
         self._progression_times_dict = {}
 
-        t0_f, t0_args, t0_kwargs = self.setup_random_distribution(T0)
-        self.rv_t0 = lambda: t0_f(*t0_args, **t0_kwargs)
-
-        t1_f, t1_args, t1_kwargs = self.setup_random_distribution(T1)
-        self.rv_t1 = lambda: t1_f(*t1_args, **t1_kwargs)
-
-        t2_f, t2_args, t2_kwargs = self.setup_random_distribution(T2)
-        self.rv_t2 = lambda: t2_f(*t2_args, **t2_kwargs)
-
-        tdeath_f, tdeath_args, tdeath_kwargs = self.setup_random_distribution(TDEATH)
-        self.rv_tdeath = lambda: tdeath_f(*tdeath_args, **tdeath_kwargs)
+        self.d_t0 = self.setup_random_distribution(T0)
+        self.d_t1 = self.setup_random_distribution(T1)
+        self.d_t2 = self.setup_random_distribution(T2)
+        self.d_tdeath = self.setup_random_distribution(TDEATH)
 
         self.fear_fun = dict()
         self.fear_weights_detected = dict()
@@ -177,8 +173,7 @@ class InfectionModel:
                 return func(x, rate=rate, multiplier=multiplier) - integer
 
             for i in range(1, 1 + cap):
-                bisect_fun = partial(bisect_fun, integer=i)
-                root = scipy.optimize.bisect(bisect_fun, root_min, root_max)
+                root = bisection(bisect_fun, root_min, root_max, 1e-12, integer=i)
                 time_events_.append(root)
                 root_min = root
                 root_max = root + root_buffer
@@ -232,9 +227,7 @@ class InfectionModel:
                 choice_set = self._individuals_indices# self._df_individuals.index.values
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
-                        selected_rows = np.random.choice(choice_set, cardinality, replace=False)
-                        # now only previously unselected indices can be drawn in next steps
-                        choice_set = np.array(list(set(choice_set) - set(selected_rows)))
+                        choice_set, selected_rows = mocos_helper.randomly_split_list(choice_set, cardinality)
                         t_state = _assign_t_state(infection_status)
                         for row in selected_rows:
                             self.append_event(Event(self.global_time, row, t_state, None, INITIAL_CONDITIONS,
@@ -303,15 +296,10 @@ class InfectionModel:
             for x in case_severity_dict:
                 if x != CRITICAL:
                     age_induced_severity_distribution[x] = case_severity_dict[x] / (1 - case_severity_dict[CRITICAL]) * (1 - age_induced_severity_distribution[CRITICAL])
-            distribution_hist = np.array([age_induced_severity_distribution[x] for x in case_severity_dict])
-            dis = scipy.stats.rv_discrete(values=(
-                np.arange(len(age_induced_severity_distribution)),
-                distribution_hist
-            ))
-            realizations = dis.rvs(size=len(self._individuals_indices[cond]))
-            values = [keys[r] for r in realizations]
-            df = pd.DataFrame(values, index=self._individuals_indices[cond])
-            d = {**d, **df.to_dict()[0]}
+            distribution_hist = cppyy.gbl.std.vector("double")(age_induced_severity_distribution[x] for x in case_severity_dict)
+            realizations = mocos_helper.sample_with_replacement_shuffled(distribution_hist, len(self._individuals_indices[cond]))
+            for indiv, realization in zip(self._individuals_indices[cond], realizations):
+                d[indiv] = keys[realization]
         return d
 
     def setup_random_distribution(self, t):
@@ -322,13 +310,16 @@ class InfectionModel:
             Schema(lambda x: os.path.exists(x)).validate(filepath)
             array = np.load(filepath)
             approximate_distribution = params.get('approximate_distribution', None)
+
             if approximate_distribution == LOGNORMAL:
-                shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
-                return scipy.stats.lognorm.rvs, [shape], {'loc':loc, 'scale':scale}
+                lognorm = LogNorm()
+                lognorm.fit(array)
+                return lognorm
 
             if approximate_distribution == GAMMA:
-                shape, loc, scale = scipy.stats.gamma.fit(array, floc=0)
-                return scipy.stats.gamma.rvs, [shape], {'loc':loc, 'scale':scale}
+                gamma = Gamma()
+                gamma.fit(array)
+                return gamma
 
             if approximate_distribution:
                 raise NotImplementedError(f'Approximating to this distribution {approximate_distribution}'
@@ -448,13 +439,13 @@ class InfectionModel:
         """
         if initial_infection_status == InfectionStatus.Contraction:
             tminus1 = event_time
-            t0 = tminus1 + self.rv_t0()
+            t0 = tminus1 + self.d_t0_rvs()
             self.append_event(Event(t0, person_id, T0, person_id, DISEASE_PROGRESSION, tminus1))
             self._infection_status[person_id] = initial_infection_status
         elif initial_infection_status == InfectionStatus.Infectious:
             t0 = event_time
             # tminus1 does not to be defined, but for completeness let's calculate it
-            tminus1 = t0 - self.rv_t0()
+            tminus1 = t0 - self.d_t0_rvs()
         else:
             raise ValueError(f'invalid initial infection status {initial_infection_status}')
         t2 = None
@@ -462,10 +453,10 @@ class InfectionModel:
             ExpectedCaseSeverity.Severe,
             ExpectedCaseSeverity.Critical
         ]:
-            t2 = t0 + self.rv_t2()
+            t2 = t0 + self.d_t2_rvs()
             self.append_event(Event(t2, person_id, T2, person_id, DISEASE_PROGRESSION, t0))
 
-        t1 = t0 + self.rv_t1()
+        t1 = t0 + self.d_t1_rvs()
         if not t2 or t1 < t2:
             self.append_event(Event(t1, person_id, T1, person_id, DISEASE_PROGRESSION, t0))
         else:
@@ -476,7 +467,7 @@ class InfectionModel:
         trecovery = None
         tdeath = None
         if np.random.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id]]:
-            tdeath = t0 + self.rv_tdeath()
+            tdeath = t0 + self.d_tdeath_rvs()
             self.append_event(Event(tdeath, person_id, TDEATH, person_id, DISEASE_PROGRESSION, t0))
         else:
             if self._expected_case_severity[person_id] in [

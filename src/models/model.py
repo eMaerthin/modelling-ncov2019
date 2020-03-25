@@ -631,17 +631,11 @@ class InfectionModel:
 
 
 logger = logging.getLogger(__name__)
-# TODO: think about separate thread/proc:ess to generate random numbers, facilitate sampling
 if __name__ == '__main__':
-
-    import getpass
-    proj = {'matteo': "/home/matteo/Projects/corona/modelling-ncov2019",
-            'cov': "/home/cov/git/modelling-ncov2019"}[getpass.getuser()]
-    proj = Path(proj)
-    params_path = proj/"test/models/assets/params_experiment0.json"
-    df_individuals_path = proj/"data/vroclav/population_experiment0.csv"
-    df_households_path = proj/"data/vroclav/households_experiment0.csv"
-
+    if len(sys.argv) != 4:
+        print("Usage: python model.py parameters population_exp households_exp")
+    else:
+        params_path, df_individuals_path, df_households_path = sys.argv[1:4]
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)
     pid = os.getpid()
@@ -650,5 +644,3 @@ if __name__ == '__main__':
                         df_individuals_path=df_individuals_path,
                         df_households_path=df_households_path or '')
     im.run_simulation()
-    # from pprint import pprint
-    # pprint(im._params)

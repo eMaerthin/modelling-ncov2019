@@ -10,11 +10,12 @@ import psutil
 from collections import defaultdict
 import cppyy
 
-import scipy.optimize
-
 import mocos_helper
+
 from src.read_csv import read_pop_exp_csv, read_households_csv
 from src.df_like_ops import get_household2inhabitants
+from src.models.distributions import LogNorm, Gamma
+from src.models.algorithms import bisection
 
 from src.models.schemas import *
 from src.models.defaults import *
@@ -24,32 +25,7 @@ from queue import (PriorityQueue)
 
 q = PriorityQueue()
 
-class distribution(object):
-    def fit(self):
-        raise NotImplementedError
-    def rvs(self):
-        raise NotImplementedError
-
-class LogNorm(distribution):
-    def fit(self, sample):
-        lsample = np.log(sample)
-        self.lmean = lsample.mean()
-        self.lstd = lsample.std()
-
-    def rvs(self):
-        return np.exp(np.random.normal(self.lmean, self.lstd))
-
-
-class Gamma(distribution):
-    def fit(self, sample):
-        sample_mean = np.mean(sample)
-        sample_var = np.var(sample)
-        self.alpha = sample_mean**2 / sample_var
-        self.beta = sample_var / sample_mean
-
-    def rvs(self):
-        return np.random.gamma(self.alpha, self.beta)
-
+SHOW_PROGRESS = False
 
 class InfectionModel:
     def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
@@ -57,7 +33,7 @@ class InfectionModel:
         self.df_individuals_path = df_individuals_path
         self.df_households_path = df_households_path
         logger.info('Loading params...')
-        self._params = dict()
+        self._params = {}
         with open(params_path, 'r') as params_file:
             params = json.loads(params_file.read())  # TODO: check whether this should be moved to different place
         
@@ -91,11 +67,11 @@ class InfectionModel:
         self.d_t2 = self.setup_random_distribution(T2)
         self.d_tdeath = self.setup_random_distribution(TDEATH)
 
-        self.fear_fun = dict()
-        self.fear_weights_detected = dict()
-        self.fear_weights_deaths = dict()
-        self.fear_scale = dict()
-        self.fear_limit_value = dict()
+        self.fear_fun = {}
+        self.fear_weights_detected = {}
+        self.fear_weights_deaths = {}
+        self.fear_scale = {}
+        self.fear_limit_value = {}
 
         self.serial_intervals = []
         self.experimental_ub = None
@@ -144,8 +120,7 @@ class InfectionModel:
                 return func(x, rate=rate, multiplier=multiplier) - integer
 
             for i in range(1, 1 + cap):
-                bisect_fun = partial(bisect_fun, integer=i)
-                root = scipy.optimize.bisect(bisect_fun, root_min, root_max)
+                root = bisection(bisect_fun, root_min, root_max, 1e-12, integer=i)
                 time_events_.append(root)
                 root_min = root
                 root_max = root + root_buffer
@@ -235,7 +210,7 @@ class InfectionModel:
             cond = np.logical_and(cond_lb, cond_ub)
             if np.count_nonzero(cond) == 0:
                 continue
-            age_induced_severity_distribution = dict()
+            age_induced_severity_distribution = {}
             age_induced_severity_distribution[CRITICAL] = fatality_prob/self._params[DEATH_PROBABILITY][CRITICAL]
             for x in case_severity_dict:
                 if x != CRITICAL:
@@ -561,9 +536,15 @@ class InfectionModel:
 
         return True
 
+    def print_state(self):
+        x = f"AFF: {self.affected_people} ACT:{self.active_people} DET:{self.detected_people} QUA: {self.quarantined_people} DEA: {self.deaths}"
+        print(x) 
+
     def run_simulation(self):
         def _inner_loop(iter):
             while not q.empty():
+                if SHOW_PROGRESS:
+                    self.print_state()
                 if self.affected_people >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break
@@ -573,13 +554,13 @@ class InfectionModel:
                     q.task_done()
                     break
                 q.task_done()
-            # cleaning up priority queue:
             while not q.empty():
                 q.get_nowait()
                 q.task_done()
             if self.affected_people >= self.stop_simulation_threshold:
                 return True
             return False
+
         seeds = None
         if isinstance(self._params[RANDOM_SEED], str):
             seeds = eval(self._params[RANDOM_SEED])
@@ -589,9 +570,7 @@ class InfectionModel:
         mean_time_when_no_outbreak = 0.0
         mean_affected_when_no_outbreak = 0.0
         no_outbreaks = 0
-
         seeds = [seeds[0]]
-
 
         for i, seed in enumerate(seeds):
             self.parse_random_seed(seed)

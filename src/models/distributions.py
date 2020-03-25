@@ -1,4 +1,5 @@
 import numpy as np
+from collections import namedtuple
 
 
 class distribution(object):
@@ -28,3 +29,15 @@ class Gamma(distribution):
     def rvs(self):
         return np.random.gamma(self.alpha, self.beta)
 
+
+SimpleStats = namedtuple('DescribeResults', 'nobs minmax mean variance')
+
+def simple_stats(x):
+    """Replacement for scipy.stats.describe"""
+    x    = np.array(x)
+    N    = len(x)
+    mean = np.mean(x)
+    var  = np.var(x)
+    # skew = np.sum((x-mean)**3)/(np.sqrt(var)**1.5) * np.sqrt(N*(N-1))/(N-2)
+    # kurt = np.sum((x-mean)**4)/var**2
+    return SimpleStats(N, (np.min(x),np.max(x)), mean, var)

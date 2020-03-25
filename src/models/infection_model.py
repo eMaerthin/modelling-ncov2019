@@ -12,12 +12,13 @@ import psutil
 from shutil import copyfile
 
 import mocos_helper
+import cppyy
 
 from git import Repo
 from matplotlib import pyplot as plt
 import pandas as pd
 
-from src.models.distributions import Gamma, LogNorm
+from src.models.distributions import Gamma, LogNorm, simple_stats
 from src.models.algorithms import bisection
 
 from src.models.schemas import *
@@ -439,13 +440,13 @@ class InfectionModel:
         """
         if initial_infection_status == InfectionStatus.Contraction:
             tminus1 = event_time
-            t0 = tminus1 + self.d_t0_rvs()
+            t0 = tminus1 + self.d_t0.rvs()
             self.append_event(Event(t0, person_id, T0, person_id, DISEASE_PROGRESSION, tminus1))
             self._infection_status[person_id] = initial_infection_status
         elif initial_infection_status == InfectionStatus.Infectious:
             t0 = event_time
             # tminus1 does not to be defined, but for completeness let's calculate it
-            tminus1 = t0 - self.d_t0_rvs()
+            tminus1 = t0 - self.d_t0.rvs()
         else:
             raise ValueError(f'invalid initial infection status {initial_infection_status}')
         t2 = None
@@ -453,10 +454,10 @@ class InfectionModel:
             ExpectedCaseSeverity.Severe,
             ExpectedCaseSeverity.Critical
         ]:
-            t2 = t0 + self.d_t2_rvs()
+            t2 = t0 + self.d_t2.rvs()
             self.append_event(Event(t2, person_id, T2, person_id, DISEASE_PROGRESSION, t0))
 
-        t1 = t0 + self.d_t1_rvs()
+        t1 = t0 + self.d_t1.rvs()
         if not t2 or t1 < t2:
             self.append_event(Event(t1, person_id, T1, person_id, DISEASE_PROGRESSION, t0))
         else:
@@ -467,7 +468,7 @@ class InfectionModel:
         trecovery = None
         tdeath = None
         if np.random.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id]]:
-            tdeath = t0 + self.d_tdeath_rvs()
+            tdeath = t0 + self.d_tdeath.rvs()
             self.append_event(Event(tdeath, person_id, TDEATH, person_id, DISEASE_PROGRESSION, t0))
         else:
             if self._expected_case_severity[person_id] in [
@@ -751,7 +752,7 @@ class InfectionModel:
     def save_serial_interval(self, simulation_output_dir):
         np_intervals = np.array(self.serial_intervals)
         serial_interval_median = np.median(np_intervals)
-        description = scipy.stats.describe(np_intervals)
+        description = simple_stats(np_intervals)
         serial_interval_str = f'serial interval: measured from {self._params[SERIAL_INTERVAL][MIN_TIME]}'\
                               f' to {self._params[SERIAL_INTERVAL][MAX_TIME]};'\
                               f' median={serial_interval_median}, stats describe: {description}'

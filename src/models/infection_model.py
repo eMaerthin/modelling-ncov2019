@@ -949,6 +949,11 @@ class InfectionModel:
         fig, ax = plt.subplots(nrows=1, ncols=1)
         for i, run in enumerate(self._all_runs_detected):
             self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
+        if self._params[LAID_CURVE].items():
+            laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
+            laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
+            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y)
+
         ax.legend()
         ax.set_title(f'Test of detected cases (showing min/max across multiple runs)')
         fig.tight_layout()
@@ -1050,13 +1055,12 @@ class InfectionModel:
         df_r2 = self.df_infections
 
         fig, ax = plt.subplots(nrows=1, ncols=1)
-        legend = []
         cond = [k for k, v in self._expected_case_severity.items() if v == ExpectedCaseSeverity.Critical]
         critical = df_r1.loc[df_r1.index.isin(cond)]
         plus = critical.t2.values
         deceased = critical[~critical.tdeath.isna()]
         survived = critical[critical.tdeath.isna()]
-        minus1 = survived.trecovery.values #FOUR_WEEKS  # TODO
+        minus1 = survived.trecovery.values
         minus2 = deceased.tdeath.values
         max_time = df_r2.contraction_time.max(axis=0)
         df_plus = pd.DataFrame({'t': plus, 'd': np.ones_like(plus)})
@@ -1068,9 +1072,7 @@ class InfectionModel:
             return
         cumv = df.d.cumsum().values
         x = df.t.values
-        #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
-        #    if self._max_time_offset != np.inf:
-        #        x -= self._max_time_offset
+
         self.plot_values(x, yvalues=cumv, label='ICU required', ax=ax)
 
         largest_y = cumv.max()
@@ -1090,10 +1092,7 @@ class InfectionModel:
         if cumv[cumv_filter_flag].any():
             critical_t = df.t.values[cumv_filter_flag].min()
             self.band_time = critical_t
-            #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
-            #    if self._max_time_offset != np.inf:
-            #        critical_t -= self._max_time_offset
-            #logging.info(self._max_time_offset)
+
             ax.plot([critical_t] * 2, [0, largest_y], label=f'Critical time {critical_t:.1f}')
         ax.legend()  # 'upper left')
         fig.tight_layout()
@@ -1105,13 +1104,12 @@ class InfectionModel:
         df_r2 = self.df_infections
 
         fig, ax = plt.subplots(nrows=1, ncols=1)
-        legend = []
         cond = [k for k, v in self._expected_case_severity.items() if v == ExpectedCaseSeverity.Critical]
         critical = df_r1.loc[df_r1.index.isin(cond)]
         plus = critical.t2.values
         deceased = critical[~critical.tdeath.isna()]
         survived = critical[critical.tdeath.isna()]
-        minus1 = survived.t2.values + FOUR_WEEKS #TODO
+        minus1 = survived.trecovery.values
         minus2 = deceased.tdeath.values
         max_time = df_r2.contraction_time.max(axis=0)
         df_plus = pd.DataFrame({'t': plus, 'd': np.ones_like(plus)})
@@ -1131,21 +1129,14 @@ class InfectionModel:
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= max_time].sort_values()
         t = [0, max_time]
-        #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
-        #    if self._max_time_offset != np.inf:
-        #        t -= self._max_time_offset
         ax.plot(t, [icu_availability] * 2, label='ICU capacity')
         cumv_filter_flag = cumv > icu_availability
         if cumv[cumv_filter_flag].any():
             critical_t = df.t.values[cumv_filter_flag].min()
             self.band_time = critical_t
-            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
-                if self._max_time_offset != np.inf:
-                    critical_t -= self._max_time_offset
             ax.plot([critical_t] * 2, [0, largest_y], label=f'Critical time {critical_t:.1f}')
         ax.legend() #'upper left')
-        ax.set_title('assuming ICU required for 4 weeks while recovering'
-                  f'\n{self._params[EXPERIMENT_ID]}')
+        ax.set_title('ICU requirements\n{self._params[EXPERIMENT_ID]}')
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'icu_beds_analysis.png'))
         plt.close(fig)

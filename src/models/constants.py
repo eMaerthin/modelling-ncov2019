@@ -83,6 +83,7 @@ NUMBER_OF_DETECTED_AT_ZERO_TIME = 'number_of_detected_at_zero_time'
 
 USE_TODAY_MARK = 'use_today_mark'
 TODAY_OFFSET = 'today_offset'
+LAID_CURVE = 'laid_curve'
 
 FEAR_FACTORS = 'fear_factors'
 FEAR_FUNCTION = 'fear_function'

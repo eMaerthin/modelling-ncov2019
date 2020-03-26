@@ -60,6 +60,7 @@ class InfectionModel:
         self._individuals_age = None
         self._individuals_household_id = {}
         self._individuals_indices = None
+        self._all_runs_detected = []
         self._households_capacities = {}
         self._households_inhabitants = {}
 
@@ -733,12 +734,13 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'bins.png'))
         plt.close(fig)
 
-    def plot_values(self, values, label, ax, yvalues=None, type='plot'):
+    def plot_values(self, values, label, ax, yvalues=None, type='plot', reduce_offset=True):
         if len(values) > 0:
             x = values
-            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
-                if self._max_time_offset != np.inf:
-                    x -= self._max_time_offset
+            if reduce_offset:
+                if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+                    if self._max_time_offset != np.inf:
+                        x -= self._max_time_offset
             if yvalues is None:
                 y = np.arange(1, 1 + len(x))
             else:
@@ -825,9 +827,15 @@ class InfectionModel:
         df_r2 = self.df_infections
         detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
         det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+        self._all_runs_detected.append(det_cases)
         fig, ax = plt.subplots(nrows=1, ncols=1)
-        self.plot_values(det_cases, 'Detected', ax)
+        ax.set_title(f'detected cases in time\n {self._params[EXPERIMENT_ID]}')
 
+        self.plot_values(det_cases, 'Detected', ax)
+        if self._params[LAID_CURVE].items():
+            laid_curve_x = np.array([float(elem)+self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
+            laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
+            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y)
         ax.legend()
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'summary_detections.png'))
@@ -939,12 +947,12 @@ class InfectionModel:
 
     def test_detected_cases(self, simulation_output_dir):
         fig, ax = plt.subplots(nrows=1, ncols=1)
-        self.plot_values(self.experimental_ub, 'Prevalence UB', ax)
-        self.plot_values(self.experimental_lb, 'Prevalence LB', ax)
+        for i, run in enumerate(self._all_runs_detected):
+            self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
         ax.legend()
-        ax.set_title(f'Test of bandwidth plot (showing min/max across multiple runs)')
+        ax.set_title(f'Test of detected cases (showing min/max across multiple runs)')
         fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'test_bandwidth_plot_summary_semilogy.png'))
+        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases.png'))
         plt.close(fig)
 
     @staticmethod

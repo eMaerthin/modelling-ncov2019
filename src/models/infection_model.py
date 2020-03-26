@@ -5,13 +5,13 @@ import ast
 from functools import (lru_cache, partial)
 import json
 import logging
-import random
 import mocos_helper
 #import random
 import time
 import pickle
 import psutil
 from shutil import copyfile
+from math import log
 
 from git import Repo
 from matplotlib import pyplot as plt
@@ -116,8 +116,8 @@ class InfectionModel:
 
     @staticmethod
     def parse_random_seed(random_seed):
-        np.random.seed(random_seed)
-        random.seed(random_seed)
+        #np.random.seed(random_seed)
+        #random.seed(random_seed)
         mocos_helper.seed(random_seed)
 
     def _set_up_data_frames(self) -> None:
@@ -339,11 +339,13 @@ class InfectionModel:
             approximate_distribution = params.get('approximate_distribution', None)
             if approximate_distribution == LOGNORMAL:
                 shape, loc, scale = scipy.stats.lognorm.fit(array, floc=0)
-                return scipy.stats.lognorm.rvs, [shape], {'loc':loc, 'scale':scale}
+                return mocos_helper.lognormal, [], {'mean': log(scale), 'sigma': shape}
+                #return scipy.stats.lognorm.rvs, [shape], {'loc':loc, 'scale':scale}
 
             if approximate_distribution == GAMMA:
                 shape, loc, scale = scipy.stats.gamma.fit(array, floc=0)
-                return scipy.stats.gamma.rvs, [shape], {'loc':loc, 'scale':scale}
+                return mocos_helper.gamma, [], {'alpha': shape, 'beta': scale}
+                #return scipy.stats.gamma.rvs, [shape], {'loc':loc, 'scale':scale}
 
             if approximate_distribution:
                 raise NotImplementedError(f'Approximating to this distribution {approximate_distribution}'

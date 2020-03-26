@@ -6,6 +6,8 @@ from functools import (lru_cache, partial)
 import json
 import logging
 import random
+import mocos_helper
+#import random
 import time
 import pickle
 import psutil
@@ -20,6 +22,8 @@ import scipy.stats
 from src.models.schemas import *
 from src.models.defaults import *
 from src.models.states_and_functions import *
+
+
 import click
 
 from dotenv import find_dotenv, load_dotenv
@@ -114,6 +118,7 @@ class InfectionModel:
     def parse_random_seed(random_seed):
         np.random.seed(random_seed)
         random.seed(random_seed)
+        mocos_helper.seed(random_seed)
 
     def _set_up_data_frames(self) -> None:
         """
@@ -202,9 +207,9 @@ class InfectionModel:
         infectious_prob = import_intensity[INFECTIOUS]
         event_times = _generate_event_times(func=func, rate=rate, multiplier=multiplier, cap=cap)
         for event_time in event_times:
-            person_id = self._individuals_indices[np.random.randint(len(self._individuals_indices))]
+            person_id = self._individuals_indices[mocos_helper.randint(0, len(self._individuals_indices))]
             t_state = TMINUS1
-            if np.random.rand() < infectious_prob:
+            if mocos_helper.rand() < infectious_prob:
                 t_state = T0
             self.append_event(Event(event_time, person_id, t_state, None, IMPORT_INTENSITY, self.global_time))
 
@@ -236,12 +241,14 @@ class InfectionModel:
         elif isinstance(initial_conditions, dict):  # schema v2
             if initial_conditions[SELECTION_ALGORITHM] == InitialConditionSelectionAlgorithms.RandomSelection.value:
                 # initially all indices can be drawn
-                choice_set = self._individuals_indices# self._df_individuals.index.values
+                #choice_set = self._individuals_indices# self._df_individuals.index.values
+                choice_set = list(self._individuals_indices)
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
-                        selected_rows = np.random.choice(choice_set, cardinality, replace=False)
+                        #selected_rows = np.random.choice(choice_set, cardinality, replace=False)
                         # now only previously unselected indices can be drawn in next steps
-                        choice_set = np.array(list(set(choice_set) - set(selected_rows)))
+                        #choice_set = np.array(list(set(choice_set) - set(selected_rows)))
+                        choice_set, selected_rows = mocos_helper.randomly_split_list(choice_set)
                         t_state = _assign_t_state(infection_status)
                         for row in selected_rows:
                             self.append_event(Event(self.global_time, row, t_state, None, INITIAL_CONDITIONS,
@@ -310,12 +317,13 @@ class InfectionModel:
             for x in case_severity_dict:
                 if x != CRITICAL:
                     age_induced_severity_distribution[x] = case_severity_dict[x] / (1 - case_severity_dict[CRITICAL]) * (1 - age_induced_severity_distribution[CRITICAL])
-            distribution_hist = np.array([age_induced_severity_distribution[x] for x in case_severity_dict])
-            dis = scipy.stats.rv_discrete(values=(
-                np.arange(len(age_induced_severity_distribution)),
-                distribution_hist
-            ))
-            realizations = dis.rvs(size=len(self._individuals_indices[cond]))
+            #distribution_hist = np.array([age_induced_severity_distribution[x] for x in case_severity_dict])
+            #dis = scipy.stats.rv_discrete(values=(
+            #    np.arange(len(age_induced_severity_distribution)),
+            #    distribution_hist
+            #))
+            #realizations = dis.rvs(size=len(self._individuals_indices[cond]))
+            realizations = mocos_helper.sample_with_replacement_shuffled((age_induced_severity_distribution[x] for x in case_severity_dict), len(self._individuals_indices[cond]))
             values = [keys[r] for r in realizations]
             df = pd.DataFrame(values, index=self._individuals_indices[cond])
             d = {**d, **df.to_dict()[0]}
@@ -347,15 +355,15 @@ class InfectionModel:
         if distribution == LOGNORMAL:
             mean = params.get('mean', 0.0)
             sigma = params.get('sigma', 1.0)
-            return np.random.lognormal, [], {'mean':mean, 'sigma':sigma}
+            return mocos_helper.lognormal, [], {'mean':mean, 'sigma':sigma}
 
         if distribution == EXPONENTIAL:
             lambda_ = params.get('lambda', 1.0)
-            return np.random.exponential, [], {'scale':1/lambda_}
+            return mocos_helper.exponential, [], {'scale':1/lambda_}
 
         if distribution == POISSON:
             lambda_ = params.get('lambda', 1.0)
-            return np.random.poisson, [], {'lam':lambda_}
+            return mocos_helper.poisson, [], {'lam':lambda_}
 
         raise ValueError(f'Sampling from distribution {distribution} is not yet supported but we can quickly add it')
 
@@ -398,14 +406,14 @@ class InfectionModel:
         household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
         inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]
         possible_choices = list(set(inhabitants) - {person_id})
-        infected = np.random.poisson(total_infection_rate, size=1)[0]
+        infected = mocos_helper.poisson(total_infection_rate)
         if infected == 0:
             return
         #selected_rows = set(np.random.choice(possible_choices, infected, replace=True))
         selected_rows = set(random.choices(possible_choices, k=infected))
         for person_idx in selected_rows:
             if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
-                contraction_time = np.random.uniform(low=start, high=end)
+                contraction_time = mocos_helper.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
 
     def add_potential_contractions_from_constant_kernel(self, person_id):
@@ -415,17 +423,17 @@ class InfectionModel:
         if end is None:
             end = prog_times[T2]
         total_infection_rate = (end - start) * self.gamma('constant')
-        infected = np.random.poisson(total_infection_rate, size=1)[0]
+        infected = mocos_helper.poisson(total_infection_rate)
         if infected == 0:
             return
-        possible_choices = self._individuals_indices # self._df_individuals.index.values
-        possible_choices = possible_choices[possible_choices != person_id]
-        r = range(possible_choices.shape[0])
-        selected_rows_ids = random.sample(r, k=infected)
-        selected_rows = possible_choices[selected_rows_ids]
+        #possible_choices = self._individuals_indices # self._df_individuals.index.values
+        #possible_choices = possible_choices[possible_choices != person_id]
+        #r = range(possible_choices.shape[0])
+        selected_rows = mocos_helper.nonreplace_sample_few(self._individuals_indices, infected, person_id)
+        #selected_rows = possible_choices[selected_rows_ids]
         for person_idx in selected_rows:
             if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
-                contraction_time = np.random.uniform(low=start, high=end)
+                contraction_time = mocos_helper.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
 
     def handle_t0(self, person_id):
@@ -484,7 +492,7 @@ class InfectionModel:
         tdetection = None
         trecovery = None
         tdeath = None
-        if np.random.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id]]:
+        if mocos_helper.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id]]:
             tdeath = t0 + self.rv_tdeath()
             self.append_event(Event(tdeath, person_id, TDEATH, person_id, DISEASE_PROGRESSION, t0))
         else:
@@ -492,9 +500,9 @@ class InfectionModel:
                 ExpectedCaseSeverity.Mild,
                 ExpectedCaseSeverity.Asymptomatic
             ]:
-                trecovery = t0 + np.random.uniform(14.0 - 3.0, 14.0 + 3.0)  # TODO: this should not be hardcoded!
+                trecovery = t0 + mocos_helper.uniform(14.0 - 3.0, 14.0 + 3.0)  # TODO: this should not be hardcoded!
             else:
-                trecovery = t0 + np.random.uniform(42.0 - 14.0, 42.0 + 14.0)
+                trecovery = t0 + mocos_helper.uniform(42.0 - 14.0, 42.0 + 14.0)
             self.append_event(Event(trecovery, person_id, TRECOVERY, person_id, DISEASE_PROGRESSION, t0))
 
         """ Following is for checking whther tdetection should be picked up"""
@@ -503,7 +511,7 @@ class InfectionModel:
             ExpectedCaseSeverity.Mild,
             ExpectedCaseSeverity.Asymptomatic
         ]:
-            if np.random.uniform() > self._params[DETECTION_MILD_PROBA]:  # TODO: this should not be hardcoded!
+            if mocos_helper.rand() > self._params[DETECTION_MILD_PROBA]:  # TODO: this should not be hardcoded!
                 calculate_tdetection = False
         if calculate_tdetection:
             """ If t2 is defined (severe/critical), then use this time; if not; use some offset from t0 """
@@ -1202,6 +1210,7 @@ class InfectionModel:
 
     def run_simulation(self):
         def _inner_loop(iter):
+            start = time.time()
             while not q.empty():
                 if self._icu_needed >= self._params[ICU_AVAILABILITY]:
                     logging.info('icu')
@@ -1217,6 +1226,8 @@ class InfectionModel:
                     q.task_done()
                     break
                 q.task_done()
+            end = time.time()
+            print("Sim runtime", end - start)
             # cleaning up priority queue:
             while not q.empty():
                 q.get_nowait()

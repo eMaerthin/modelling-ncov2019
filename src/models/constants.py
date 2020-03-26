@@ -78,6 +78,12 @@ AGE = 'age'
 SOCIAL = 'social'
 P_TRANSPORT = 'public_transport_usage'
 
+MOVE_ZERO_TIME_ACCORDING_TO_DETECTED = 'move_zero_time_according_to_detected'
+NUMBER_OF_DETECTED_AT_ZERO_TIME = 'number_of_detected_at_zero_time'
+
+USE_TODAY_MARK = 'use_today_mark'
+TODAY_OFFSET = 'today_offset'
+
 FEAR_FACTORS = 'fear_factors'
 FEAR_FUNCTION = 'fear_function'
 APPLICABLE_TO = 'applicable_to'

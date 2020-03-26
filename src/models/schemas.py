@@ -120,4 +120,8 @@ infection_model_schemas = {
     TURN_ON_DETECTION: Schema(bool),
     AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL: global_time_schema,
     SAVE_EXPECTED_SEVERITY: Schema(bool),
+    MOVE_ZERO_TIME_ACCORDING_TO_DETECTED: Schema(bool),
+    NUMBER_OF_DETECTED_AT_ZERO_TIME: Schema(And(Use(int), lambda x: x >= 0)),
+    USE_TODAY_MARK: Schema(bool),
+    TODAY_OFFSET: Schema(Or(int, float)),
 }

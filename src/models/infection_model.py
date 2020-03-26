@@ -52,6 +52,7 @@ class InfectionModel:
             self.df_households_path = default_household_input_path
         self._global_time = None
         self._max_time = None
+        self._max_time_offset = 0.0
         self._expected_case_severity = None
         self._df_individuals = None
         self._df_households = None
@@ -248,7 +249,7 @@ class InfectionModel:
                         #selected_rows = np.random.choice(choice_set, cardinality, replace=False)
                         # now only previously unselected indices can be drawn in next steps
                         #choice_set = np.array(list(set(choice_set) - set(selected_rows)))
-                        choice_set, selected_rows = mocos_helper.randomly_split_list(choice_set)
+                        choice_set, selected_rows = mocos_helper.randomly_split_list(choice_set, howmuch=cardinality)
                         t_state = _assign_t_state(infection_status)
                         for row in selected_rows:
                             self.append_event(Event(self.global_time, row, t_state, None, INITIAL_CONDITIONS,
@@ -634,6 +635,9 @@ class InfectionModel:
         fig, ax0 = plt.subplots()
         r2_max_time = df_r2.contraction_time.max()
         if self.active_people < 10:
+            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+                if self._max_time_offset != np.inf:
+                    r2_max_time -= self._max_time_offset
             ax0.plot([r2_max_time], [0], 'ro', markersize=5, label='Last reported infection time')
 
         bins = None
@@ -672,6 +676,9 @@ class InfectionModel:
             fig, (ax0, ax1) = plt.subplots(nrows=2, ncols=1)
         r2_max_time = df_r2.contraction_time.max()
         if self.active_people < 10:
+            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+                if self._max_time_offset != np.inf:
+                    r2_max_time -= self._max_time_offset
             ax0.plot([r2_max_time], [0], 'ro', markersize=5, label='Last reported infection time')
 
         bins = int(np.minimum(730, 1 + r2_max_time))
@@ -726,14 +733,25 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'bins.png'))
         plt.close(fig)
 
-    def plot_values(self, values, label, ax, type='plot'):
+    def plot_values(self, values, label, ax, yvalues=None, type='plot'):
         if len(values) > 0:
             x = values
-            y = np.arange(1, 1 + len(x))
+            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+                if self._max_time_offset != np.inf:
+                    x -= self._max_time_offset
+            if yvalues is None:
+                y = np.arange(1, 1 + len(x))
+            else:
+                y = yvalues
             if type == 'plot':
                 ax.plot(x, y, label=label)
             elif type == 'semilogy':
                 ax.semilogy(x, y, label=label)
+            if self._params[USE_TODAY_MARK]:
+                today = float(self._params[TODAY_OFFSET])
+                counter = sum(np.array(values) <= today)
+                label_at_today = f'{label} at T={today}: {counter}'
+                ax.plot([self._params[TODAY_OFFSET]] * 2, [0, len(values)], 'k-', label=label_at_today)
 
     def prevalance_at(self, time):
         df_r2 = self.df_infections
@@ -754,12 +772,12 @@ class InfectionModel:
         fig, ax = plt.subplots(nrows=1, ncols=1)
         vals = df_r2.contraction_time.sort_values()
         self.plot_values(vals, 'Prevalence', ax)
-        cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
-        cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
-        cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
-        self.plot_values(cond1, 'Imported', ax)
-        self.plot_values(cond2, 'Inf. through constant kernel', ax)
-        self.plot_values(cond3, 'Inf. through household', ax)
+        #cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
+        #cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
+        #cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
+        #self.plot_values(cond1, 'Imported', ax)
+        #self.plot_values(cond2, 'Inf. through constant kernel', ax)
+        #self.plot_values(cond3, 'Inf. through household', ax)
         hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
         ho_cases = hospitalized_cases[hospitalized_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
@@ -790,7 +808,11 @@ class InfectionModel:
                                                       self.fear_loc[kernel_id],
                                                       self.fear_scale[kernel_id],
                                                       self.fear_limit_value[kernel_id]))
-            ax2.plot([0]+list(det_cases), yvals, 'k--')
+            x = [0] + list(det_cases)
+            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+                if self._max_time_offset != np.inf:
+                    x = [elem - self._max_time_offset for elem in x]
+            ax2.plot(x, yvals, 'k--')
             ax2.tick_params(axis='y')
             ax2.set_ylim(bottom=0, top=1)
             ax2.legend()
@@ -798,6 +820,18 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'summary.png'))
         plt.close(fig)
 
+    def store_detections(self, simulation_output_dir):
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+        detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+        det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        self.plot_values(det_cases, 'Detected', ax)
+
+        ax.legend()
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'summary_detections.png'))
+        plt.close(fig)
 
     def lancet_store_graphs(self, simulation_output_dir):
         df_r1 = self.df_progression_times
@@ -836,7 +870,11 @@ class InfectionModel:
                                                       self.fear_loc[kernel_id],
                                                       self.fear_scale[kernel_id],
                                                       self.fear_limit_value[kernel_id]))
-            ax2.plot([0]+list(det_cases), yvals, 'k--')
+            x = [0] + list(det_cases)
+            #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            #    if self._max_time_offset != np.inf:
+            #        x = [elem - self._max_time_offset for elem in x]
+            ax2.plot(x, yvals, 'k--')
             ax2.tick_params(axis='y')
             ax2.set_ylim(bottom=0, top=1)
             ax2.legend()
@@ -859,13 +897,13 @@ class InfectionModel:
 
         fig, ax = plt.subplots(nrows=1, ncols=1)
         self.plot_values(vals, 'Prevalence', ax, type='semilogy')
-        cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
-        cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
-        cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
+        #cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
+        #cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
+        #cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
 
-        self.plot_values(cond1, 'Imported', ax, type='semilogy')
-        self.plot_values(cond2, 'Inf. through constant kernel', ax, type='semilogy')
-        self.plot_values(cond3, 'Inf. through household', ax, type='semilogy')
+        #self.plot_values(cond1, 'Imported', ax, type='semilogy')
+        #self.plot_values(cond2, 'Inf. through constant kernel', ax, type='semilogy')
+        #self.plot_values(cond3, 'Inf. through household', ax, type='semilogy')
 
         hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
         ho_cases = hospitalized_cases[hospitalized_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
@@ -891,8 +929,18 @@ class InfectionModel:
 
     def test_bandwidth_plot(self, simulation_output_dir):
         fig, ax = plt.subplots(nrows=1, ncols=1)
-        ax.semilogy(self.experimental_ub, np.arange(1, 1 + len(self.experimental_ub)), label='Prevalence UB')
-        ax.semilogy(self.experimental_lb, np.arange(1, 1 + len(self.experimental_lb)), label='Prevalence LB')
+        self.plot_values(self.experimental_ub, 'Prevalence UB', ax)
+        self.plot_values(self.experimental_lb, 'Prevalence LB', ax)
+        ax.legend()
+        ax.set_title(f'Test of bandwidth plot (showing min/max across multiple runs)')
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'test_bandwidth_plot_summary_semilogy.png'))
+        plt.close(fig)
+
+    def test_detected_cases(self, simulation_output_dir):
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        self.plot_values(self.experimental_ub, 'Prevalence UB', ax)
+        self.plot_values(self.experimental_lb, 'Prevalence LB', ax)
         ax.legend()
         ax.set_title(f'Test of bandwidth plot (showing min/max across multiple runs)')
         fig.tight_layout()
@@ -915,7 +963,8 @@ class InfectionModel:
 
     def _save_dir(self, prefix=''):
         underscore_if_prefix = '_' if len(prefix) > 0 else ''
-        run_id = f'{prefix}{underscore_if_prefix}{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
+        json_name = os.path.splitext(os.path.basename(self.params_path))[0]
+        run_id = f'{prefix}{underscore_if_prefix}{json_name}_{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
         simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR],
                                              self._params[EXPERIMENT_ID],
                                              run_id)
@@ -978,9 +1027,13 @@ class InfectionModel:
             self._params[EXPERIMENT_ID] = f'{self._params[EXPERIMENT_ID]}\n reduction factor: {(1 - self.fear(CONSTANT)):.3f}, reduced R*: {reduced_r:.3f}'
         self.lancet_store_graphs(simulation_output_dir)
         self.lancet_store_bins(simulation_output_dir)
+        self.store_bins(simulation_output_dir)
+        self.store_graphs(simulation_output_dir)
+        self.store_detections(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
         self.doubling_time(simulation_output_dir)
         self.lancet_icu_beds(simulation_output_dir)
+        self.icu_beds(simulation_output_dir)
         self.lancet_draw_death_age_cohorts(simulation_output_dir)
         self._params[EXPERIMENT_ID] = hack
 
@@ -1006,20 +1059,33 @@ class InfectionModel:
         if len(df) == 0:
             return
         cumv = df.d.cumsum().values
-        ax.plot(df.t.values, cumv, label='ICU required')
+        x = df.t.values
+        #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+        #    if self._max_time_offset != np.inf:
+        #        x -= self._max_time_offset
+        self.plot_values(x, yvalues=cumv, label='ICU required', ax=ax)
+
         largest_y = cumv.max()
         icu_availability = self._params[ICU_AVAILABILITY]
 
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= max_time].sort_values()
         if len(d_cases) > 0:
-            ax.plot(d_cases, np.arange(1, 1 + len(d_cases)), label='deceased')
+            self.plot_values(d_cases, 'deceased', ax)
             largest_y = max(largest_y, len(d_cases))
-        ax.plot([0, max_time], [icu_availability] * 2, label=f'ICU capacity ({icu_availability})')
+        t = [0, max_time]
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset != np.inf:
+                t = [elem - self._max_time_offset for elem in t]
+        ax.plot(t, [icu_availability] * 2, label=f'ICU capacity ({icu_availability})')
         cumv_filter_flag = cumv > icu_availability
         if cumv[cumv_filter_flag].any():
             critical_t = df.t.values[cumv_filter_flag].min()
             self.band_time = critical_t
+            #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            #    if self._max_time_offset != np.inf:
+            #        critical_t -= self._max_time_offset
+            #logging.info(self._max_time_offset)
             ax.plot([critical_t] * 2, [0, largest_y], label=f'Critical time {critical_t:.1f}')
         ax.legend()  # 'upper left')
         fig.tight_layout()
@@ -1048,19 +1114,26 @@ class InfectionModel:
         if len(df) == 0:
             return
         cumv = df.d.cumsum().values
-        ax.plot(df.t.values, cumv, label='ICU required')
+        x = df.t.values
+        self.plot_values(x, yvalues=cumv, label='ICU required', ax=ax)
+
         largest_y = cumv.max()
         icu_availability = self._params[ICU_AVAILABILITY]
 
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= max_time].sort_values()
-        if len(d_cases) > 0:
-            ax.plot(d_cases, np.arange(1, 1 + len(d_cases)), label='deceased')
-        ax.plot([0, max_time], [icu_availability] * 2, label='ICU capacity')
+        t = [0, max_time]
+        #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+        #    if self._max_time_offset != np.inf:
+        #        t -= self._max_time_offset
+        ax.plot(t, [icu_availability] * 2, label='ICU capacity')
         cumv_filter_flag = cumv > icu_availability
         if cumv[cumv_filter_flag].any():
             critical_t = df.t.values[cumv_filter_flag].min()
             self.band_time = critical_t
+            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+                if self._max_time_offset != np.inf:
+                    critical_t -= self._max_time_offset
             ax.plot([critical_t] * 2, [0, largest_y], label=f'Critical time {critical_t:.1f}')
         ax.legend() #'upper left')
         ax.set_title('assuming ICU required for 4 weeks while recovering'
@@ -1068,6 +1141,12 @@ class InfectionModel:
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'icu_beds_analysis.png'))
         plt.close(fig)
+
+    def update_max_time_offset(self):
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset == np.inf:
+                if self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME] <= self._detected_people:
+                    self._max_time_offset = self._global_time
 
     def add_new_infection(self, person_id, infection_status,
                           initiated_by, initiated_through):
@@ -1086,6 +1165,7 @@ class InfectionModel:
                     self.serial_intervals.append(serial_interval)
 
         self._affected_people += 1
+
         self.generate_disease_progression(person_id,
                                           self.global_time,
                                           infection_status)
@@ -1114,7 +1194,7 @@ class InfectionModel:
                          f'\tFearH: {fearH}'
                          f'\tPhysical memory use: {memory_use:.2f} MB')
         self._global_time = time
-        if self._global_time > self._max_time:
+        if self._global_time > self._max_time + self._max_time_offset:
             return False
         person_id = getattr(event, PERSON_INDEX)
         initiated_by = getattr(event, INITIATED_BY)
@@ -1192,6 +1272,7 @@ class InfectionModel:
                 if self.get_detection_status_(person_id) == DetectionStatus.NotDetected:
                     self._detection_status[person_id] = DetectionStatus.Detected.value
                     self._detected_people += 1
+                    self.update_max_time_offset()
                     household_id = self._individuals_household_id[person_id]
                     for inhabitant in self._households_inhabitants[household_id]:
                         if self.get_quarantine_status_(inhabitant) == QuarantineStatus.NoQuarantine:
@@ -1216,10 +1297,10 @@ class InfectionModel:
         def _inner_loop(iter):
             start = time.time()
             while not q.empty():
-                if self._icu_needed >= self._params[ICU_AVAILABILITY]:
-                    logging.info('icu')
-                    self.band_time = self._global_time
-                    break
+                #if self._icu_needed >= self._params[ICU_AVAILABILITY]:
+                #    logging.info('icu')
+                #    self.band_time = self._global_time
+                #    break
                 #print(f'{self._icu_needed} - {self._params[ICU_AVAILABILITY]}')
                 if self.affected_people >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
@@ -1276,8 +1357,8 @@ class InfectionModel:
                 init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
             subcritical = self._active_people < init_people/2 # at 200 days
             bandtime = self.band_time
-            if bandtime:
-                return 0
+            #if bandtime:
+            #    return 0
             prev30 = self.prevalance_at(30)
             prev60 = self.prevalance_at(60)
             prev90 = self.prevalance_at(90)
@@ -1311,6 +1392,7 @@ class InfectionModel:
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
         self.test_bandwidth_plot(simulation_output_dir)
+        self.test_detected_cases(simulation_output_dir)
         with open(output_log_file, "w") as out:
             out.write(output_log)
 
@@ -1324,7 +1406,9 @@ class InfectionModel:
         self._quarantined_people = 0
         self._deaths = 0
         self._icu_needed = 0
-
+        self._max_time_offset = 0
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            self._max_time_offset = np.inf
         self._fear_factor = {}
         self._infection_status = {}
         self._infections_dict = {}

@@ -94,6 +94,12 @@ default_average_infectivity_time_constant_kernel = 2.339
 
 default_save_expected_severity = False
 
+default_move_zero_time_according_to_detected = False
+default_number_of_detected_at_zero_time = 0
+
+default_use_today_mark = False
+default_today_offset = 0
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -119,6 +125,10 @@ defaults = {
     TURN_ON_DETECTION: default_turn_on_detection,
     AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL: default_average_infectivity_time_constant_kernel,
     SAVE_EXPECTED_SEVERITY: default_save_expected_severity,
+    MOVE_ZERO_TIME_ACCORDING_TO_DETECTED: default_move_zero_time_according_to_detected,
+    NUMBER_OF_DETECTED_AT_ZERO_TIME: default_number_of_detected_at_zero_time,
+    USE_TODAY_MARK: default_use_today_mark,
+    TODAY_OFFSET: default_today_offset
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

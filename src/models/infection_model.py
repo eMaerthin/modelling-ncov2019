@@ -403,15 +403,17 @@ class InfectionModel:
         start = prog_times[T0]
         end = prog_times[T2] or prog_times[TRECOVERY] # sometimes T2 is not defined (MILD cases)
         total_infection_rate = (end - start) * self.gamma('household')
-        household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
-        inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]
-        possible_choices = list(set(inhabitants) - {person_id})
         infected = mocos_helper.poisson(total_infection_rate)
         if infected == 0:
             return
+        household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
+        inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]
+        possible_choices = [i for i in inhabitants if i != person_id]
+        #possible_choices = list(set(inhabitants) - {person_id})
         #selected_rows = set(np.random.choice(possible_choices, infected, replace=True))
-        selected_rows = set(random.choices(possible_choices, k=infected))
-        for person_idx in selected_rows:
+        #selected_rows = set(random.choices(possible_choices, k=infected))
+        for choice_idx in mocos_helper.sample_idxes_with_replacement_uniform(len(possible_choices), infected):
+            person_idx = possible_choices[choice_idx]
             if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))

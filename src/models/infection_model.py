@@ -811,9 +811,9 @@ class InfectionModel:
                                                       self.fear_scale[kernel_id],
                                                       self.fear_limit_value[kernel_id]))
             x = [0] + list(det_cases)
-            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
-                if self._max_time_offset != np.inf:
-                    x = [elem - self._max_time_offset for elem in x]
+            #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            #    if self._max_time_offset != np.inf:
+            #        x = [elem - self._max_time_offset for elem in x]
             ax2.plot(x, yvals, 'k--')
             ax2.tick_params(axis='y')
             ax2.set_ylim(bottom=0, top=1)

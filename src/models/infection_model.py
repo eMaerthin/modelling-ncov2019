@@ -61,6 +61,8 @@ class InfectionModel:
         self._individuals_household_id = {}
         self._individuals_indices = None
         self._all_runs_detected = []
+        self._all_runs_prevalence = []
+        self._all_runs_severe = []
         self._households_capacities = {}
         self._households_inhabitants = {}
 
@@ -792,6 +794,7 @@ class InfectionModel:
         self.plot_values(d_cases, 'Deceased', ax)
         self.plot_values(ho_cases, 'Hospitalized', ax)
         self.plot_values(det_cases, 'Detected', ax)
+        self.add_observed_curve(ax)
 
         if QUARANTINE in df_r1.columns:
             quarantined_cases = df_r1[~df_r1.quarantine.isna()].sort_values(by='quarantine').quarantine
@@ -835,10 +838,7 @@ class InfectionModel:
         ax.set_title(f'detected cases in time\n {self._params[EXPERIMENT_ID]}')
 
         self.plot_values(det_cases, 'Detected', ax)
-        if self._params[LAID_CURVE].items():
-            laid_curve_x = np.array([float(elem)+self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
-            laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
-            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y)
+        self.add_observed_curve(ax)
         ax.legend()
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'summary_detections.png'))
@@ -851,8 +851,11 @@ class InfectionModel:
         fig, ax = plt.subplots(nrows=1, ncols=1)
         vals = df_r2.contraction_time.sort_values()
         self.plot_values(vals, 'Prevalence', ax)
+        self._all_runs_prevalence.append(vals)
         hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
+
         ho_cases = hospitalized_cases[hospitalized_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+        self._all_runs_severe.append(ho_cases)
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
@@ -926,6 +929,7 @@ class InfectionModel:
         self.plot_values(d_cases, 'Deceased', ax, type='semilogy')
         self.plot_values(ho_cases, 'Hospitalized', ax, type='semilogy')
         self.plot_values(det_cases, 'Detected', ax, type='semilogy')
+        self.add_observed_curve(ax)
 
         if QUARANTINE in df_r1.columns:
             quarantined_cases = df_r1[~df_r1.quarantine.isna()].sort_values(by='quarantine').quarantine
@@ -948,17 +952,53 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'test_bandwidth_plot_summary_semilogy.png'))
         plt.close(fig)
 
+    def test_lognormal_prevalence(self, simulation_output_dir):
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        for i, run in enumerate(self._all_runs_prevalence):
+            self.plot_values(run, f'Run {i}', ax, reduce_offset=False, type='semilogy')
+        self.add_observed_curve(ax)
+
+        #ax.legend()
+        ax.set_xlim([0, 28])
+        ax.set_title(f'Sample paths of prevalence')
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_prevalence.png'))
+        plt.close(fig)
+
+    def test_lognormal_detected(self, simulation_output_dir):
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        for i, run in enumerate(self._all_runs_detected):
+            self.plot_values(run, f'Run {i}', ax, reduce_offset=False, type='semilogy')
+        self.add_observed_curve(ax)
+
+        #ax.legend()
+        ax.set_xlim([0, 28])
+        ax.set_title(f'Sample paths of detected cases')
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_detected.png'))
+        plt.close(fig)
+
+    def test_lognormal_severe(self, simulation_output_dir):
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        for i, run in enumerate(self._all_runs_severe):
+            self.plot_values(run, f'Run {i}', ax, reduce_offset=False, type='semilogy')
+        self.add_observed_curve(ax)
+
+        #ax.legend()
+        ax.set_xlim([0, 28])
+        ax.set_title(f'Sample paths of severe cases')
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_severe.png'))
+        plt.close(fig)
+
     def test_detected_cases(self, simulation_output_dir):
         fig, ax = plt.subplots(nrows=1, ncols=1)
         for i, run in enumerate(self._all_runs_detected):
             self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
-        if self._params[LAID_CURVE].items():
-            laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
-            laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
-            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
+        self.add_observed_curve(ax)
 
         ax.legend()
-        ax.set_title(f'Test of detected cases (showing min/max across multiple runs)')
+        ax.set_title(f'Sample paths of detected cases')
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases.png'))
         plt.close(fig)
@@ -967,12 +1007,7 @@ class InfectionModel:
         fig, ax = plt.subplots(nrows=1, ncols=1)
         for i, run in enumerate(self._all_runs_detected):
             self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
-        if self._params[LAID_CURVE].items():
-            laid_curve_x = np.array(
-                [float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
-            laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
-            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
-
+        self.add_observed_curve(ax)
         #ax.legend()
         ax.set_xlim([0, 28])
 
@@ -981,16 +1016,17 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_no_legend.png'))
         plt.close(fig)
 
+    def add_observed_curve(self, ax):
+        if self._params[LAID_CURVE].items():
+            laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
+            laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
+            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
 
     def test_detected_cases_no_legend_cut(self, simulation_output_dir):
         fig, ax = plt.subplots(nrows=1, ncols=1)
         for i, run in enumerate(self._all_runs_detected):
             self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
-        if self._params[LAID_CURVE].items():
-            laid_curve_x = np.array(
-                [float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
-            laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
-            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
+        self.add_observed_curve(ax)
 
         #ax.legend()
         ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
@@ -1321,12 +1357,15 @@ class InfectionModel:
                                 if inhabitant not in self._progression_times_dict:
                                     self._progression_times_dict[inhabitant] = {}
                                 self._progression_times_dict[inhabitant][QUARANTINE] = self.global_time
-                                if self.get_infection_status(inhabitant) != InfectionStatus.Healthy:
+                                if self.get_infection_status(inhabitant) in [InfectionStatus.Infectious,
+                                                                             InfectionStatus.StayHome]:
                                     # TODO: this has to be implemented better, just a temporary solution:
-                                    new_detection_time = self.global_time + 2.0
-                                    self._progression_times_dict[inhabitant][TDETECTION] = new_detection_time
-                                    self.append_event(Event(new_detection_time, inhabitant, TDETECTION, None,
-                                                            'quarantine_followed_detection', self.global_time))
+                                    if self._progression_times_dict[inhabitant].get(TDETECTION, None) is None:
+                                        new_detection_time = self.global_time + 2.0
+                                        self._progression_times_dict[inhabitant][TDETECTION] = new_detection_time
+                                        self.append_event(Event(new_detection_time, inhabitant, TDETECTION,
+                                                                None, 'quarantine_followed_detection',
+                                                                self.global_time))
         else:
             raise ValueError(f'unexpected status of event: {event}')
 
@@ -1430,10 +1469,12 @@ class InfectionModel:
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
-        self.test_bandwidth_plot(simulation_output_dir)
         self.test_detected_cases(simulation_output_dir)
         self.test_detected_cases_no_legend(simulation_output_dir)
         self.test_detected_cases_no_legend_cut(simulation_output_dir)
+        self.test_lognormal_prevalence(simulation_output_dir)
+        self.test_lognormal_detected(simulation_output_dir)
+        self.test_lognormal_severe(simulation_output_dir)
         with open(output_log_file, "w") as out:
             out.write(output_log)
 

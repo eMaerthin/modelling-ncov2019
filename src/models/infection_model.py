@@ -734,7 +734,7 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'bins.png'))
         plt.close(fig)
 
-    def plot_values(self, values, label, ax, yvalues=None, type='plot', reduce_offset=True):
+    def plot_values(self, values, label, ax, yvalues=None, type='plot', reduce_offset=True, dots=False):
         if len(values) > 0:
             x = values
             if reduce_offset:
@@ -746,7 +746,10 @@ class InfectionModel:
             else:
                 y = yvalues
             if type == 'plot':
-                ax.plot(x, y, label=label)
+                if dots:
+                    ax.plot(x, y, 'ok', label=label)
+                else:
+                    ax.plot(x, y, label=label)
             elif type == 'semilogy':
                 ax.semilogy(x, y, label=label)
             if self._params[USE_TODAY_MARK]:
@@ -952,12 +955,49 @@ class InfectionModel:
         if self._params[LAID_CURVE].items():
             laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
             laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
-            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y)
+            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
 
         ax.legend()
         ax.set_title(f'Test of detected cases (showing min/max across multiple runs)')
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases.png'))
+        plt.close(fig)
+
+    def test_detected_cases_no_legend(self, simulation_output_dir):
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        for i, run in enumerate(self._all_runs_detected):
+            self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
+        if self._params[LAID_CURVE].items():
+            laid_curve_x = np.array(
+                [float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
+            laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
+            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
+
+        #ax.legend()
+        ax.set_xlim([0, 28])
+
+        ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_no_legend.png'))
+        plt.close(fig)
+
+
+    def test_detected_cases_no_legend_cut(self, simulation_output_dir):
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        for i, run in enumerate(self._all_runs_detected):
+            self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
+        if self._params[LAID_CURVE].items():
+            laid_curve_x = np.array(
+                [float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
+            laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
+            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
+
+        #ax.legend()
+        ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
+        ax.set_xlim([0, 15])
+        ax.set_ylim([0, 1500])
+        fig.tight_layout()
+        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_no_legend_cut.png'))
         plt.close(fig)
 
     @staticmethod
@@ -1392,6 +1432,8 @@ class InfectionModel:
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
         self.test_bandwidth_plot(simulation_output_dir)
         self.test_detected_cases(simulation_output_dir)
+        self.test_detected_cases_no_legend(simulation_output_dir)
+        self.test_detected_cases_no_legend_cut(simulation_output_dir)
         with open(output_log_file, "w") as out:
             out.write(output_log)
 

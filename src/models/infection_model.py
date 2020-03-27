@@ -1414,7 +1414,7 @@ class InfectionModel:
                      'c;c_norm;Init_#people;Prevalence_30days;Prevalence_60days;Prevalence_90days;'\
                      'Prevalence_120days;Prevalence_150days;Prevalence_180days;Band_hit_time;Subcritical;'\
                      'Prevalence_360days;runs;fear;detection_rate;increase_10;increase_20;increase_30;increase_40;'\
-                     'increase_50;increase_100;increase_150;incidents_per_last_day;over_icu;hospitalized\n'
+                     'increase_50;increase_100;increase_150;incidents_per_last_day;over_icu;hospitalized;zero_time_offset\n'
         for i, seed in enumerate(seeds):
             runs += 1
             self.parse_random_seed(seed)
@@ -1458,12 +1458,13 @@ class InfectionModel:
             mean_increase_at_100 = self.mean_day_increase_until(100)
             mean_increase_at_150 = self.mean_day_increase_until(150)
             incidents_per_last_day = self.prevalance_at(self._global_time) - self.prevalance_at(self._global_time - 1)
-            hospitalized=self._icu_needed
+            hospitalized = self._icu_needed
+            zero_time_offset = self._max_time_offset
             output_add = f'{last_processed_time };{affected};{detected};{deceased};{quarantined};'\
                          f'{c};{c_norm};{init_people};{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};'\
                          f'{bandtime};{subcritical};{prev360};{runs};{fear_};{detection_rate};'\
                          f'{mean_increase_at_10};{mean_increase_at_20};{mean_increase_at_30};{mean_increase_at_40};'\
-                         f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150};{incidents_per_last_day};{outbreak};{hospitalized}\n'
+                         f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150};{incidents_per_last_day};{outbreak};{hospitalized};{zero_time_offset}\n'
             logger.info(output_add)
             output_log = f'{output_log}{output_add}'
         logger.info(output_log)

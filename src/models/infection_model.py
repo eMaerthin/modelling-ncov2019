@@ -1031,7 +1031,7 @@ class InfectionModel:
         #ax.legend()
         ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
         ax.set_xlim([0, 15])
-        ax.set_ylim([0, 1500])
+        #ax.set_ylim([0, 1500])
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_no_legend_cut.png'))
         plt.close(fig)

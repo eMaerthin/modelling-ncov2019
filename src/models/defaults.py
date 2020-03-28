@@ -101,6 +101,16 @@ default_use_today_mark = False
 default_today_offset = 0
 default_laid_curve = {}
 
+default_plot_xlim_right = None
+default_plot_ylim_top = None
+default_plot_xlim_left = 0
+default_plot_ylim_bottom = 0
+
+default_plot_xlim_cut_right = None
+default_plot_ylim_cut_top = None
+default_plot_xlim_cut_left = None
+default_plot_ylim_cut_bottom = None
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -130,7 +140,16 @@ defaults = {
     NUMBER_OF_DETECTED_AT_ZERO_TIME: default_number_of_detected_at_zero_time,
     USE_TODAY_MARK: default_use_today_mark,
     TODAY_OFFSET: default_today_offset,
-    LAID_CURVE: default_laid_curve
+    LAID_CURVE: default_laid_curve,
+    PLOT_XLIM_CUT_LEFT: default_plot_xlim_cut_left,
+    PLOT_XLIM_CUT_RIGHT: default_plot_xlim_cut_right,
+    PLOT_XLIM_LEFT: default_plot_xlim_left,
+    PLOT_XLIM_RIGHT: default_plot_xlim_right,
+    PLOT_YLIM_CUT_BOTTOM: default_plot_ylim_cut_bottom,
+    PLOT_YLIM_CUT_TOP: default_plot_ylim_cut_top,
+    PLOT_YLIM_BOTTOM: default_plot_ylim_bottom,
+    PLOT_YLIM_TOP: default_plot_ylim_top,
+
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

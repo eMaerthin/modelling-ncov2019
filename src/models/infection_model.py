@@ -109,6 +109,37 @@ class InfectionModel:
         self._last_affected = None
         self._per_day_increases = {}
 
+    @property
+    def xlim(self):
+        return (self._params.get(PLOT_XLIM_LEFT, default_plot_xlim_left),
+                self._params.get(PLOT_XLIM_RIGHT, default_plot_xlim_right))
+
+    @property
+    def ylim(self):
+        return (self._params.get(PLOT_YLIM_BOTTOM, default_plot_ylim_bottom),
+                self._params.get(PLOT_YLIM_TOP, default_plot_ylim_top))
+
+    @property
+    def xlim_cut(self):
+        left = self._params.get(PLOT_XLIM_CUT_LEFT, None)
+        right = self._params.get(PLOT_XLIM_CUT_RIGHT, None)
+        if left is None:
+            left = self.xlim[0]
+        if right is None:
+            right = self.xlim[1]
+        return (left, right)
+
+    @property
+    def ylim_cut(self):
+        bottom = self._params.get(PLOT_YLIM_CUT_BOTTOM, None)
+        top = self._params.get(PLOT_YLIM_CUT_TOP, None)
+        if bottom is None:
+            bottom = self.ylim[0]
+        if top is None:
+            top = self.ylim[1]
+        return (bottom, top)
+
+
     def get_detection_status_(self, person_id):
         return self._detection_status.get(person_id, default_detection_status)
 
@@ -959,7 +990,8 @@ class InfectionModel:
         self.add_observed_curve(ax)
 
         #ax.legend()
-        ax.set_xlim([0, 28])
+        ax.set_xlim(self.xlim)
+        ax.set_ylim(self.ylim)
         ax.set_title(f'Sample paths of prevalence')
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_prevalence.png'))
@@ -972,7 +1004,8 @@ class InfectionModel:
         self.add_observed_curve(ax)
 
         #ax.legend()
-        ax.set_xlim([0, 28])
+        ax.set_xlim(self.xlim)
+        ax.set_ylim(self.ylim)
         ax.set_title(f'Sample paths of detected cases')
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_detected.png'))
@@ -985,7 +1018,8 @@ class InfectionModel:
         self.add_observed_curve(ax)
 
         #ax.legend()
-        ax.set_xlim([0, 28])
+        ax.set_xlim(self.xlim)
+        ax.set_ylim(self.ylim)
         ax.set_title(f'Sample paths of severe cases')
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_severe.png'))
@@ -1009,7 +1043,8 @@ class InfectionModel:
             self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
         self.add_observed_curve(ax)
         #ax.legend()
-        ax.set_xlim([0, 28])
+        ax.set_xlim(self.xlim)
+        ax.set_ylim(self.ylim)
 
         ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
         fig.tight_layout()
@@ -1030,8 +1065,8 @@ class InfectionModel:
 
         #ax.legend()
         ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
-        ax.set_xlim([0, 15])
-        #ax.set_ylim([0, 1500])
+        ax.set_xlim(self.xlim_cut)
+        ax.set_ylim(self.ylim_cut)
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_no_legend_cut.png'))
         plt.close(fig)

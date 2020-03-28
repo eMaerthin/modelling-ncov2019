@@ -124,5 +124,13 @@ infection_model_schemas = {
     NUMBER_OF_DETECTED_AT_ZERO_TIME: Schema(And(Use(int), lambda x: x >= 0)),
     USE_TODAY_MARK: Schema(bool),
     TODAY_OFFSET: Schema(Or(int, float)),
-    LAID_CURVE: Schema(dict)
+    LAID_CURVE: Schema(dict),
+    PLOT_XLIM_CUT_LEFT: Schema(Or(int, float, None)),
+    PLOT_XLIM_CUT_RIGHT: Schema(Or(int, float, None)),
+    PLOT_XLIM_LEFT: Schema(Or(int, float, None)),
+    PLOT_XLIM_RIGHT: Schema(Or(int, float, None)),
+    PLOT_YLIM_CUT_BOTTOM: Schema(Or(int, float, None)),
+    PLOT_YLIM_CUT_TOP: Schema(Or(int, float, None)),
+    PLOT_YLIM_BOTTOM: Schema(Or(int, float, None)),
+    PLOT_YLIM_TOP: Schema(Or(int, float, None)),
 }

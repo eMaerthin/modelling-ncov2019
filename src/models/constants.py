@@ -25,6 +25,16 @@ DISTRIBUTION = 'distribution'
 LAMBDA = 'lambda'
 FILEPATH = 'filepath'
 
+PLOT_XLIM_LEFT = 'plot_xlim_left'
+PLOT_XLIM_CUT_LEFT = 'plot_xlim_cut_left'
+PLOT_XLIM_RIGHT = 'plot_xlim_right'
+PLOT_XLIM_CUT_RIGHT = 'plot_xlim_cut_right'
+
+PLOT_YLIM_BOTTOM = 'plot_ylim_bottom'
+PLOT_YLIM_CUT_BOTTOM = 'plot_ylim_cut_bottom'
+PLOT_YLIM_TOP = 'plot_ylim_top'
+PLOT_YLIM_CUT_TOP = 'plot_ylim_cut_top'
+
 EXPECTED_CASE_SEVERITY = 'expected_case_severity'
 APPROXIMATE_DISTRIBUTION = 'approximate_distribution'
 CASE_SEVERITY_DISTRIBUTION = 'case_severity_distribution'

@@ -676,6 +676,9 @@ class InfectionModel:
 
         bins = np.arange(np.minimum(730, int(1 + r2_max_time)))
         cond3 = df_r2.contraction_time.sort_values()
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset != np.inf:
+                cond3 -= self._max_time_offset
         legend = []
         arr = []
         if len(cond3) > 0:
@@ -689,6 +692,10 @@ class InfectionModel:
         if len(ho_cases) > 0:
             arr.append(ho_cases)
             legend.append('Hospitalized')
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset != np.inf:
+                ho_cases -= self._max_time_offset
+
         ax0.hist(arr, bins, histtype='bar', stacked=False, label=legend)
         ax0.legend()
         ax0.set_ylabel('Incidents')
@@ -708,12 +715,15 @@ class InfectionModel:
         fig, (ax2, ax1, ax0) = plt.subplots(nrows=3, ncols=1, figsize=(10, 10))
         r2_max_time = df_r2.contraction_time.max()
         detected = df_r1.dropna(subset=['tdetection']).sort_values(by='tdetection').tdetection
-        t0 = detected.iloc[50] - 3
         xloc = [3, 8, 13, 18, 23, 28]
         dates = ['13/03/20', '18/03/20', '23/03/20', '28/03/20', '2/03/20', '7/04/20']
         bins = np.arange(np.minimum(730, int(1 + r2_max_time)))
-        cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values() - t0
-        cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values() - t0
+        cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
+        cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset != np.inf:
+                cond2 -= self._max_time_offset - 3
+                cond3 -= self._max_time_offset - 3
         legend = []
         arr = []
         if len(cond2) > 0:
@@ -734,9 +744,13 @@ class InfectionModel:
         arr = []
         legend = []
         hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
-        ho_cases = hospitalized_cases[hospitalized_cases <= r2_max_time].sort_values() - t0
+        ho_cases = hospitalized_cases[hospitalized_cases <= r2_max_time].sort_values()
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
-        d_cases = death_cases[death_cases <= r2_max_time].sort_values() - t0
+        d_cases = death_cases[death_cases <= r2_max_time].sort_values()
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset != np.inf:
+                ho_cases -= self._max_time_offset - 3
+                d_cases -= self._max_time_offset - 3
         if len(d_cases) > 0:
             arr.append(d_cases)
             legend.append('Przypadki śmiertelne')
@@ -755,7 +769,10 @@ class InfectionModel:
         ax1.set_xticklabels(dates)
 
         detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
-        det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values() - t0
+        det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset != np.inf:
+                det_cases -= self._max_time_offset - 3
         values, _, _ = ax2.hist(det_cases, bins, histtype='bar', stacked=True, label='Zdiagnozowani', color='green')
         # ax2.plot([3]*2, [0, np.amax(values)], 'k-', label='Ogłoszenie zamknięcia granic Polski 13/03/2020')
         ax2.set_xlim([0, 30])
@@ -789,6 +806,11 @@ class InfectionModel:
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
         cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
         cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset != np.inf:
+                cond1 -= self._max_time_offset
+                cond2 -= self._max_time_offset
+                cond3 -= self._max_time_offset
         legend = []
         arr = []
         if len(cond1) > 0:
@@ -810,6 +832,11 @@ class InfectionModel:
         d_cases = death_cases[death_cases <= r2_max_time].sort_values()
         recovery_cases = df_r1[~df_r1.trecovery.isna()].sort_values(by='trecovery').trecovery
         r_cases = recovery_cases[recovery_cases <= r2_max_time].sort_values()
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset != np.inf:
+                ho_cases -= self._max_time_offset
+                d_cases -= self._max_time_offset
+                r_cases -= self._max_time_offset
         if len(d_cases) > 0:
             arr.append(d_cases)
             legend.append('Deceased')
@@ -829,6 +856,9 @@ class InfectionModel:
         if self._params[TURN_ON_DETECTION]:
             detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
             det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+                if self._max_time_offset != np.inf:
+                    det_cases -= self._max_time_offset
             ax2.hist(det_cases, bins, histtype='bar', stacked=True, label='Daily officially detected cases')
             ax2.set_ylabel('Detections')
             ax2.set_xlabel('Time in days')
@@ -1224,7 +1254,7 @@ class InfectionModel:
         self.lancet_store_graphs(simulation_output_dir)
         self.lancet_store_bins(simulation_output_dir)
         self.store_bins(simulation_output_dir)
-        self.store_bins_pl(simulation_output_dir)
+        #self.store_bins_pl(simulation_output_dir)
         self.store_graphs(simulation_output_dir)
         self.store_detections(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)

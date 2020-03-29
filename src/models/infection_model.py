@@ -674,11 +674,7 @@ class InfectionModel:
                     r2_max_time -= self._max_time_offset
             ax0.plot([r2_max_time], [0], 'ro', markersize=5, label='Last reported infection time')
 
-        bins = None
-        if r2_max_time < 730:
-            bins = list(range(int(1 + r2_max_time)))
-        else:
-            bins = np.int(np.minimum(730, 1 + r2_max_time))
+        bins = np.arange(np.minimum(730, int(1 + r2_max_time)))
         cond3 = df_r2.contraction_time.sort_values()
         legend = []
         arr = []
@@ -701,6 +697,80 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'lancet_bins.png'))
         plt.close(fig)
 
+    def store_bins_pl(self, simulation_output_dir):
+        #font = {'family': 'arial',
+        #        'weight': 'regular',
+        #        'size': 16}
+
+        #matplotlib.rc('font', **font)
+        df_r1 = self.df_progression_times
+        df_r2 = self.df_infections
+        fig, (ax2, ax1, ax0) = plt.subplots(nrows=3, ncols=1, figsize=(10, 10))
+        r2_max_time = df_r2.contraction_time.max()
+        detected = df_r1.dropna(subset=['tdetection']).sort_values(by='tdetection').tdetection
+        t0 = detected.iloc[50] - 3
+        xloc = [3, 8, 13, 18, 23, 28]
+        dates = ['13/03/20', '18/03/20', '23/03/20', '28/03/20', '2/03/20', '7/04/20']
+        bins = np.arange(np.minimum(730, int(1 + r2_max_time)))
+        cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values() - t0
+        cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values() - t0
+        legend = []
+        arr = []
+        if len(cond2) > 0:
+            arr.append(cond2)
+            legend.append('Zarażenia poza domem')
+        if len(cond3) > 0:
+            arr.append(cond3)
+            legend.append('Zarażenia w gosp. domowym')
+        values, _, _ = ax0.hist(arr, bins, histtype='bar', stacked=True, label=legend, color=['blue', 'grey'])
+        # ax0.plot([3]*2, [0, np.amax(values)], 'k-', label='Ogłoszenie zamknięcia granic Polski 13/03/2020')
+        ax0.legend()
+        ax0.set_ylabel('Zainfekowani')
+        ax0.set_xlabel('Data')
+        ax0.set_xticks(xloc)
+        ax0.set_xticklabels(dates)
+        ax0.set_xlim([0, 30])
+
+        arr = []
+        legend = []
+        hospitalized_cases = df_r1[~df_r1.t2.isna()].sort_values(by='t2').t2
+        ho_cases = hospitalized_cases[hospitalized_cases <= r2_max_time].sort_values() - t0
+        death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
+        d_cases = death_cases[death_cases <= r2_max_time].sort_values() - t0
+        if len(d_cases) > 0:
+            arr.append(d_cases)
+            legend.append('Przypadki śmiertelne')
+        if len(ho_cases) > 0:
+            arr.append(ho_cases)
+            legend.append('Hospitalizowani')
+        values, _, _ = ax1.hist(arr, bins, histtype='bar', stacked=True, label=legend, color=['red', 'orange'])
+        # ax1.plot([3]*2, [0, np.amax(values)], 'k-', label='Ogłoszenie zamknięcia granic Polski 13/03/2020')
+        ax1.set_xlim([0, 30])
+
+        ax1.set_ylabel('Przypadki poważne')
+        ax1.set_xlabel('Data')
+        ax1.legend()
+
+        ax1.set_xticks(xloc)
+        ax1.set_xticklabels(dates)
+
+        detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+        det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values() - t0
+        values, _, _ = ax2.hist(det_cases, bins, histtype='bar', stacked=True, label='Zdiagnozowani', color='green')
+        # ax2.plot([3]*2, [0, np.amax(values)], 'k-', label='Ogłoszenie zamknięcia granic Polski 13/03/2020')
+        ax2.set_xlim([0, 30])
+        ax2.set_ylabel('Zdiagnozowani')
+        ax2.set_xlabel('Data')
+
+        ax2.set_xticks(xloc)
+        ax2.set_xticklabels(dates)
+        # ax2.legend()
+
+        fig.tight_layout()
+        # plt.show()
+        plt.savefig(os.path.join(simulation_output_dir, 'bins_report_pl.png'), dpi=300)
+        plt.close(fig)
+
     def store_bins(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
@@ -715,7 +785,7 @@ class InfectionModel:
                     r2_max_time -= self._max_time_offset
             ax0.plot([r2_max_time], [0], 'ro', markersize=5, label='Last reported infection time')
 
-        bins = int(np.minimum(730, 1 + r2_max_time))
+        bins = np.arange(np.minimum(730, int(1 + r2_max_time)))
         cond1 = df_r2.contraction_time[df_r2.kernel == 'import_intensity'].sort_values()
         cond2 = df_r2.contraction_time[df_r2.kernel == 'constant'].sort_values()
         cond3 = df_r2.contraction_time[df_r2.kernel == 'household'].sort_values()
@@ -1096,6 +1166,8 @@ class InfectionModel:
         return simulation_output_dir
 
     def save_serial_interval(self, simulation_output_dir):
+        if len(self.serial_intervals) == 0:
+            return np.nan
         np_intervals = np.array(self.serial_intervals)
         serial_interval_median = np.median(np_intervals)
         description = scipy.stats.describe(np_intervals)
@@ -1152,6 +1224,7 @@ class InfectionModel:
         self.lancet_store_graphs(simulation_output_dir)
         self.lancet_store_bins(simulation_output_dir)
         self.store_bins(simulation_output_dir)
+        self.store_bins_pl(simulation_output_dir)
         self.store_graphs(simulation_output_dir)
         self.store_detections(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)

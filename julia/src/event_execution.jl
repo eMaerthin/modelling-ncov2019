@@ -1,102 +1,108 @@
 function execute!(state::SimState, params::SimParams, event::OutsideInfectionEvent)
-    if Healthy != subjecthealth(state, event)
-        return 
-    end
+  if Healthy != subjecthealth(state, event)
+    return 
+  end
         
-    state.infection_status[subject(event)] = Infected
+  setsubjecthealth!(state, event, Infected)  
     
-    push!(state.infections, source(event) => event)    
-    push!(state.queue, 
-        BecomeInfectiousEvent(time(event) + params.incubation_times[subject(event)], subject(event))
-    )
+  push!(state.infections, 0 => event)    
+  push!(state.queue, 
+    BecomeInfectiousEvent(time(event) + params.progressions[subject(event)].incubation_time, subject(event))
+  )
 end
 
 function execute!(state::SimState, params::SimParams, event::TransmissionEvent)
-    if Healthy != subjecthealth(state, event)
-        return
-    end
+  if Healthy != subjecthealth(state, event)
+    return
+  end
     
-    if (StayHome == subjecthealth(state, event) ) && (event.kind != HouseholdContact)
-        return 
-    end
-        
-    push!(state.infections, source(event) => event)
-    push!(state.queue, 
-        BecomeInfectiousEvent(time(event) + params.incubation_times[subject(event)], subject(event))
-    )
+  if (StayingHome == subjecthealth(state, event) ) && (event.kind != HouseholdContact)
+    return 
+  end
+  
+  setsubjecthealth!(state, event, Infected)
+      
+  push!(state.infections, source(event) => event)
+  push!(state.queue, 
+    BecomeInfectiousEvent(time(event) + params.progressions[subject(event)].incubation_time, subject(event))
+  )
 end
 
 function execute!(state::SimState, params::SimParams, event::BecomeInfectiousEvent)
-    @assert Infected == subjecthealth(state, event)
-    state.infection_status[subject(event)] = Infecitous
-        
-    subject_id = subject(event)
-    t0 = params.incubation_times[subject_id]
-    t1 = params.symptom_onset_times[subject_id]
-    t2 = params.hospitalization_times[subject_id]
+  @assert Infected == subjecthealth(state, event)
     
-    severity = params.severity[subject(event)]
-    
+  setsubjecthealth!(state, event, Infectious)
         
-    if Mild == severity || Asymptomatic == severity
-        @assert !isnan(t1)
-        push!(state.queue, StayHomeMildEvent(time(event) + t1 - t0, subject_id))
-    elseif Severe == severty || Critical == severity
-        if !isnan(t1)
-            push!(state.queue, StayHomeToHospitalizeEvent(time(event) + t1 - t0, subject_id))
-        end
-        push!(state.queue, GoHospitalEvent(time(event) + t2 - t0, subject_id))        
+  subject_id = subject(event)
+  progression = params.progressions[subject_id]
+  t0 = progression.incubation_time
+  t1 = progression.symptom_onset_time
+  t2 = progression.hospitalization_time
+    
+  severity = progression.severity
+        
+  if Mild == severity || Asymptomatic == severity
+    @assert !isnan(t1)
+    push!(state.queue, StayHomeMildEvent(time(event) + t1 - t0, subject_id))
+  elseif Severe == severity || Critical == severity
+    if !isnan(t1)
+      push!(state.queue, StayHomeToHospitalizeEvent(time(event) + t1 - t0, subject_id))
     else
-        @error "Unsupported severity $severity"
+      push!(state.queue, GoHospitalEvent(time(event) + t2 - t0, subject_id))
     end
+  else
+    @error "Unsupported severity $severity"
+  end
 
-    enqueue_transmissions!(ConstantKernelContact, state, params, event.subject_id)
-    enqueue_transmissions!(HouseholdContact, state, params, event.subject_id)
+  enqueue_transmissions!(state, Val{ConstantKernelContact}, event.subject_id, params)
+  #enqueue_transmissions!(HouseholdContact, state, params, event.subject_id)
 end
 
 function execute!(state::SimState, params::SimParams, event::StayHomeMildEvent)
-    if target_status == subjecthealth(state, event)
-        state.infection_status[event.subject_id] = StayHome
-    end
-    
-    push!(state.queue, RecoveryEvent(time(event) + 14))
-        
+  @assert Infectious == subjecthealth(state, event)
+  setsubjecthealth!(state, event, StayingHome)  
+  push!(state.queue, 
+    RecoveryEvent(time(event) + 14, subject(event))
+  )
 end
 
 function execute!(state::SimState, params::SimParams, event::StayHomeToHospitalizeEvent)
-    if target_status == subjecthealth(state, event)
-        state.infection_status[event.subject_id] = StayHome
-    end
+  @assert Infectious == subjecthealth(state, event)
+  setsubjecthealth!(state, event, StayingHome)
     
-    t1 = params.symptom_onset_times[subject_id]
-    t2 = params.hospitalization_times[subject_id]
+  progression = params.progressions[event.subject_id]
+  t1 = progression.symptom_onset_time
+  t2 = progression.hospitalization_time
     
-    push!(state.queue, GoHospitalEvent(time(event)+t2-t1, subject_id))
+  @assert t2 > t1  
+  push!(state.queue, GoHospitalEvent(time(event)+t2-t1, subject(event)))
 end
 
 function execute!(state::SimState, params::SimParams, event::GoHospitalEvent)
-    person_health = subjecthealth(state, event)
-    if person_health == StayingHome || person_health == Infectious
-        state.infection_status[event.subject_id] = Hospitalized
-    end
+  @assert (StayingHome == subjecthealth(state, event)) || (Infectious == subjecthealth(state, event) )
+  setsubjecthealth!(state, event, Hospitalized)
     
-    severity = params.severity[subject(event)]
-    #if Severe == severity
-    #    push!(state.queue, RecoveryEvent(time(event)+14))
-    #elseif Critical == severity
-    #    push!(state.queue, DeathEvent(time(event)+14))
-    #end
+  severity = params.progressions[subject(event)].severity
+  
+  if Severe == severity # TODO: use real data here
+    push!(state.queue, 
+      RecoveryEvent(time(event)+14, subject(event))
+    )
+  elseif Critical == severity
+    push!(state.queue, 
+      DeathEvent(time(event)+14, subject(event))
+    )
+  end
 end
 
 function execute!(state::SimState, params::SimParams, event::RecoveryEvent)
-    @assert isactive(subjecthealth(event))
-    
-    state.infection_status[event.subject_id] = Recovered
+  @assert Recovered !== subjecthealth(state, event)
+  @assert Dead !== subjecthealth(state, event)
+  setsubjecthealth!(state, event, Recovered)
 end
 
 function execute!(state::SimState, params::SimParams, event::DeathEvent)
-    @assert Recovered !== subjecthealth(event)
-    @assert Dead !== subjecthealth(event)
-
-    state.infection_status[event.subject_id] = Dead
+  @assert Recovered !== subjecthealth(state, event)
+  @assert Dead !== subjecthealth(state, event)
+  setsubjecthealth!(state, event, Dead)
 end

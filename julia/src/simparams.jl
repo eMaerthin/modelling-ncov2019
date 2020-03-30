@@ -1,6 +1,6 @@
 
 struct SimParams 
-    households::Vector{Int32}  # to be decided what it is - (list of pointers to the first member?)
+    household_ptrs::Vector{Tuple{Int32,Int32}}  # to be decided what it is - (list of pointers to the first member?)
     
     progressions::Vector{Progression}
     

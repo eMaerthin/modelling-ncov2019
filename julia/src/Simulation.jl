@@ -54,10 +54,11 @@ module Simulation
       dist_symptom_onset_time, 
       dist_hospitalization_time)
     
-    households = 1:num_individuals |> collect #TODO add household structure
+    household_ptrs = collect( zip(Simulation.groupptrs(individuals_df.household_index)...))
+    #households = 1:num_individuals |> collect #TODO add household structure
     
     params = SimParams(
-      households,
+      household_ptrs,
       progression,        
       1.0    
     )

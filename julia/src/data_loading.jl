@@ -9,11 +9,12 @@ function load_individuals(path::AbstractString)::DataFrame
   df = GZip.open(path,"r") do io
     df = CSV.read(io, copycols=true)  # read CSV as DataFrame
     # create new DataFrame with
-    DataFrame(
+    df = DataFrame(
       age=Int8.(df.age),
       gender = df.gender .== 1,
       household_index = Int32.(df.household_index)
     )
+    sort!(df, :household_index)
   end
 end
 

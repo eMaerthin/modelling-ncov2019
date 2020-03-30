@@ -17,3 +17,40 @@ function countuniquesorted(arr::AbstractArray{T,1}) where T
     
     return vals,counts
 end
+
+function groupptrs(arr::AbstractArray{T} where T<:Real)
+  N = length(arr)
+
+  headptrs = zeros(Int32,N)
+  tailptrs = zeros(Int32,N)
+    
+  headptr = 1
+  flag = arr[1]
+  headptrs[1] = headptr
+    
+  for i in 2:N
+    @assert (arr[i-1] <= arr[i]) "array is not sorted at i=$i" #TODO this condition is not needed
+    if flag != arr[i]
+      flag = arr[i]
+      headptr = i
+    end  
+    headptrs[i] = headptr
+  end
+
+  headptr = headptrs[end]
+  tailptr = N
+  
+  tailptrs[end] = tailptr
+  for i in (N-1):(-1):1
+    if headptr != headptrs[i]
+      headptr = headptrs[i]
+      tailptr = i
+    end 
+    tailptrs[i] = tailptr
+    
+  end
+    
+    
+    
+  headptrs, tailptrs
+end

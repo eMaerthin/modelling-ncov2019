@@ -428,7 +428,14 @@ class InfectionModel:
              self.fear_loc[kernel_id],  self.fear_limit_value[kernel_id]) = res
         detected = self.detected_people
         deaths = self.deaths
-        return self.fear_fun[kernel_id](detected, deaths, self.fear_weights_detected[kernel_id],
+        time = self._global_time
+        if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if self._max_time_offset != np.inf:
+                time -= self._max_time_offset
+            else:
+                time = -np.inf
+
+        return self.fear_fun[kernel_id](detected, deaths, time, self.fear_weights_detected[kernel_id],
                                         self.fear_weights_deaths[kernel_id], self.fear_loc[kernel_id],
                                         self.fear_scale[kernel_id], self.fear_limit_value[kernel_id])
 
@@ -438,17 +445,14 @@ class InfectionModel:
     def add_potential_contractions_from_household_kernel(self, person_id):
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
-        end = prog_times[T2] or prog_times[TRECOVERY] # sometimes T2 is not defined (MILD cases)
+        end = prog_times[T2] or prog_times[TRECOVERY]
         total_infection_rate = (end - start) * self.gamma('household')
         infected = mocos_helper.poisson(total_infection_rate)
         if infected == 0:
             return
-        household_id = self._individuals_household_id[person_id] #self._df_individuals.loc[person_id, HOUSEHOLD_ID]
-        inhabitants = self._households_inhabitants[household_id] #self._df_households.loc[household_id][ID]
+        household_id = self._individuals_household_id[person_id]
+        inhabitants = self._households_inhabitants[household_id]
         possible_choices = [i for i in inhabitants if i != person_id]
-        #possible_choices = list(set(inhabitants) - {person_id})
-        #selected_rows = set(np.random.choice(possible_choices, infected, replace=True))
-        #selected_rows = set(random.choices(possible_choices, k=infected))
         for choice_idx in mocos_helper.sample_idxes_with_replacement_uniform(len(possible_choices), infected):
             person_idx = possible_choices[choice_idx]
             if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
@@ -941,13 +945,15 @@ class InfectionModel:
             detected = np.arange(0, 1 + len(det_cases)) #.cumsum().values
             yvals = []
             kernel_id = CONSTANT
-            for de_ in detected:
-                yvals.append(self.fear_fun[kernel_id](de_, 0, self.fear_weights_detected[kernel_id],
+            x = [0] + list(det_cases)
+
+            for t_, de_ in zip(x, detected):
+
+                yvals.append(self.fear_fun[kernel_id](de_, 0, t_, self.fear_weights_detected[kernel_id],
                                                       self.fear_weights_deaths[kernel_id],
                                                       self.fear_loc[kernel_id],
                                                       self.fear_scale[kernel_id],
                                                       self.fear_limit_value[kernel_id]))
-            x = [0] + list(det_cases)
             #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
             #    if self._max_time_offset != np.inf:
             #        x = [elem - self._max_time_offset for elem in x]
@@ -1009,13 +1015,14 @@ class InfectionModel:
             detected = np.arange(0, 1 + len(det_cases)) #.cumsum().values
             yvals = []
             kernel_id = CONSTANT
-            for de_ in detected:
-                yvals.append(self.fear_fun[kernel_id](de_, 0, self.fear_weights_detected[kernel_id],
+            x = [0] + list(det_cases)
+
+            for t_, de_ in zip(x, detected):
+                yvals.append(self.fear_fun[kernel_id](de_, 0, t_, self.fear_weights_detected[kernel_id],
                                                       self.fear_weights_deaths[kernel_id],
                                                       self.fear_loc[kernel_id],
                                                       self.fear_scale[kernel_id],
                                                       self.fear_limit_value[kernel_id]))
-            x = [0] + list(det_cases)
             #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
             #    if self._max_time_offset != np.inf:
             #        x = [elem - self._max_time_offset for elem in x]

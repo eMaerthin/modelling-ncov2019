@@ -104,6 +104,7 @@ class FearFunctions(EnumWithPublicValue2MemberMap):
     FearDisabled = 'fear_disabled'
     FearSigmoid = 'fear_sigmoid'
     FearTanh = 'fear_tanh'
+    FearTanhTime = 'fear_tanh_time'
 
 
 class SupportedDistributions(EnumWithPublicValue2MemberMap):

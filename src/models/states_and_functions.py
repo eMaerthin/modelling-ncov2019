@@ -7,12 +7,14 @@ from .constants import *
 
 fear_functions = {
     FearFunctions.FearDisabled: (lambda *args, **kwargs: 1),
-    FearFunctions.FearSigmoid: (lambda detected, deaths, weight_detected, weight_deaths, loc, scale, limit_value:
+    FearFunctions.FearSigmoid: (lambda detected, deaths, time, weight_detected, weight_deaths, loc, scale, limit_value:
                                 1.0 + limit_value - limit_value / 0.5
                                 * np.exp((detected * weight_detected + deaths * weight_deaths - loc) / scale)
                                 / (1 + np.exp((detected * weight_detected + deaths * weight_deaths - loc) / scale))),
-    FearFunctions.FearTanh: (lambda detected, deaths, weight_detected, weight_deaths, loc, scale, limit_value:
-                             -np.tanh(((detected * weight_detected + deaths * weight_deaths) - loc) / scale) * ((1 - limit_value) / 2) + (1 - (1 - limit_value) / 2))
+    FearFunctions.FearTanh: (lambda detected, deaths, time, weight_detected, weight_deaths, loc, scale, limit_value:
+                             -np.tanh(((detected * weight_detected + deaths * weight_deaths) - loc) / scale) * ((1 - limit_value) / 2) + (1 - (1 - limit_value) / 2)),
+    FearFunctions.FearTanhTime: (lambda detected, deaths, time, weight_detected, weight_deaths, loc, scale, limit_value:
+                             -np.tanh(((time * weight_detected + deaths * weight_deaths) - loc) / scale) * ((1 - limit_value) / 2) + (1 - (1 - limit_value) / 2))
 }
 
 active_states = [

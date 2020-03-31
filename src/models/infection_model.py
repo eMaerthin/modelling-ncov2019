@@ -554,12 +554,13 @@ class InfectionModel:
             ExpectedCaseSeverity.Mild,
             ExpectedCaseSeverity.Asymptomatic
         ]:
-            if mocos_helper.rand() > self._params[DETECTION_MILD_PROBA]:  # TODO: this should not be hardcoded!
+            if mocos_helper.rand() > self._params[DETECTION_MILD_PROBA]:
                 calculate_tdetection = False
         if calculate_tdetection:
             """ If t2 is defined (severe/critical), then use this time; if not; use some offset from t0 """
             tdetection = t2 or t0 + 2  # TODO: this should not be hardcoded
-            self.append_event(Event(tdetection, person_id, TDETECTION, person_id, DETECTION, t0))
+            ev = Event(tdetection, person_id, TDETECTION, person_id, DETECTION, t0)
+            self.append_event(ev)
 
         self._progression_times_dict[person_id] = {ID: person_id, TMINUS1: tminus1, T0: t0, T1: t1, T2: t2,
                                                    TDEATH: tdeath, TRECOVERY: trecovery, TDETECTION: tdetection}
@@ -772,7 +773,7 @@ class InfectionModel:
         ax1.set_xticks(xloc)
         ax1.set_xticklabels(dates)
 
-        detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+        detected_cases = self.detected_cases(df_r1)
         det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
             if self._max_time_offset != np.inf:
@@ -858,7 +859,7 @@ class InfectionModel:
         ax1.set_ylabel('Outcome')
         ax1.set_xlabel('Time in days')
         if self._params[TURN_ON_DETECTION]:
-            detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+            detected_cases = self.detected_cases(df_r1)
             det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
             if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
                 if self._max_time_offset != np.inf:
@@ -891,7 +892,7 @@ class InfectionModel:
                 ax.semilogy(x, y, label=label)
             if self._params[USE_TODAY_MARK]:
                 today = float(self._params[TODAY_OFFSET])
-                counter = sum(np.array(values) <= today)
+                counter = sum(np.array(x) <= today)
                 label_at_today = f'{label} at T={today}: {counter}'
                 ax.plot([self._params[TODAY_OFFSET]] * 2, [0, len(values)], 'k-', label=label_at_today)
 
@@ -924,7 +925,7 @@ class InfectionModel:
         ho_cases = hospitalized_cases[hospitalized_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
-        detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+        detected_cases = self.detected_cases(df_r1)
         det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         self.plot_values(d_cases, 'Deceased', ax)
         self.plot_values(ho_cases, 'Hospitalized', ax)
@@ -965,11 +966,30 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'summary.png'))
         plt.close(fig)
 
+    def detected_cases(self, df_r1):
+        df_r1 = self.df_progression_times
+        cond1 = ~df_r1.tdetection.isna()
+        cond2a = ~df_r1.trecovery.isna()
+        cond2b = df_r1.tdetection > df_r1.trecovery
+        cond2 = ~np.logical_and(cond2a, cond2b)
+        if len(df_r1[~df_r1.tdeath.isna()]) > 0:
+            cond3a = ~df_r1.tdeath.isna()
+            cond3b = df_r1.tdetection > df_r1.tdeath
+            cond3 = ~np.logical_and(cond3a, cond3b)
+            cond23 = np.logical_and(cond2, cond3)
+        else:
+            cond23 = cond2
+        cond = np.logical_and(cond1, cond23)
+        df = df_r1[cond]
+        detected_cases = df.sort_values(by='tdetection').tdetection
+        return detected_cases
+
     def store_detections(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
-        detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+        detected_cases = self.detected_cases(df_r1)
         det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
+
         self._all_runs_detected.append(det_cases)
         fig, ax = plt.subplots(nrows=1, ncols=1)
         ax.set_title(f'detected cases in time\n {self._params[EXPERIMENT_ID]}')
@@ -995,7 +1015,7 @@ class InfectionModel:
         self._all_runs_severe.append(ho_cases)
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
-        detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+        detected_cases = self.detected_cases(df_r1)
         det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         self.plot_values(d_cases, 'Deceased', ax)
         self.plot_values(ho_cases, 'Hospitalized', ax)
@@ -1061,7 +1081,7 @@ class InfectionModel:
         ho_cases = hospitalized_cases[hospitalized_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
-        detected_cases = df_r1[~df_r1.tdetection.isna()].sort_values(by='tdetection').tdetection
+        detected_cases = self.detected_cases(df_r1)
         det_cases = detected_cases[detected_cases <= df_r2.contraction_time.max(axis=0)].sort_values()
 
         self.plot_values(d_cases, 'Deceased', ax, type='semilogy')
@@ -1114,8 +1134,37 @@ class InfectionModel:
         ax.set_xlim(self.xlim)
         ax.set_ylim(self.ylim)
         ax.set_title(f'Sample paths of detected cases')
+        #ax.set_title(f'Analiza')
+        #xloc = [0, 5, 10, 15, 20]
+        #dates = ['12/03/20', '17/03/20', '22/03/20', '27/03/20', '1/04/20', '6/04/20']
+        #ax.set_ylabel('Zdiagnozowani (skala logarytmiczna)')
+        #ax.set_xlabel('Data')
+        #ax.set_xticks(xloc)
+        #ax.set_xticklabels(dates, rotation=30)
         fig.tight_layout()
+
         plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_detected.png'))
+        plt.close(fig)
+
+
+    def test_lognormal_detected_pl(self, simulation_output_dir):
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        for i, run in enumerate(self._all_runs_detected):
+            self.plot_values(run, f'Run {i}', ax, reduce_offset=False, type='semilogy')
+        self.add_observed_curve(ax)
+
+        #ax.legend()
+        ax.set_xlim(self.xlim)
+        ax.set_ylim(self.ylim)
+        xloc = [0, 5, 10, 15, 20]
+        dates = ['12/03/20', '17/03/20', '22/03/20', '27/03/20', '1/04/20', '6/04/20']
+        ax.set_ylabel('Zdiagnozowani (skala logarytmiczna)')
+        ax.set_xlabel('Data')
+        ax.set_xticks(xloc)
+        ax.set_xticklabels(dates, rotation=30)
+        fig.tight_layout()
+
+        plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_detected_pl.png'))
         plt.close(fig)
 
     def test_lognormal_severe(self, simulation_output_dir):
@@ -1138,10 +1187,19 @@ class InfectionModel:
             self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
         self.add_observed_curve(ax)
 
-        ax.legend()
-        ax.set_title(f'Sample paths of detected cases')
+        #ax.legend()
+        ax.set_xlim(self.xlim_cut)
+        ax.set_ylim(self.ylim_cut)
+
+        #ax.set_title(f'Sample paths of detected cases')
+        xloc = [0, 5, 10, 15, 20]
+        dates = ['12/03/20', '17/03/20', '22/03/20', '27/03/20', '1/04/20', '6/04/20']
+        ax.set_ylabel('Zdiagnozowani')
+        ax.set_xlabel('Data')
+        ax.set_xticks(xloc)
+        ax.set_xticklabels(dates, rotation=30)
         fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases.png'))
+        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_pl.png'))
         plt.close(fig)
 
     def test_detected_cases_no_legend(self, simulation_output_dir):
@@ -1160,7 +1218,10 @@ class InfectionModel:
 
     def add_observed_curve(self, ax):
         if self._params[LAID_CURVE].items():
-            laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
+            laid_curve_x = np.array([float(elem) for elem in self._params[LAID_CURVE].keys()])
+            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+                if self._max_time_offset != np.inf:
+                    laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
             laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
             self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
 
@@ -1508,9 +1569,10 @@ class InfectionModel:
                                     if self._progression_times_dict[inhabitant].get(TDETECTION, None) is None:
                                         new_detection_time = self.global_time + 2.0
                                         self._progression_times_dict[inhabitant][TDETECTION] = new_detection_time
-                                        self.append_event(Event(new_detection_time, inhabitant, TDETECTION,
-                                                                None, 'quarantine_followed_detection',
-                                                                self.global_time))
+                                        ev = Event(new_detection_time, inhabitant, TDETECTION,
+                                                                person_id, 'quarantine_followed_detection',
+                                                                self.global_time)
+                                        self.append_event(ev)
         else:
             raise ValueError(f'unexpected status of event: {event}')
 

@@ -9,6 +9,15 @@ class EnumWithPublicValue2MemberMap(enum.Enum):
     def map(cls):
         return cls._value2member_map_
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return other.value == self.value
+        else:
+            return other == self.value
+
+    def __hash__(self):
+        return hash(self.value)
+
 
 class Gender(EnumWithPublicValue2MemberMap):
     male = 0
@@ -37,6 +46,11 @@ class ExpectedCaseSeverity(EnumWithPublicValue2MemberMap):  # to be added to nod
 class DetectionStatus(EnumWithPublicValue2MemberMap):
     NotDetected = NOT_DETECTED
     Detected = DETECTED
+
+
+class QuarantineStatus(EnumWithPublicValue2MemberMap):
+    NoQuarantine = 0
+    Quarantine = 1
 
 
 class InfectionStatus(EnumWithPublicValue2MemberMap):
@@ -90,6 +104,7 @@ class FearFunctions(EnumWithPublicValue2MemberMap):
     FearDisabled = 'fear_disabled'
     FearSigmoid = 'fear_sigmoid'
     FearTanh = 'fear_tanh'
+    FearTanhTime = 'fear_tanh_time'
 
 
 class SupportedDistributions(EnumWithPublicValue2MemberMap):
@@ -98,26 +113,3 @@ class SupportedDistributions(EnumWithPublicValue2MemberMap):
     Poisson = POISSON
     Gamma = GAMMA
     FromFile = FROM_FILE
-
-
-def _convert_enum(enum_class, x):
-    for status in enum_class:
-        if x == status.value:
-            return status
-    raise ValueError(f'invalid status provided: {x}')
-
-
-def convert_infection_status(x):
-    return _convert_enum(InfectionStatus, x)
-
-
-def convert_expected_case_severity(x):
-    return _convert_enum(ExpectedCaseSeverity, x)
-
-
-def convert_import_intensity_functions(x):
-    return _convert_enum(ImportIntensityFunctions, x)
-
-
-def convert_fear_functions(x):
-    return _convert_enum(FearFunctions, x)

@@ -20,3 +20,5 @@ schema==0.7.1
 scipy==1.4.1
 tqdm==4.43.0
 xlrd==1.2.0
+cppyy==1.6.2
+mocos-helper==0.0.11

@@ -4,9 +4,13 @@ using Distributions
 
 struct Progression
     severity::Severity
+    # times given with respect to the infection time
     incubation_time::Float32
     symptom_onset_time::Float32
     hospitalization_time::Float32
+    #critical_symptoms_time::Float32
+    #recovery_time::Float32
+    #death_time::Float32
 end
 
 function sample_progression(rng::AbstractRNG, dist_severity, dist_incubation, dist_symptom_onset, dist_hospitalization)

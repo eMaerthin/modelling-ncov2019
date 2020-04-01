@@ -1,13 +1,27 @@
 # the mutable part of the simulation
+
+mutable struct IndividualState
+  health::HealthState
+  freedom::FreedomState
+  quarantine_level::Int8 # allow for negative values to detect corruption
+  detected::Bool
+  
+  
+  IndividualState() = new(
+    Healthy,
+    Free,
+    0,
+    false)
+end
+
 mutable struct SimState
   rng::MersenneTwister
 
   time::Float64
   queue::BinaryHeap{AbstractEvent, Earlier} # TODO change to union once all events are implemented
-    
-  health_states::Vector{HealthState}
-  detected::BitVector
-    
+  
+  individuals::Vector{IndividualState}  
+      
   infections::SortedMultiDict{Int32,AbstractInfectionEvent} # TODO change to union 
     
   num_dead::Int
@@ -21,8 +35,7 @@ mutable struct SimState
       0.0,
       BinaryHeap{AbstractEvent, Earlier}(),
       
-      fill(Healthy, num_individuals),
-      falses(num_individuals),
+      fill(IndividualState(), num_individuals),
       
       SortedMultiDict{Int32,AbstractInfectionEvent}(),
     
@@ -33,10 +46,22 @@ mutable struct SimState
 end
 
 
-health(state::SimState, person_id::Integer) = state.health_states[person_id]
+health(state::SimState, person_id::Integer) = state.individuals[person_id]
+freedom(state::SimState, person_id::Integer) = state.individuals[person_id]
+
+quarantine_advance!(state::SimState, person_id::Integer, val::Integer) = (state.individuals[person_id] += val)
+isquarantined(state::SimState, person_id) = state.individuals[person_id] < 0 ? error("quarantine corrupted") : state.individuals[person_id] != 0
+
 
 subjecthealth(state::SimState, event::AbstractEvent) = health(state, subject(event))
-sourcehealth(state::SimState, event::TransmissionEvent) = health(state, source(event))
+subjectfreedom(state::SimState, event::AbstractEvent) = freedom(state, subject(event))
 
-sethealth!(state::SimState, subject_id::Integer, health::HealthState) = (state.health_states[subject_id] = health)
+sourcehealth(state::SimState, event::TransmissionEvent) = health(state, source(event))
+sourcefreedom(state::SimState, event::TransmissionEvent) = freedom(state, subject(event))
+
+sethealth!(state::SimState, subject_id::Integer, health::HealthState) = (state.individuals[subject_id].health = health)
+setfreedom!(state::SimState, subject_id::Integer, freedom::FreedomState) = (state.individual[subject_id].freedom = freedom)
+setdetected!(state::SimState, subject_id::Integer, detected::Bool=true) = (state.individual[subject_id].detected = detected)
+
 setsubjecthealth!(state::SimState, event::AbstractEvent, health::HealthState) = sethealth!(state, subject(event), health)
+setsubjectfreedom!(state::SimState, event::AbstractEvent, freedom::FreedomState) = setfreedom!(state, subject(event), freedom)

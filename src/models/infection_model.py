@@ -879,7 +879,7 @@ class InfectionModel:
             if reduce_offset:
                 if offset is not None:
                     if len(x) > offset:
-                        x -= x[offset]
+                        x -= x.values[offset]
                     else:
                         logger.error('wrong length of array to apply offset')
                 elif self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
@@ -899,7 +899,7 @@ class InfectionModel:
             if today is not None:
                 counter = sum(np.array(x) <= today)
                 label_at_today = f'{label} at T={today}: {counter}'
-                ax.plot([self._params[TODAY_OFFSET]] * 2, [0, len(values)], 'k-', label=label_at_today)
+                ax.plot([today] * 2, [0, len(values)], 'k-', label=label_at_today)
             elif self._params[USE_TODAY_MARK]:
                 today = float(self._params[TODAY_OFFSET])
                 counter = sum(np.array(x) <= today)
@@ -1145,7 +1145,8 @@ class InfectionModel:
                 self.plot_values(run, f'Run {i}', ax, reduce_offset=True, offset=offset, today=today, type='semilogy')
             else:
                 self.plot_values(run, f'Run {i}', ax, reduce_offset=False, type='semilogy')
-        self.add_observed_curve(ax)
+        #self.add_observed_curve(ax)
+        self.add_observed_curve(ax, today=today)
 
         #ax.legend()
         ax.set_xlim(self.xlim)
@@ -1179,22 +1180,29 @@ class InfectionModel:
                 self.plot_values(run, f'Run {i}', ax, reduce_offset=True, today=today, offset=offset)
             else:
                 self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
-        self.add_observed_curve(ax)
+        self.add_observed_curve(ax, today=today)
 
         #ax.legend()
         ax.set_xlim(self.xlim_cut)
         ax.set_ylim(self.ylim_cut)
 
         fig.tight_layout()
-
         ax.set_title(f'Detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
-        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases.png'))
+
+        filename = 'test_detected_cases.png'
+        if today is not None:
+            filename = f'test_detected_cases_{today}.png'
+        plt.savefig(os.path.join(simulation_output_dir, filename))
+
         plt.close(fig)
 
-    def add_observed_curve(self, ax):
+    def add_observed_curve(self, ax, today=None):
         if self._params[LAID_CURVE].items():
             laid_curve_x = np.array([float(elem) for elem in self._params[LAID_CURVE].keys()])
-            if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+            if today is not None:
+                laid_curve_x = np.array(
+                    [float(elem) + today for elem in self._params[LAID_CURVE].keys()])
+            elif self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
                 if self._max_time_offset != np.inf:
                     laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
             laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
@@ -1681,10 +1689,10 @@ class InfectionModel:
             mid_x = -np.median(laid_curve_minus_x)
             min_y = self._params[LAID_CURVE][f'{min_x:.0f}']
             mid_y = self._params[LAID_CURVE][f'{mid_x:.0f}']
-            self.test_lognormal_detected(simulation_output_dir, offset=min_y, today=-min_x)
-            self.test_lognormal_detected(simulation_output_dir, offset=mid_y, today=-mid_x)
-            self.test_detected_cases(simulation_output_dir, offset=min_y, today=-min_x)
-            self.test_detected_cases(simulation_output_dir, offset=mid_y, today=-mid_x)
+            self.test_lognormal_detected(simulation_output_dir, offset=min_y, today=min_x)
+            self.test_lognormal_detected(simulation_output_dir, offset=mid_y, today=mid_x)
+            self.test_detected_cases(simulation_output_dir, offset=min_y, today=min_x)
+            self.test_detected_cases(simulation_output_dir, offset=mid_y, today=mid_x)
 
         self.test_lognormal_severe(simulation_output_dir)
         with open(output_log_file, "w") as out:

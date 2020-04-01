@@ -872,11 +872,17 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'bins.png'))
         plt.close(fig)
 
-    def plot_values(self, values, label, ax, yvalues=None, type='plot', reduce_offset=True, dots=False):
+    def plot_values(self, values, label, ax, yvalues=None, type='plot',
+                    reduce_offset=True, dots=False, offset=None, today=None):
         if len(values) > 0:
             x = values
             if reduce_offset:
-                if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
+                if offset is not None:
+                    if len(x) > offset:
+                        x -= x[offset]
+                    else:
+                        logger.error('wrong length of array to apply offset')
+                elif self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
                     if self._max_time_offset != np.inf:
                         x -= self._max_time_offset
             if yvalues is None:
@@ -890,7 +896,11 @@ class InfectionModel:
                     ax.plot(x, y, label=label)
             elif type == 'semilogy':
                 ax.semilogy(x, y, label=label)
-            if self._params[USE_TODAY_MARK]:
+            if today is not None:
+                counter = sum(np.array(x) <= today)
+                label_at_today = f'{label} at T={today}: {counter}'
+                ax.plot([self._params[TODAY_OFFSET]] * 2, [0, len(values)], 'k-', label=label_at_today)
+            elif self._params[USE_TODAY_MARK]:
                 today = float(self._params[TODAY_OFFSET])
                 counter = sum(np.array(x) <= today)
                 label_at_today = f'{label} at T={today}: {counter}'
@@ -899,6 +909,11 @@ class InfectionModel:
     def prevalance_at(self, time):
         df_r2 = self.df_infections
         return len(df_r2[df_r2.contraction_time<=time])
+
+    def detection_at(self, time):
+        df_r1 = self.df_progression_times
+        detected_cases = self.detected_cases(df_r1)
+        return len(detected_cases[detected_cases<=time])
 
     def mean_day_increase_until(self, time):
         mean_increase = 0.0
@@ -967,7 +982,6 @@ class InfectionModel:
         plt.close(fig)
 
     def detected_cases(self, df_r1):
-        df_r1 = self.df_progression_times
         cond1 = ~df_r1.tdetection.isna()
         cond2a = ~df_r1.trecovery.isna()
         cond2b = df_r1.tdetection > df_r1.trecovery
@@ -1124,47 +1138,24 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_prevalence.png'))
         plt.close(fig)
 
-    def test_lognormal_detected(self, simulation_output_dir):
+    def test_lognormal_detected(self, simulation_output_dir, offset=None, today=None):
         fig, ax = plt.subplots(nrows=1, ncols=1)
         for i, run in enumerate(self._all_runs_detected):
-            self.plot_values(run, f'Run {i}', ax, reduce_offset=False, type='semilogy')
+            if offset is not None:
+                self.plot_values(run, f'Run {i}', ax, reduce_offset=True, offset=offset, today=today, type='semilogy')
+            else:
+                self.plot_values(run, f'Run {i}', ax, reduce_offset=False, type='semilogy')
         self.add_observed_curve(ax)
 
         #ax.legend()
         ax.set_xlim(self.xlim)
         ax.set_ylim(self.ylim)
         ax.set_title(f'Sample paths of detected cases')
-        #ax.set_title(f'Analiza')
-        #xloc = [0, 5, 10, 15, 20]
-        #dates = ['12/03/20', '17/03/20', '22/03/20', '27/03/20', '1/04/20', '6/04/20']
-        #ax.set_ylabel('Zdiagnozowani (skala logarytmiczna)')
-        #ax.set_xlabel('Data')
-        #ax.set_xticks(xloc)
-        #ax.set_xticklabels(dates, rotation=30)
         fig.tight_layout()
-
-        plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_detected.png'))
-        plt.close(fig)
-
-
-    def test_lognormal_detected_pl(self, simulation_output_dir):
-        fig, ax = plt.subplots(nrows=1, ncols=1)
-        for i, run in enumerate(self._all_runs_detected):
-            self.plot_values(run, f'Run {i}', ax, reduce_offset=False, type='semilogy')
-        self.add_observed_curve(ax)
-
-        #ax.legend()
-        ax.set_xlim(self.xlim)
-        ax.set_ylim(self.ylim)
-        xloc = [0, 5, 10, 15, 20]
-        dates = ['12/03/20', '17/03/20', '22/03/20', '27/03/20', '1/04/20', '6/04/20']
-        ax.set_ylabel('Zdiagnozowani (skala logarytmiczna)')
-        ax.set_xlabel('Data')
-        ax.set_xticks(xloc)
-        ax.set_xticklabels(dates, rotation=30)
-        fig.tight_layout()
-
-        plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_detected_pl.png'))
+        filename = 'test_lognormal_detected.png'
+        if today is not None:
+            filename = f'test_lognormal_detected_{today}.png'
+        plt.savefig(os.path.join(simulation_output_dir, filename))
         plt.close(fig)
 
     def test_lognormal_severe(self, simulation_output_dir):
@@ -1181,39 +1172,23 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_severe.png'))
         plt.close(fig)
 
-    def test_detected_cases(self, simulation_output_dir):
+    def test_detected_cases(self, simulation_output_dir, offset=None, today=None):
         fig, ax = plt.subplots(nrows=1, ncols=1)
         for i, run in enumerate(self._all_runs_detected):
-            self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
+            if offset is not None:
+                self.plot_values(run, f'Run {i}', ax, reduce_offset=True, today=today, offset=offset)
+            else:
+                self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
         self.add_observed_curve(ax)
 
         #ax.legend()
         ax.set_xlim(self.xlim_cut)
         ax.set_ylim(self.ylim_cut)
 
-        #ax.set_title(f'Sample paths of detected cases')
-        xloc = [0, 5, 10, 15, 20]
-        dates = ['12/03/20', '17/03/20', '22/03/20', '27/03/20', '1/04/20', '6/04/20']
-        ax.set_ylabel('Zdiagnozowani')
-        ax.set_xlabel('Data')
-        ax.set_xticks(xloc)
-        ax.set_xticklabels(dates, rotation=30)
         fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_pl.png'))
-        plt.close(fig)
 
-    def test_detected_cases_no_legend(self, simulation_output_dir):
-        fig, ax = plt.subplots(nrows=1, ncols=1)
-        for i, run in enumerate(self._all_runs_detected):
-            self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
-        self.add_observed_curve(ax)
-        #ax.legend()
-        ax.set_xlim(self.xlim)
-        ax.set_ylim(self.ylim)
-
-        ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
-        fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_no_legend.png'))
+        ax.set_title(f'Detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
+        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases.png'))
         plt.close(fig)
 
     def add_observed_curve(self, ax):
@@ -1223,21 +1198,8 @@ class InfectionModel:
                 if self._max_time_offset != np.inf:
                     laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
             laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
-            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
-
-    def test_detected_cases_no_legend_cut(self, simulation_output_dir):
-        fig, ax = plt.subplots(nrows=1, ncols=1)
-        for i, run in enumerate(self._all_runs_detected):
-            self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
-        self.add_observed_curve(ax)
-
-        #ax.legend()
-        ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
-        ax.set_xlim(self.xlim_cut)
-        ax.set_ylim(self.ylim_cut)
-        fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_no_legend_cut.png'))
-        plt.close(fig)
+            self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True,
+                             today=None)
 
     @staticmethod
     def store_parameter(simulation_output_dir, parameter, filename):
@@ -1578,8 +1540,30 @@ class InfectionModel:
 
         return True
 
+    def get_daily_prevalences_from_to(self, min_time=None, max_time=None):
+        if min_time is None:
+            min_time=0
+        if max_time is None:
+            max_time = self._global_time
+
+        times = np.arange(min_time, max_time)
+        return [self.prevalance_at(time) for time in times]
+
+    def get_detections_stats_from_to(self, min_time=None, max_time=None):
+        if min_time is None:
+            min_time=0
+        if max_time is None:
+            max_time = self._global_time
+
+        times = np.arange(min_time, max_time)
+
+        df_r1 = self.df_progression_times
+        detected_cases = self.detected_cases(df_r1)
+        return [len(detected_cases[detected_cases <= time]) for time in times]
+
     def run_simulation(self):
         def _inner_loop(iter):
+            threshold_type = self._params[STOP_SIMULATION_THRESHOLD_TYPE]
             start = time.time()
             while not q.empty():
                 #if self._icu_needed >= self._params[ICU_AVAILABILITY]:
@@ -1587,9 +1571,17 @@ class InfectionModel:
                 #    self.band_time = self._global_time
                 #    break
                 #print(f'{self._icu_needed} - {self._params[ICU_AVAILABILITY]}')
-                if self.affected_people >= self.stop_simulation_threshold:
-                    logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
+                value_to_be_checked = None
+                if threshold_type == PREVALENCE:
+                    value_to_be_checked = self.affected_people
+                elif threshold_type == DETECTIONS:
+                    value_to_be_checked = self.detected_people
+                if value_to_be_checked is None:
+                    logging.error(f"we have an error here")
+                if value_to_be_checked >= self.stop_simulation_threshold:
+                    logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold} ({threshold_type})")
                     break
+
                 event = q.get()
                 if not self.process_event(event):
                     logging.info(f"Processing event {event} returned False")
@@ -1621,7 +1613,7 @@ class InfectionModel:
                      'c;c_norm;Init_#people;Prevalence_30days;Prevalence_60days;Prevalence_90days;'\
                      'Prevalence_120days;Prevalence_150days;Prevalence_180days;Band_hit_time;Subcritical;'\
                      'Prevalence_360days;runs;fear;detection_rate;increase_10;increase_20;increase_30;increase_40;'\
-                     'increase_50;increase_100;increase_150;incidents_per_last_day;over_icu;hospitalized;zero_time_offset\n'
+                     'increase_50;increase_100;increase_150;incidents_per_last_day;over_icu;hospitalized;zero_time_offset;prevalence_per_each_day(multiple_columns)\n'
         for i, seed in enumerate(seeds):
             runs += 1
             self.parse_random_seed(seed)
@@ -1667,21 +1659,33 @@ class InfectionModel:
             incidents_per_last_day = self.prevalance_at(self._global_time) - self.prevalance_at(self._global_time - 1)
             hospitalized = self._icu_needed
             zero_time_offset = self._max_time_offset
+            list_of_detections_stats = self.get_detections_stats_from_to(zero_time_offset)
+            detections_stats = ';'.join([str(x) for x in list_of_detections_stats])
             output_add = f'{last_processed_time };{affected};{detected};{deceased};{quarantined};'\
                          f'{c};{c_norm};{init_people};{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};'\
                          f'{bandtime};{subcritical};{prev360};{runs};{fear_};{detection_rate};'\
                          f'{mean_increase_at_10};{mean_increase_at_20};{mean_increase_at_30};{mean_increase_at_40};'\
-                         f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150};{incidents_per_last_day};{outbreak};{hospitalized};{zero_time_offset}\n'
+                         f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150};{incidents_per_last_day};'\
+                         f'{outbreak};{hospitalized};{zero_time_offset};;{detections_stats}\n'
             logger.info(output_add)
             output_log = f'{output_log}{output_add}'
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
         self.test_detected_cases(simulation_output_dir)
-        self.test_detected_cases_no_legend(simulation_output_dir)
-        self.test_detected_cases_no_legend_cut(simulation_output_dir)
         self.test_lognormal_prevalence(simulation_output_dir)
         self.test_lognormal_detected(simulation_output_dir)
+        if self._params[LAID_CURVE].items():
+            laid_curve_minus_x = np.array([-float(elem) for elem in self._params[LAID_CURVE].keys()])
+            min_x = -np.amin(laid_curve_minus_x)
+            mid_x = -np.median(laid_curve_minus_x)
+            min_y = self._params[LAID_CURVE][f'{min_x:.0f}']
+            mid_y = self._params[LAID_CURVE][f'{mid_x:.0f}']
+            self.test_lognormal_detected(simulation_output_dir, offset=min_y, today=-min_x)
+            self.test_lognormal_detected(simulation_output_dir, offset=mid_y, today=-mid_x)
+            self.test_detected_cases(simulation_output_dir, offset=min_y, today=-min_x)
+            self.test_detected_cases(simulation_output_dir, offset=mid_y, today=-mid_x)
+
         self.test_lognormal_severe(simulation_output_dir)
         with open(output_log_file, "w") as out:
             out.write(output_log)

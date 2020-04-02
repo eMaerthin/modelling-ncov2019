@@ -1292,6 +1292,7 @@ class InfectionModel:
             fig.tight_layout()
             plt.savefig(os.path.join(simulation_output_dir, 'detected_cases_density_pl_cut.png'))
             plt.close(fig)
+        return successes
 
     def test_detected_cases_no_legend(self, simulation_output_dir):
         fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -1770,7 +1771,14 @@ class InfectionModel:
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
-        self.test_detected_cases(simulation_output_dir)
+        fitting_successes = self.test_detected_cases(simulation_output_dir)
+        q = self._params[DETECTION_MILD_PROBA]
+        rstar_out = 2.34 * self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
+        c = self._params[FEAR_FACTORS][CONSTANT][LIMIT_VALUE]
+        fitting_successes_str = f'q,rstar,c,successes\n{q},{rstar_out},{c},{fitting_successes}\n'
+        fitting_successes_log_file = os.path.join(simulation_output_dir, 'fitting_successes.txt')
+        with open(fitting_successes_log_file, "w") as out_fitting:
+            out_fitting.write(fitting_successes_str)
         #self.test_detected_cases_no_legend(simulation_output_dir)
         #self.test_detected_cases_no_legend_cut(simulation_output_dir)
         self.test_lognormal_prevalence(simulation_output_dir)

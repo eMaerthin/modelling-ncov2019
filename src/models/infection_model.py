@@ -1140,6 +1140,7 @@ class InfectionModel:
 
     def test_lognormal_detected(self, simulation_output_dir, offset=None, today=None):
         fig, ax = plt.subplots(nrows=1, ncols=1)
+        #logger.info(f'[dbg]: {offset} {today} {type}')
         for i, run in enumerate(self._all_runs_detected):
             if offset is not None:
                 self.plot_values(run, f'Run {i}', ax, reduce_offset=True, offset=offset, today=today, type='semilogy')
@@ -1562,8 +1563,7 @@ class InfectionModel:
             min_time=0
         if max_time is None:
             max_time = self._global_time
-
-        times = np.arange(min_time, max_time)
+        times = np.arange(np.maximum(0, min_time), np.minimum(700, max_time))
 
         df_r1 = self.df_progression_times
         detected_cases = self.detected_cases(df_r1)

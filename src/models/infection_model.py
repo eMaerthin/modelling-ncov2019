@@ -1764,7 +1764,7 @@ class InfectionModel:
             hospitalized = self._icu_needed
             zero_time_offset = self._max_time_offset
             output_add = f'{last_processed_time };{affected};{detected};{deceased};{quarantined};'\
-                         f'{c};{c_norm};{init_people};{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};'\
+                         f'{c};{c_norm};{self._init_for_stats};{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};'\
                          f'{bandtime};{subcritical};{prev360};{runs};{fear_};{detection_rate};'\
                          f'{mean_increase_at_10};{mean_increase_at_20};{mean_increase_at_30};{mean_increase_at_40};'\
                          f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150};{incidents_per_last_day};{outbreak};{hospitalized};{zero_time_offset}\n'

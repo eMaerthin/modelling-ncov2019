@@ -909,6 +909,8 @@ class InfectionModel:
                 if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
                     if self._max_time_offset != np.inf:
                         x -= self._max_time_offset
+                    else:
+                        return np.arange(0), np.arange(0)
             if yvalues is None:
                 y = np.arange(1, 1 + len(x))
             else:
@@ -925,6 +927,8 @@ class InfectionModel:
                 counter = sum(np.array(x) <= today)
                 label_at_today = f'{label} at T={today}: {counter}'
                 ax.plot([self._params[TODAY_OFFSET]] * 2, [0, len(values)], 'k-', label=label_at_today)
+            return x, y
+        return np.arange(0), np.arange(0)
 
     def prevalance_at(self, time):
         df_r2 = self.df_infections
@@ -1213,24 +1217,81 @@ class InfectionModel:
 
     def test_detected_cases(self, simulation_output_dir):
         fig, ax = plt.subplots(nrows=1, ncols=1)
+        x = []
+        y = []
+        successes = 0
         for i, run in enumerate(self._all_runs_detected):
-            self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
+            x_, y_ = self.plot_values(run.values, f'Run {i}', ax, reduce_offset=False)
+            #x_ = x_.values
+            #TODO
+            if len(x_) > self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME]:
+                t0 = x_[self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME]]
+                arg_tminus7 = np.argmax(x_[x_ <= t0 - 7])
+                if np.abs(y_[arg_tminus7] - self._params[LAID_CURVE]["-7"]) < 0.1 * self._params[LAID_CURVE]["-7"]:
+                    x.extend(list(x_))
+                    y.extend(list(y_))
+                    successes += 1
+        logger.info(f'There are {successes} successes')
         self.add_observed_curve(ax)
 
         #ax.legend()
         ax.set_xlim(self.xlim_cut)
         ax.set_ylim(self.ylim_cut)
+        reduction = (1 - self._params[FEAR_FACTORS][CONSTANT][LIMIT_VALUE]) * 100
+        R = 2.34 * self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
+        reducted = (100 - reduction) * R / 100
+        title = f'Prognoza diagnoz (q={self._params[DETECTION_MILD_PROBA]:.1f}, redukcja R* z {R:.2f} o {reduction:.0f}% do {reducted:.2f})'
+        ax.set_title(title)
 
         #ax.set_title(f'Sample paths of detected cases')
-        xloc = [0, 5, 10, 15, 20]
-        dates = ['12/03/20', '17/03/20', '22/03/20', '27/03/20', '1/04/20', '6/04/20']
+        xloc = [0, 5, 10, 15, 20, 25, 28]
+        dates = ['02/04/20', '07/04/20', '12/04/20', '17/04/20', '22/04/20', '27/04/20', '30/04/20']
         ax.set_ylabel('Zdiagnozowani')
         ax.set_xlabel('Data')
+
         ax.set_xticks(xloc)
         ax.set_xticklabels(dates, rotation=30)
         fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_pl.png'))
+        plt.savefig(os.path.join(simulation_output_dir, 'detected_cases_pl.png'))
         plt.close(fig)
+        if successes > 0:
+            xy = np.vstack([x, y])
+            z = scipy.stats.gaussian_kde(xy)(xy)
+            fig, ax = plt.subplots()
+            ax.set_title(title)
+
+            ax.scatter(x, y, c=z, s=1, edgecolor='')
+            self.add_observed_curve(ax)
+            xloc = [0, -5, -10, -15, -20]
+            dates = ['02/04/20', '28/03/20', '23/03/20', '18/03/20', '13/03/20']
+            ax.set_ylabel('Zdiagnozowani')
+            ax.set_xlabel('Data')
+            ax.set_xticks(xloc)
+            ax.set_xticklabels(dates, rotation=30)
+            ax.set_xlim([-20, 0])
+            ax.set_ylim([0, self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME]*1.4])
+
+            fig.tight_layout()
+            plt.savefig(os.path.join(simulation_output_dir, 'detected_cases_density_pl.png'))
+            plt.close(fig)
+
+            fig, ax = plt.subplots()
+            ax.set_title(title)
+
+            ax.scatter(x, y, c=z, s=1, edgecolor='')
+            self.add_observed_curve(ax)
+
+            ax.set_xlim(self.xlim_cut)
+            ax.set_ylim(self.ylim_cut)
+            xloc = [0, 5, 10, 15, 20, 25, 28]
+            dates = ['02/04/20', '07/04/20', '12/04/20', '17/04/20', '22/04/20', '27/04/20', '30/04/20']
+            ax.set_ylabel('Zdiagnozowani')
+            ax.set_xlabel('Data')
+            ax.set_xticks(xloc)
+            ax.set_xticklabels(dates, rotation=30)
+            fig.tight_layout()
+            plt.savefig(os.path.join(simulation_output_dir, 'detected_cases_density_pl_cut.png'))
+            plt.close(fig)
 
     def test_detected_cases_no_legend(self, simulation_output_dir):
         fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -1311,7 +1372,6 @@ class InfectionModel:
 
     def log_outputs(self):
         simulation_output_dir = self._save_dir()
-        run_id = f'{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
         self.df_progression_times.to_csv(os.path.join(simulation_output_dir, 'output_df_progression_times.csv'))
         self.df_infections.to_csv(os.path.join(simulation_output_dir, 'output_df_potential_contractions.csv'))
         self._save_population_parameters(simulation_output_dir)
@@ -1635,6 +1695,9 @@ class InfectionModel:
             if self._params[LOG_OUTPUTS]:
                 logger.info('Log outputs')
                 self.log_outputs()
+            else:
+                simulation_output_dir = self._save_dir()
+                self.store_detections(simulation_output_dir)
             if self._icu_needed >= self._params[ICU_AVAILABILITY]:
                 return True
             if self.affected_people >= self.stop_simulation_threshold:
@@ -1708,8 +1771,8 @@ class InfectionModel:
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
         self.test_detected_cases(simulation_output_dir)
-        self.test_detected_cases_no_legend(simulation_output_dir)
-        self.test_detected_cases_no_legend_cut(simulation_output_dir)
+        #self.test_detected_cases_no_legend(simulation_output_dir)
+        #self.test_detected_cases_no_legend_cut(simulation_output_dir)
         self.test_lognormal_prevalence(simulation_output_dir)
         self.test_lognormal_detected(simulation_output_dir)
         self.test_lognormal_severe(simulation_output_dir)

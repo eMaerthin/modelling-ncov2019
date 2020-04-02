@@ -1560,15 +1560,12 @@ class InfectionModel:
 
     def get_detections_stats_from_to(self, min_time=None, max_time=None):
         if min_time is None:
-            min_time=0
+            min_time = 0
         if max_time is None:
             max_time = self._global_time
-        a = np.maximum(0, min_time)
-        b = np.minimum(700, max_time)
-        log = f'{a} & {b} & {self._global_time}'
-        print(log)
-        logger.info(log)
-        times = np.arange(a, b)
+        t_max = np.minimum(700, max_time) + 0.5
+        t_min = np.minimum(t_max - 1.0, np.maximum(0, min_time))
+        times = np.arange(t_min, t_max)
         df_r1 = self.df_progression_times
         detected_cases = self.detected_cases(df_r1)
         return [len(detected_cases[detected_cases <= time]) for time in times]

@@ -23,6 +23,9 @@ from src.models.schemas import *
 from src.models.defaults import *
 from src.models.states_and_functions import *
 
+import cppyy
+cppyy.cppdef("""#include "cpp_src/all.h" """)
+from cppyy.gbl import std, mocos_cpp
 
 import click
 
@@ -58,7 +61,6 @@ class InfectionModel:
         self._df_households = None
         #self._individuals_gender = {}
         self._individuals_age = None
-        self._individuals_household_id = {}
         self._individuals_indices = None
         self._all_runs_detected = []
         self._all_runs_prevalence = []
@@ -165,9 +167,9 @@ class InfectionModel:
         """
         logger.info('Set up data frames: Reading population csv...')
         self._df_individuals = pd.read_csv(self.df_individuals_path)
+        self._cpp_population = mocos_cpp.InitialPopulation(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
         self._individuals_age = self._df_individuals[AGE].values
-        self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
         self._individuals_indices = self._df_individuals.index.values
         self._social_activity_scores = self._df_individuals.social_competence.to_dict()
 
@@ -447,6 +449,7 @@ class InfectionModel:
         return self._params[TRANSMISSION_PROBABILITIES][kernel_id] * self.fear(kernel_id)
 
     def add_potential_contractions_from_household_kernel(self, person_id):
+        person = self._cpp_population.by_csv_id(int(person_id))
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
         end = prog_times[T2] or prog_times[TRECOVERY]
@@ -454,7 +457,7 @@ class InfectionModel:
         infected = mocos_helper.poisson(total_infection_rate)
         if infected == 0:
             return
-        household_id = self._individuals_household_id[person_id]
+        household_id = person.household_index
         inhabitants = self._households_inhabitants[household_id]
         possible_choices = [i for i in inhabitants if i != person_id]
         for choice_idx in mocos_helper.sample_idxes_with_replacement_uniform(len(possible_choices), infected):
@@ -499,6 +502,7 @@ class InfectionModel:
 
 
     def handle_t0(self, person_id):
+        person = self._cpp_population.by_csv_id(int(person_id))
         self._active_people += 1
         if self.get_infection_status(person_id) in [
             InfectionStatus.Healthy,
@@ -509,7 +513,7 @@ class InfectionModel:
             raise AssertionError(f'Unexpected state detected: {self.get_infection_status(person_id)}'
                                  f'person_id: {person_id}')
 
-        household_id = self._individuals_household_id[person_id]  # self._df_individuals.loc[person_id, HOUSEHOLD_ID]
+        household_id = person.household_index
         capacity = self._households_capacities[household_id]  # self._df_households.loc[household_id][ID]
         if capacity > 1:
             self.add_potential_contractions_from_household_kernel(person_id)
@@ -1498,6 +1502,7 @@ class InfectionModel:
         if self._global_time > self._max_time + self._max_time_offset:
             return False
         person_id = getattr(event, PERSON_INDEX)
+        person = self._cpp_population.by_csv_id(int(person_id))
         initiated_by = getattr(event, INITIATED_BY)
         initiated_through = getattr(event, INITIATED_THROUGH)
 
@@ -1574,7 +1579,7 @@ class InfectionModel:
                     self._detection_status[person_id] = DetectionStatus.Detected.value
                     self._detected_people += 1
                     self.update_max_time_offset()
-                    household_id = self._individuals_household_id[person_id]
+                    household_id = person.household_index
                     for inhabitant in self._households_inhabitants[household_id]:
                         if self.get_quarantine_status_(inhabitant) == QuarantineStatus.NoQuarantine:
                             if self.get_infection_status(inhabitant) != InfectionStatus.Death:

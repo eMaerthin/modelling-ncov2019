@@ -1563,8 +1563,12 @@ class InfectionModel:
             min_time=0
         if max_time is None:
             max_time = self._global_time
-        times = np.arange(np.maximum(0, min_time), np.minimum(700, max_time))
-
+        a = np.maximum(0, min_time)
+        b = np.minimum(700, max_time)
+        log = f'{a} & {b} & {self._global_time}'
+        print(log)
+        logger.info(log)
+        times = np.arange(a, b)
         df_r1 = self.df_progression_times
         detected_cases = self.detected_cases(df_r1)
         return [len(detected_cases[detected_cases <= time]) for time in times]

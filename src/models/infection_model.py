@@ -65,6 +65,10 @@ class InfectionModel:
         self._all_runs_severe = []
         self._households_capacities = {}
         self._households_inhabitants = {}
+        self._init_for_stats = 0  # TODO support different import methods
+        if isinstance(self._params[INITIAL_CONDITIONS], dict):
+            cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
+            self._init_for_stats = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
 
         self._affected_people = 0
         self._active_people = 0
@@ -1519,6 +1523,7 @@ class InfectionModel:
             if self._max_time_offset == np.inf:
                 if self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME] <= self._detected_people:
                     self._max_time_offset = self._global_time
+                    self._init_for_stats = self._active_people
 
     def add_new_infection(self, person_id, infection_status,
                           initiated_by, initiated_through):
@@ -1730,11 +1735,8 @@ class InfectionModel:
 
             c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
             c_norm = c*self._params[AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL]
-            init_people = 0 # TODO support different import methods
-            if isinstance(self._params[INITIAL_CONDITIONS], dict):
-                cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
-                init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
-            subcritical = self._active_people < init_people/2 # at 200 days
+            subcritical = self._active_people < self._init_for_stats/2 # at 200 days
+
             bandtime = self.band_time
             #if bandtime:
             #    return 0
@@ -1789,6 +1791,10 @@ class InfectionModel:
 
 
     def setup_simulation(self):
+        self._init_for_stats = 0 # TODO support different import methods
+        if isinstance(self._params[INITIAL_CONDITIONS], dict):
+            cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
+            self._init_for_stats = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
 
         # TODO  and think how to better group them, ie namedtuple state_stats?
         self._affected_people = 0

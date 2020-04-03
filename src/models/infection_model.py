@@ -171,6 +171,9 @@ class InfectionModel:
         self._individuals_indices = self._df_individuals.index.values
         self._social_activity_scores = self._df_individuals.social_competence.to_dict()
 
+        # Note: people are indexed by their id in csv file, and these don't go 0..n-1, there might be gaps.
+        # Therefore we compute the max id as max(self._social_activity_scores) (the _social_activity_scores is keyed by them)
+        # and assign 0 probability to the missing keys.
         probs = (self._social_activity_scores.get(person_idx, 0.0) for person_idx in range(max(self._social_activity_scores)))
         self._social_activity_sampler = mocos_helper.AliasSampler(probs)
 

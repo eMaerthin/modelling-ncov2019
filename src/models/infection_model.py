@@ -171,10 +171,8 @@ class InfectionModel:
         self._cpp_population = mocos_cpp.InitialPopulation(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
         self._individuals_age = self._df_individuals[AGE].values
-        self._social_activity_scores = self._df_individuals.social_competence.to_dict()
 
-        #probs = (person.social_competence for person in self.cpp_code)
-        probs = (self._social_activity_scores.get(person_idx, 0.0) for person_idx in range(max(self._social_activity_scores)))
+        probs = (person.social_competence for person in self._cpp_population)
 
         self._social_activity_sampler = mocos_helper.AliasSampler(probs)
 
@@ -490,7 +488,7 @@ class InfectionModel:
         total_infection_rate = (end - start) * self.gamma('friendship')
         no_infected = mocos_helper.poisson(total_infection_rate * person.social_competence)
         for _ in range(no_infected):
-            infected_idx = self._social_activity_sampler.gen()
+            infected_idx = self._cpp_population[self._social_activity_sampler.gen()].csv_index
             if self.get_infection_status(infected_idx) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, infected_idx, TMINUS1, person_id, CONSTANT, self.global_time))

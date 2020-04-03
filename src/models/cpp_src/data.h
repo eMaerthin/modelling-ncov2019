@@ -22,23 +22,23 @@ class Person
 public:
     const std::size_t id;
     const std::size_t csv_index;
-    const std::uint_fast8_t age;
-    const std::uint_fast8_t gender;
+    const std::uint_fast16_t age;
+    const std::uint_fast16_t gender;
     const std::size_t household_index;
     const std::string infection_status;
     const std::size_t employment_status;
     const double social_competence;
-    const std::uint_fast8_t public_transport_usage;
+    const std::uint_fast16_t public_transport_usage;
     const double public_transport_duration;
  public:
     Person( std::size_t _csv_index,
-            std::uint_fast8_t _age,
-            std::uint_fast8_t _gender,
+            std::uint_fast16_t _age,
+            std::uint_fast16_t _gender,
             std::size_t _household_index,
             const std::string& _infection_status,
             std::size_t _employment_status,
             double _social_competence,
-            std::uint_fast8_t _public_transport_usage,
+            std::uint_fast16_t _public_transport_usage,
             double _public_transport_duration);
 
     void print(std::ostream& os = std::cout);
@@ -64,13 +64,13 @@ class InitialPopulation
 //
 
 Person::Person( std::size_t _csv_index,
-                std::uint_fast8_t _age,
-                std::uint_fast8_t _gender,
+                std::uint_fast16_t _age,
+                std::uint_fast16_t _gender,
                 std::size_t _household_index,
                 const std::string& _infection_status,
                 std::size_t _employment_status,
                 double _social_competence,
-                std::uint_fast8_t _public_transport_usage,
+                std::uint_fast16_t _public_transport_usage,
                 double _public_transport_duration
 ) :
 id(count++),
@@ -121,13 +121,13 @@ std::vector<Person> InitialPopulation::get_pop_vector(const std::string& path)
     std::vector<Person> ret;
 
     std::size_t idx;
-    std::uint_fast8_t age;
-    std::uint_fast8_t gender;
+    std::uint_fast16_t age;
+    std::uint_fast16_t gender;
     std::size_t household_index;
     std::string infection_status;
     std::size_t employment_status;
     double social_competence;
-    std::uint_fast8_t public_transport_usage;
+    std::uint_fast16_t public_transport_usage;
     double public_transport_duration;
 
     csv_reader.read_header(io::ignore_extra_column, "idx", "age", "gender", "household_index", "infection_status", "employment_status", "social_competence", "public_transport_usage", "public_transport_duration");

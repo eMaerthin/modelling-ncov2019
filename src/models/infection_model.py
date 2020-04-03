@@ -1184,27 +1184,6 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_detected.png'))
         plt.close(fig)
 
-
-    def test_lognormal_detected_pl(self, simulation_output_dir):
-        fig, ax = plt.subplots(nrows=1, ncols=1)
-        for i, run in enumerate(self._all_runs_detected):
-            self.plot_values(run, f'Run {i}', ax, reduce_offset=False, type='semilogy')
-        self.add_observed_curve(ax)
-
-        #ax.legend()
-        ax.set_xlim(self.xlim)
-        ax.set_ylim(self.ylim)
-        xloc = [0, 5, 10, 15, 20]
-        dates = ['12/03/20', '17/03/20', '22/03/20', '27/03/20', '1/04/20', '6/04/20']
-        ax.set_ylabel('Zdiagnozowani (skala logarytmiczna)')
-        ax.set_xlabel('Data')
-        ax.set_xticks(xloc)
-        ax.set_xticklabels(dates, rotation=30)
-        fig.tight_layout()
-
-        plt.savefig(os.path.join(simulation_output_dir, 'test_lognormal_detected_pl.png'))
-        plt.close(fig)
-
     def test_lognormal_severe(self, simulation_output_dir):
         fig, ax = plt.subplots(nrows=1, ncols=1)
         for i, run in enumerate(self._all_runs_severe):
@@ -1223,8 +1202,10 @@ class InfectionModel:
         fig, ax = plt.subplots(nrows=1, ncols=1)
         x = []
         y = []
+        p_x = []
+        p_y = []
         successes = 0
-        for i, run in enumerate(self._all_runs_detected):
+        for i, (run, run_p) in enumerate(zip(self._all_runs_detected, self._all_runs_prevalence)):
             x_, y_ = self.plot_values(run.values, f'Run {i}', ax, reduce_offset=False)
             #x_ = x_.values
             #TODO
@@ -1236,6 +1217,10 @@ class InfectionModel:
                     if np.abs(y_[arg_tminus7] - self._params[LAID_CURVE]["-7"]) < 0.1 * self._params[LAID_CURVE]["-7"]:
                         x.extend(list(x_))
                         y.extend(list(y_))
+                        p_x_ = run_p.values
+                        p_y_ = np.arange(1, 1 + len(p_x_))
+                        p_x.extend(p_x_)
+                        p_y.extend(p_y_)
                         successes += 1
         logger.info(f'There are {successes} successes')
         self.add_observed_curve(ax)
@@ -1243,10 +1228,13 @@ class InfectionModel:
         #ax.legend()
         ax.set_xlim(self.xlim_cut)
         ax.set_ylim(self.ylim_cut)
-        reduction = (1 - self._params[FEAR_FACTORS][CONSTANT][LIMIT_VALUE]) * 100
+        reduction = (1 - self._params[FEAR_FACTORS].get(CONSTANT, self._params[FEAR_FACTORS][DEFAULT])[LIMIT_VALUE]) * 100
         R = 2.34 * self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
         reducted = (100 - reduction) * R / 100
         title = f'Prognoza diagnoz (q={self._params[DETECTION_MILD_PROBA]:.1f}, redukcja R* z {R:.2f} o {reduction:.0f}% do {reducted:.2f})'
+
+        title2 = f'Prognoza liczby zakażonych\n(q={self._params[DETECTION_MILD_PROBA]:.1f}, redukcja R* z {R:.2f} o {reduction:.0f}% do {reducted:.2f})'
+
         ax.set_title(title)
 
         #ax.set_title(f'Sample paths of detected cases')
@@ -1261,12 +1249,13 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'detected_cases_pl.png'))
         plt.close(fig)
         if successes > 0:
-            xy = np.vstack([x, y])
-            z = scipy.stats.gaussian_kde(xy)(xy)
+            #xy = np.vstack([x, y])
+            #z = scipy.stats.gaussian_kde(xy)(xy)
             fig, ax = plt.subplots()
             ax.set_title(title)
 
-            ax.scatter(x, y, c=z, s=1, edgecolor='')
+            #ax.scatter(x, y, c=z, s=1, edgecolor='')
+            ax.scatter(x, y, s=1, edgecolor='')
             self.add_observed_curve(ax)
             xloc = [0, -5, -10, -15, -20]
             dates = ['02/04/20', '28/03/20', '23/03/20', '18/03/20', '13/03/20']
@@ -1284,7 +1273,8 @@ class InfectionModel:
             fig, ax = plt.subplots()
             ax.set_title(title)
 
-            ax.scatter(x, y, c=z, s=1, edgecolor='')
+            #ax.scatter(x, y, c=z, s=1, edgecolor='')
+            ax.scatter(x, y, s=1, edgecolor='')
             self.add_observed_curve(ax)
 
             ax.set_xlim(self.xlim_cut)
@@ -1298,21 +1288,48 @@ class InfectionModel:
             fig.tight_layout()
             plt.savefig(os.path.join(simulation_output_dir, 'detected_cases_density_pl_cut.png'))
             plt.close(fig)
+            #############################################
+            #xy = np.vstack([p_x, p_y])
+            #z = scipy.stats.gaussian_kde(xy)(xy)
+            fig, ax = plt.subplots()
+            ax.set_title(title2)
+
+            #ax.scatter(p_x, p_y, c=z, s=1, edgecolor='')
+            ax.scatter(p_x, p_y, s=1, edgecolor='')
+            self.add_observed_curve(ax)
+            xloc = [0, -5, -10, -15, -20]
+            dates = ['02/04/20', '28/03/20', '23/03/20', '18/03/20', '13/03/20']
+            ax.set_ylabel('Zakażeni')
+            ax.set_xlabel('Data')
+            ax.set_xticks(xloc)
+            ax.set_xticklabels(dates, rotation=30)
+            ax.set_xlim([-20, 0])
+            ax.set_ylim([0, self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME] * 6.0])
+
+            fig.tight_layout()
+            plt.savefig(os.path.join(simulation_output_dir, 'prevalence_density_pl.png'))
+            plt.close(fig)
+
+            fig, ax = plt.subplots()
+            ax.set_title(title2)
+
+            #ax.scatter(p_x, p_y, c=z, s=1, edgecolor='')
+            ax.scatter(p_x, p_y, s=1, edgecolor='')
+            self.add_observed_curve(ax)
+
+            ax.set_xlim(self.xlim_cut)
+            ax.set_ylim(self.ylim_cut)
+            xloc = [0, 5, 10, 15, 20, 25, 28]
+            dates = ['02/04/20', '07/04/20', '12/04/20', '17/04/20', '22/04/20', '27/04/20', '30/04/20']
+            ax.set_ylabel('Zakażeni')
+            ax.set_xlabel('Data')
+            ax.set_xticks(xloc)
+            ax.set_xticklabels(dates, rotation=30)
+            fig.tight_layout()
+            plt.savefig(os.path.join(simulation_output_dir, 'prevalence_density_pl_cut.png'))
+            plt.close(fig)
         return successes
 
-    def test_detected_cases_no_legend(self, simulation_output_dir):
-        fig, ax = plt.subplots(nrows=1, ncols=1)
-        for i, run in enumerate(self._all_runs_detected):
-            self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
-        self.add_observed_curve(ax)
-        #ax.legend()
-        ax.set_xlim(self.xlim)
-        ax.set_ylim(self.ylim)
-
-        ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
-        fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_no_legend.png'))
-        plt.close(fig)
 
     def add_observed_curve(self, ax):
         if self._params[LAID_CURVE].items():
@@ -1322,20 +1339,6 @@ class InfectionModel:
                     laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
             laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
             self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)
-
-    def test_detected_cases_no_legend_cut(self, simulation_output_dir):
-        fig, ax = plt.subplots(nrows=1, ncols=1)
-        for i, run in enumerate(self._all_runs_detected):
-            self.plot_values(run, f'Run {i}', ax, reduce_offset=False)
-        self.add_observed_curve(ax)
-
-        #ax.legend()
-        ax.set_title(f'Test of detected cases (detection rate: {self._params[DETECTION_MILD_PROBA]:.2f})')
-        ax.set_xlim(self.xlim_cut)
-        ax.set_ylim(self.ylim_cut)
-        fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'test_detected_cases_no_legend_cut.png'))
-        plt.close(fig)
 
     @staticmethod
     def store_parameter(simulation_output_dir, parameter, filename):
@@ -1706,6 +1709,7 @@ class InfectionModel:
             else:
                 simulation_output_dir = self._save_dir()
                 self.store_detections(simulation_output_dir)
+                self.lancet_store_graphs(simulation_output_dir)
             if self._icu_needed >= self._params[ICU_AVAILABILITY]:
                 return True
             if self.affected_people >= self.stop_simulation_threshold:
@@ -1778,13 +1782,11 @@ class InfectionModel:
         fitting_successes = self.test_detected_cases(simulation_output_dir)
         q_ = self._params[DETECTION_MILD_PROBA]
         rstar_out = 2.34 * self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
-        c = self._params[FEAR_FACTORS][CONSTANT][LIMIT_VALUE]
+        c = self._params[FEAR_FACTORS].get(CONSTANT, self._params[FEAR_FACTORS][DEFAULT])[LIMIT_VALUE]
         fitting_successes_str = f'q,rstar,c,successes\n{q_},{rstar_out},{c},{fitting_successes}\n'
         fitting_successes_log_file = os.path.join(simulation_output_dir, 'fitting_successes.txt')
         with open(fitting_successes_log_file, "w") as out_fitting:
             out_fitting.write(fitting_successes_str)
-        #self.test_detected_cases_no_legend(simulation_output_dir)
-        #self.test_detected_cases_no_legend_cut(simulation_output_dir)
         self.test_lognormal_prevalence(simulation_output_dir)
         self.test_lognormal_detected(simulation_output_dir)
         self.test_lognormal_severe(simulation_output_dir)

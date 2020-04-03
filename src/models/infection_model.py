@@ -62,7 +62,6 @@ class InfectionModel:
         self._df_individuals = None
         self._df_households = None
         #self._individuals_gender = {}
-        self._individuals_age = None
         self._all_runs_detected = []
         self._all_runs_prevalence = []
         self._all_runs_severe = []
@@ -170,7 +169,6 @@ class InfectionModel:
         self._df_individuals = pd.read_csv(self.df_individuals_path)
         self._cpp_population = mocos_cpp.InitialPopulation(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
-        self._individuals_age = self._df_individuals[AGE].values
 
         probs = (person.social_competence for person in self._cpp_population)
 

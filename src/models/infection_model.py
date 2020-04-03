@@ -169,6 +169,13 @@ class InfectionModel:
         self._individuals_age = self._df_individuals[AGE].values
         self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
         self._individuals_indices = self._df_individuals.index.values
+        self._social_activity_scores = self._df_individuals.social_competence.to_dict()
+
+        # Note: people are indexed by their id in csv file, and these don't go 0..n-1, there might be gaps.
+        # Therefore we compute the max id as max(self._social_activity_scores) (the _social_activity_scores is keyed by them)
+        # and assign 0 probability to the missing keys.
+        probs = (self._social_activity_scores.get(person_idx, 0.0) for person_idx in range(max(self._social_activity_scores)))
+        self._social_activity_sampler = mocos_helper.AliasSampler(probs)
 
         logger.info('Set up data frames: Building households df...')
 
@@ -479,6 +486,21 @@ class InfectionModel:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
 
+    def add_potential_contractions_from_friendship_kernel(self, person_id):
+        prog_times = self._progression_times_dict[person_id]
+        start = prog_times[T0]
+        end = prog_times[T1]
+        if end is None:
+            end = prog_times[T2]
+        total_infection_rate = (end - start) * self.gamma('friendship')
+        no_infected = mocos_helper.poisson(total_infection_rate * self._social_activity_scores[person_id])
+        for _ in range(no_infected):
+            infected_idx = self._social_activity_sampler.gen()
+            if self.get_infection_status(infected_idx) == InfectionStatus.Healthy:
+                contraction_time = mocos_helper.uniform(low=start, high=end)
+                self.append_event(Event(contraction_time, infected_idx, TMINUS1, person_id, CONSTANT, self.global_time))
+
+
     def handle_t0(self, person_id):
         self._active_people += 1
         if self.get_infection_status(person_id) in [
@@ -495,6 +517,7 @@ class InfectionModel:
         if capacity > 1:
             self.add_potential_contractions_from_household_kernel(person_id)
         self.add_potential_contractions_from_constant_kernel(person_id)
+        self.add_potential_contractions_from_friendship_kernel(person_id)
 
     def generate_disease_progression(self, person_id, event_time: float,
                                      initial_infection_status: str) -> None:

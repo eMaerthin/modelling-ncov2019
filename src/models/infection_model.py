@@ -1230,11 +1230,13 @@ class InfectionModel:
             #TODO
             if len(x_) > self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME]:
                 t0 = x_[self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME]]
-                arg_tminus7 = np.argmax(x_[x_ <= t0 - 7])
-                if np.abs(y_[arg_tminus7] - self._params[LAID_CURVE]["-7"]) < 0.1 * self._params[LAID_CURVE]["-7"]:
-                    x.extend(list(x_))
-                    y.extend(list(y_))
-                    successes += 1
+                filt_x = x_[x_ <= t0 - 7]
+                if len(filt_x) > 0:
+                    arg_tminus7 = np.argmax(filt_x)
+                    if np.abs(y_[arg_tminus7] - self._params[LAID_CURVE]["-7"]) < 0.1 * self._params[LAID_CURVE]["-7"]:
+                        x.extend(list(x_))
+                        y.extend(list(y_))
+                        successes += 1
         logger.info(f'There are {successes} successes')
         self.add_observed_curve(ax)
 

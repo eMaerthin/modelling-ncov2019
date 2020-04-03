@@ -3,6 +3,8 @@
 
 @enum HealthState::UInt8 Healthy Incubating Infectious MildSymptoms SevereSymptoms CriticalSymptoms Recovered Dead
 
-@enum HospitalizationState::UInt8 Free HomeTreatment Hospitalized 
+@enum HospitalizationState::UInt8 Free HomeQuarantine HomeTreatment Hospitalized Released
 
-@enum ContactKind::UInt8 HouseholdContact FriendshipContact SporadicContact ConstantKernelContact
+@enum ContactKind::UInt8 HouseholdContact FriendshipContact SporadicContact ConstantKernelContact OutsideContact
+
+@enum DetectionStatus::UInt8 Undetected TestPending Detected

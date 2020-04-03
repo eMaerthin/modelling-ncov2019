@@ -6,7 +6,6 @@ mutable struct IndividualState
   quarantine_level::Int8 # allow for negative values to detect corruption
   detected::Bool
   
-  
   IndividualState() = new(
     Healthy,
     Free,
@@ -22,7 +21,8 @@ mutable struct SimState
   
   individuals::Vector{IndividualState}  
       
-  infections::SortedMultiDict{Int32,AbstractInfectionEvent} # TODO change to union 
+  infections::SortedMultiDict{UInt32,AbstractInfectionEvent} # TODO change to union 
+  infection_sources::Vector{UInt32}
     
   num_dead::Int
   num_affected::Int
@@ -50,8 +50,9 @@ health(state::SimState, person_id::Integer) = state.individuals[person_id]
 freedom(state::SimState, person_id::Integer) = state.individuals[person_id]
 
 quarantine_advance!(state::SimState, person_id::Integer, val::Integer) = (state.individuals[person_id] += val)
-isquarantined(state::SimState, person_id) = state.individuals[person_id] < 0 ? error("quarantine corrupted") : state.individuals[person_id] != 0
-
+quarantine_cancel!(state::SimState, person_id::Integer, val::Integer) = (state.individual[person_id] = 0)
+isquarantined(state::SimState, person_id) = state.individuals[person_id].quarantine_level < 0 ? error("quarantine corrupted") : state.individuals[person_id] != 0
+isdetected(state::SimState, person_id) = state.individuals[person_id].detected
 
 subjecthealth(state::SimState, event::AbstractEvent) = health(state, subject(event))
 subjectfreedom(state::SimState, event::AbstractEvent) = freedom(state, subject(event))
@@ -65,3 +66,6 @@ setdetected!(state::SimState, subject_id::Integer, detected::Bool=true) = (state
 
 setsubjecthealth!(state::SimState, event::AbstractEvent, health::HealthState) = sethealth!(state, subject(event), health)
 setsubjectfreedom!(state::SimState, event::AbstractEvent, freedom::FreedomState) = setfreedom!(state, subject(event), freedom)
+
+infectiontargets(state::SimState, person_id::Integer) = inclusive(state.infections, searchequalrange(state.infections, person_id)...)
+infectionsource(state::SimState, person_id::Integer)::Integer = state.infection_sources[person_id]

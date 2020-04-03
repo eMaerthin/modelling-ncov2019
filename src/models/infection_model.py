@@ -23,6 +23,8 @@ from src.models.schemas import *
 from src.models.defaults import *
 from src.models.states_and_functions import *
 
+from collections import Counter
+
 import cppyy
 cppyy.cppdef("""#include "cpp_src/all.h" """)
 from cppyy.gbl import std, mocos_cpp
@@ -61,7 +63,6 @@ class InfectionModel:
         self._df_households = None
         #self._individuals_gender = {}
         self._individuals_age = None
-        self._individuals_indices = None
         self._all_runs_detected = []
         self._all_runs_prevalence = []
         self._all_runs_severe = []
@@ -170,10 +171,11 @@ class InfectionModel:
         self._cpp_population = mocos_cpp.InitialPopulation(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
         self._individuals_age = self._df_individuals[AGE].values
-        self._individuals_indices = self._df_individuals.index.values
         self._social_activity_scores = self._df_individuals.social_competence.to_dict()
 
+        #probs = (person.social_competence for person in self.cpp_code)
         probs = (self._social_activity_scores.get(person_idx, 0.0) for person_idx in range(max(self._social_activity_scores)))
+
         self._social_activity_sampler = mocos_helper.AliasSampler(probs)
 
         logger.info('Set up data frames: Building households df...')
@@ -248,7 +250,7 @@ class InfectionModel:
         infectious_prob = import_intensity[INFECTIOUS]
         event_times = _generate_event_times(func=func, rate=rate, multiplier=multiplier, cap=cap)
         for event_time in event_times:
-            person_id = self._individuals_indices[mocos_helper.randint(0, len(self._individuals_indices))]
+            person_id = self._cpp_population[mocos_helper.randint(0, len(self._cpp_population)-1)].csv_index
             t_state = TMINUS1
             if mocos_helper.rand() < infectious_prob:
                 t_state = T0
@@ -282,8 +284,7 @@ class InfectionModel:
         elif isinstance(initial_conditions, dict):  # schema v2
             if initial_conditions[SELECTION_ALGORITHM] == InitialConditionSelectionAlgorithms.RandomSelection.value:
                 # initially all indices can be drawn
-                #choice_set = self._individuals_indices# self._df_individuals.index.values
-                choice_set = list(self._individuals_indices)
+                choice_set = [p.csv_index for p in self._cpp_population]
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
                         #selected_rows = np.random.choice(choice_set, cardinality, replace=False)
@@ -348,10 +349,8 @@ class InfectionModel:
         keys = list(case_severity_dict.keys())
         d = {}
         for age_min, age_max, fatality_prob in default_age_induced_fatality_rates:
-            cond_lb = self._individuals_age >= age_min
-            cond_ub = self._individuals_age < age_max
-            cond = np.logical_and(cond_lb, cond_ub)
-            if np.count_nonzero(cond) == 0:
+            subpopulation = [person for person in self._cpp_population if age_min <= person.age < age_max]
+            if len(subpopulation) == 0:
                 continue
             age_induced_severity_distribution = dict()
             age_induced_severity_distribution[CRITICAL] = fatality_prob/self._params[DEATH_PROBABILITY][CRITICAL]
@@ -363,11 +362,9 @@ class InfectionModel:
             #    np.arange(len(age_induced_severity_distribution)),
             #    distribution_hist
             #))
-            #realizations = dis.rvs(size=len(self._individuals_indices[cond]))
-            realizations = mocos_helper.sample_with_replacement_shuffled((age_induced_severity_distribution[x] for x in case_severity_dict), len(self._individuals_indices[cond]))
-            values = [keys[r] for r in realizations]
-            df = pd.DataFrame(values, index=self._individuals_indices[cond])
-            d = {**d, **df.to_dict()[0]}
+            realizations = mocos_helper.sample_with_replacement_shuffled((age_induced_severity_distribution[x] for x in case_severity_dict), len(subpopulation))
+            values = (keys[r] for r in realizations)
+            d.update(zip((person.csv_index for person in subpopulation), values))
         return d
 
     def setup_random_distribution(self, t):
@@ -467,6 +464,7 @@ class InfectionModel:
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
 
     def add_potential_contractions_from_constant_kernel(self, person_id):
+        person = self._cpp_population.by_csv_id(person_id)
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
         end = prog_times[T1]
@@ -476,24 +474,21 @@ class InfectionModel:
         infected = mocos_helper.poisson(total_infection_rate)
         if infected == 0:
             return
-        #possible_choices = self._individuals_indices # self._df_individuals.index.values
-        #possible_choices = possible_choices[possible_choices != person_id]
-        #r = range(possible_choices.shape[0])
-        selected_rows = mocos_helper.nonreplace_sample_few(self._individuals_indices, infected, person_id)
-        #selected_rows = possible_choices[selected_rows_ids]
-        for person_idx in selected_rows:
-            if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
+        selected_rows = mocos_helper.nonreplace_sample_few(self._cpp_population, infected, person)
+        for selected_person in selected_rows:
+            if self.get_infection_status(selected_person.csv_index) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
-                self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
+                self.append_event(Event(contraction_time, selected_person.csv_index, TMINUS1, person_id, CONSTANT, self.global_time))
 
     def add_potential_contractions_from_friendship_kernel(self, person_id):
+        person = self._cpp_population.by_csv_id(person_id)
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
         end = prog_times[T1]
         if end is None:
             end = prog_times[T2]
         total_infection_rate = (end - start) * self.gamma('friendship')
-        no_infected = mocos_helper.poisson(total_infection_rate * self._social_activity_scores[person_id])
+        no_infected = mocos_helper.poisson(total_infection_rate * person.social_competence)
         for _ in range(no_infected):
             infected_idx = self._social_activity_sampler.gen()
             if self.get_infection_status(infected_idx) == InfectionStatus.Healthy:

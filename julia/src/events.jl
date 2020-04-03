@@ -6,13 +6,13 @@ abstract type AbstractInfectionEvent <: AbstractEvent end
 
 struct OutsideInfectionEvent <: AbstractInfectionEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
 struct TransmissionEvent <: AbstractInfectionEvent
   time::Float32
   subject_id::Int32
-  source_id::Int32
+  source_id::UInt32
   kind::ContactKind
 end
 
@@ -20,44 +20,44 @@ abstract type DiseaseEvent <: AbstractEvent end
 
 struct BecomeInfectiousEvent <: DiseaseEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
 struct MildSymptomsEvent <: DiseaseEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
 struct SevereSymptomsEvent <: DiseaseEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
 struct CriticalSymptomsEvent <: DiseaseEvent
   time::Float32
-  subject_id
+  subject_id::UInt32
 end
 
 struct DeathEvent <: DiseaseEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
 struct RecoveryEvent <: DiseaseEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
 abstract type FreedomEvent end
 
 struct QuarantinedEvent <: FreedomEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
-struct StayHomeTreatmentEvent <: FreedomEvent
+struct HomeTreatmentEvent <: FreedomEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
 #struct StayHomeToHospitalizeEvent <: FreedomEvent
@@ -67,12 +67,12 @@ end
 
 struct GoHospitalEvent <: FreedomEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
 struct QuarantineEndEvent <: FreedomEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
 end
 
 #
@@ -81,21 +81,21 @@ end
 
 struct DetectedEvent <: AbstractEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
+  is_from_quarantine::Bool
 end
 
-time(event::AbstractEvent) = event.time 
+struct TestPendingEvent <:AbstractEvent
+  time::Float32
+  subject_id::UInt32
+end
 
+time(event::AbstractEvent)::Float32 = event.time 
 
+subject(event::AbstractEvent)::UInt32 = event.subject_id
 
-#isless(e1::AbstractEvent, e2::AbstractEvent) = time(e1) < time(e2)
-#isless(x::AbstractInfectionEvent, y::AbstractInfectionEvent) = subject(x) < subject(y)
-#isless(x::OutsideInfectionEvent, y::AbstractInfectionEvent) = true
-#isless(x::AbstractInfectionEvent, y::OutsideInfectionEvent) = false
-#isless(x::OutsideInfectionEvent, y::OutsideInfectionEvent) = false
+source(event::TransmissionEvent)::UInt32 = event.source_id
+source(event::OutsideInfectionEvent)::UInt32 = missing
 
-
-
-subject(event::AbstractEvent) = event.subject_id
-source(event::TransmissionEvent) = event.source_id
-source(event::OutsideInfectionEvent) = missing
+contactkind(event::TransmissionEvent)::ContactKind = event.kind
+contactkind(event::OutsideInfectionEvent)::ContactKind = OutsideContact

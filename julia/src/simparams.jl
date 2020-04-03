@@ -36,14 +36,22 @@ function sample_progression(rng::AbstractRNG, dist_severity, dist_incubation, di
 end
 
 struct SimParams 
-    household_ptrs::Vector{Tuple{Int32,Int32}}  # to be decided what it is - (list of pointers to the first member?)
+  household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
     
-    progressions::Vector{Progression}
+  progressions::Vector{Progression}
     
-    constant_kernel_param::Float64
+  constant_kernel_param::Float64
 
+  backward_tracking_prob::Float32
+  backward_detection_delay::Float32
+  
+  forward_tracking_prob::Float32
+  forward_detection_delay::Float32
+  
+  quarantine_length::Float32
+  testing_time::Float32
 end
 
-progressionof(params::SimParams, person_id::Integer) = progressions[person_id]
-severityof(params::SimParams, person_id::Integer) = progressionof(params, params_id).severity
-householdof(params::SimParams, person_id::Integer) = UnitRange(household_ptrs[person_id]...)
+progressionof(params::SimParams, person_id::Integer) = params.progressions[person_id]
+severityof(params::SimParams, person_id::Integer) = progressionof(params, person_id).severity
+householdof(params::SimParams, person_id::Integer) = UnitRange(params.household_ptrs[person_id]...)

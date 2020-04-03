@@ -3,8 +3,6 @@ using GZip
 using Distributions
 using NPZ
 
-include("utils.jl")
-
 function load_individuals(path::AbstractString)::DataFrame
   df = GZip.open(path,"r") do io
     df = CSV.read(io, copycols=true)  # read CSV as DataFrame

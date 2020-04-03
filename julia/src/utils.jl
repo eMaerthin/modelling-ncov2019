@@ -1,4 +1,4 @@
-function countuniquesorted(arr::AbstractArray{T,1}) where T
+function countuniquesorted(arr::AbstractVector{T}) where T
     d = Dict{T,Int}()
     for val in arr
         count = get(d, val, 0)

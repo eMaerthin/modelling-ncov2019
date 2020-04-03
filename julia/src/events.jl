@@ -11,7 +11,7 @@ end
 
 struct TransmissionEvent <: AbstractInfectionEvent
   time::Float32
-  subject_id::Int32
+  subject_id::UInt32
   source_id::UInt32
   kind::ContactKind
 end
@@ -48,7 +48,7 @@ struct RecoveryEvent <: DiseaseEvent
   subject_id::UInt32
 end
 
-abstract type FreedomEvent end
+abstract type FreedomEvent <: AbstractEvent end
 
 struct QuarantinedEvent <: FreedomEvent
   time::Float32
@@ -85,7 +85,7 @@ struct DetectedEvent <: AbstractEvent
   is_from_quarantine::Bool
 end
 
-struct TestPendingEvent <:AbstractEvent
+struct BackTrackedEvent <:AbstractEvent
   time::Float32
   subject_id::UInt32
 end
@@ -95,7 +95,7 @@ time(event::AbstractEvent)::Float32 = event.time
 subject(event::AbstractEvent)::UInt32 = event.subject_id
 
 source(event::TransmissionEvent)::UInt32 = event.source_id
-source(event::OutsideInfectionEvent)::UInt32 = missing
+source(event::OutsideInfectionEvent)::UInt32 = 0
 
 contactkind(event::TransmissionEvent)::ContactKind = event.kind
 contactkind(event::OutsideInfectionEvent)::ContactKind = OutsideContact

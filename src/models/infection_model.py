@@ -27,7 +27,7 @@ from collections import Counter
 import cppdefs
 import cppyy
 from cppyy.gbl import std, mocos_cpp
-from cppyy.gbl import DetectionStatus
+from cppyy.gbl import DetectionStatus, QuarantineStatus
 import mocos_helper
 
 import click
@@ -146,7 +146,7 @@ class InfectionModel:
         return person.getDetectionStatus()
 
     def get_quarantine_status_(self, person):
-        return self._quarantine_status.get(person.csv_index, default_quarantine_status)
+        return person.getQuarantineStatus()
 
     def get_infection_status(self, person):
         return self._infection_status.get(person.csv_index, InfectionStatus.Healthy.value)
@@ -1522,9 +1522,9 @@ class InfectionModel:
                     if initiated_through != HOUSEHOLD:
                         if initiated_inf_status != InfectionStatus.StayHome:
                             new_infection = True
-                        if self.get_quarantine_status_(initiated_by) == QuarantineStatus.Quarantine:
+                        if initiated_by.getQuarantineStatus() == QuarantineStatus.Quarantine:
                             new_infection = False
-                        if self.get_quarantine_status_(person) == QuarantineStatus.Quarantine:
+                        if person.getQuarantineStatus() == QuarantineStatus.Quarantine:
                             new_infection = False
                     else:  # HOUSEHOLD kernel:
                         new_infection = True
@@ -1577,9 +1577,9 @@ class InfectionModel:
                     household_id = person.household_index
                     for inhabitant_idx in self._households_inhabitants[household_id]:
                         inhabitant = self._cpp_population.by_csv_id(inhabitant_idx)
-                        if self.get_quarantine_status_(inhabitant) == QuarantineStatus.NoQuarantine:
+                        if inhabitant.getQuarantineStatus() == QuarantineStatus.NoQuarantine:
                             if self.get_infection_status(inhabitant) != InfectionStatus.Death:
-                                self._quarantine_status[inhabitant.csv_index] = QuarantineStatus.Quarantine.value
+                                inhabitant.setQuarantineStatus(QuarantineStatus.Quarantine)
                                 self._quarantined_people += 1
                                 if inhabitant.csv_index not in self._progression_times_dict:
                                     self._progression_times_dict[inhabitant.csv_index] = {}

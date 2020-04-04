@@ -44,7 +44,7 @@ class ExpectedCaseSeverity(EnumWithPublicValue2MemberMap):  # to be added to nod
 
 
 
-class QuarantineStatus(EnumWithPublicValue2MemberMap):
+class PyQuarantineStatus(EnumWithPublicValue2MemberMap):
     NoQuarantine = 0
     Quarantine = 1
 

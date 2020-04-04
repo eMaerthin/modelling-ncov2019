@@ -1,7 +1,7 @@
 from .enums import *
 import cppdefs
 import cppyy
-from cppyy.gbl import DetectionStatus
+from cppyy.gbl import DetectionStatus, QuarantineStatus
 
 default_fear_function = FearFunctions.FearDisabled.value
 
@@ -15,7 +15,7 @@ default_stop_simulation_threshold = 10000
 
 default_detection_status = DetectionStatus.NotDetected
 
-default_quarantine_status = QuarantineStatus.NoQuarantine.value
+default_quarantine_status = QuarantineStatus.NoQuarantine
 
 default_detection_mild_proba = 0.5
 

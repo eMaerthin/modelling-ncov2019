@@ -19,17 +19,22 @@ namespace mocos_cpp
 class Person
 {
     inline static std::size_t count = 0;
-public:
+ public:
+    // Const parameters of person, which are not expected to change during simulation are accessible directly
     const std::size_t id;
     const std::size_t csv_index;
     const std::uint_fast16_t age;
     const std::uint_fast16_t gender;
     const std::size_t household_index;
-    const std::string infection_status;
+    const std::string infection_status; // Uhhh, this will probably change...
     const std::size_t employment_status;
     const double social_competence;
     const std::uint_fast16_t public_transport_usage;
     const double public_transport_duration;
+ private:
+    // Parameters of person which WILL change during simulation are private and accessible only through getters/setters
+ public:
+    // Getters and setters for the above parameters
  public:
     Person( std::size_t _csv_index,
             std::uint_fast16_t _age,

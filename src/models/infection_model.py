@@ -5,7 +5,6 @@ import ast
 from functools import (lru_cache, partial)
 import json
 import logging
-import mocos_helper
 #import random
 import time
 import pickle
@@ -28,6 +27,7 @@ from collections import Counter
 import cppyy
 cppyy.cppdef("""#include "cpp_src/all.h" """)
 from cppyy.gbl import std, mocos_cpp
+import mocos_helper
 
 import click
 

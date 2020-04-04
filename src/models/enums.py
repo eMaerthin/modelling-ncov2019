@@ -43,10 +43,6 @@ class ExpectedCaseSeverity(EnumWithPublicValue2MemberMap):  # to be added to nod
     Critical = CRITICAL  # 4.7% Need to go to Hospital!
 
 
-class DetectionStatus(EnumWithPublicValue2MemberMap):
-    NotDetected = NOT_DETECTED
-    Detected = DETECTED
-
 
 class QuarantineStatus(EnumWithPublicValue2MemberMap):
     NoQuarantine = 0

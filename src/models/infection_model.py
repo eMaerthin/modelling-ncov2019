@@ -24,9 +24,11 @@ from src.models.states_and_functions import *
 
 from collections import Counter
 
+import cppdefs
 import cppyy
 cppyy.cppdef("""#include "cpp_src/all.h" """)
 from cppyy.gbl import std, mocos_cpp
+from cppyy.gbl import DetectionStatus
 import mocos_helper
 
 import click
@@ -77,7 +79,6 @@ class InfectionModel:
 
         self._set_up_data_frames()
         self._infection_status = {}
-        self._detection_status = {}
         self._quarantine_status = {}
         self._expected_case_severity = self.draw_expected_case_severity()
         self._infections_dict = {}
@@ -143,7 +144,7 @@ class InfectionModel:
 
 
     def get_detection_status_(self, person):
-        return self._detection_status.get(person.csv_index, default_detection_status)
+        return person.getDetectionStatus()
 
     def get_quarantine_status_(self, person):
         return self._quarantine_status.get(person.csv_index, default_quarantine_status)
@@ -1280,7 +1281,7 @@ class InfectionModel:
         if self._params[SAVE_EXPECTED_SEVERITY]:
             self.store_parameter(simulation_output_dir, self._expected_case_severity, 'expected_case_severity.pkl')
         self.store_parameter(simulation_output_dir, self._infection_status, 'infection_status.pkl')
-        self.store_parameter(simulation_output_dir, self._detection_status, 'detection_status.pkl')
+        self.store_parameter(simulation_output_dir, {person.csv_index:person.getDetectionStatus() for person in self._cpp_population}, 'detection_status.pkl')
         self.store_parameter(simulation_output_dir, self._quarantine_status, 'quarantine_status.pkl')
 
     def _save_dir(self, prefix=''):
@@ -1461,7 +1462,7 @@ class InfectionModel:
 
     def add_new_infection(self, person, infection_status,
                           initiated_by, initiated_through):
-        self._detection_status[person.csv_index] = DetectionStatus.NotDetected.value
+        person.setDetectionStatus(DetectionStatus.NotDetected)
 
         self._infections_dict[len(self._infections_dict)] = {
             SOURCE: initiated_by,
@@ -1581,8 +1582,8 @@ class InfectionModel:
                 InfectionStatus.Recovered,
                 InfectionStatus.Healthy
             ]:
-                if self.get_detection_status_(person) == DetectionStatus.NotDetected:
-                    self._detection_status[person.csv_index] = DetectionStatus.Detected.value
+                if person.getDetectionStatus() == DetectionStatus.NotDetected:
+                    person.setDetectionStatus(DetectionStatus.Detected)
                     self._detected_people += 1
                     self.update_max_time_offset()
                     household_id = person.household_index
@@ -1745,7 +1746,6 @@ class InfectionModel:
         self._last_affected = None
         self.band_time = None
         self._quarantine_status = {}
-        self._detection_status = {}
 
 logger = logging.getLogger(__name__)
 

@@ -33,8 +33,11 @@ class Person
     const double public_transport_duration;
  private:
     // Parameters of person which WILL change during simulation are private and accessible only through getters/setters
+    DetectionStatus detection_status;
  public:
     // Getters and setters for the above parameters
+    DetectionStatus getDetectionStatus() const { return detection_status; };
+    void setDetectionStatus(DetectionStatus ds) { detection_status = ds; };
  public:
     Person( std::size_t _csv_index,
             std::uint_fast16_t _age,
@@ -87,7 +90,8 @@ infection_status(_infection_status),
 employment_status(_employment_status),
 social_competence(_social_competence),
 public_transport_usage(_public_transport_usage),
-public_transport_duration(_public_transport_duration)
+public_transport_duration(_public_transport_duration),
+detection_status(NotDetected)
 {
     assert(id < 10000000000);
     assert(age < 150);

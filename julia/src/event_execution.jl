@@ -24,8 +24,8 @@ function execute!(state::SimState, params::SimParams, event::TransmissionEvent)
   end
   
   source_health = sourcehealth(state, event)
-  @assert source_health != Healthy && source_health != Recovered
-  @assert source_health != SevereSymptoms && source_health != CriticalSymptoms && source_health != Dead && source_health != Recovered "sampled time exceeds infectability time frame"
+  @assert source_health != Healthy && source_health != Recovered && source_health != Incubating
+  @assert source_health != SevereSymptoms && source_health != CriticalSymptoms && source_health != Dead && source_health != Recovered "sampled time exceeds infectability time frame, subject is now in state $source_health, the event is $event"
     
   # the transmission events are queued in advace, therefore it might be the case that it can not be realized
   # for the transmission to happen both source and subject must be free or both must be staying at home in case
@@ -65,20 +65,19 @@ function execute!(state::SimState, params::SimParams, event::BecomeInfectiousEve
         
   subject_id = subject(event)
   progression = params.progressions[subject_id]
-  t0 = progression.incubation_time
-  t1 = progression.symptom_onset_time
-  t2 = progression.hospitalization_time
+ 
     
   severity = progression.severity
-        
+  
+  infected_time = time(event) - progression.incubation_time      
   if Mild == severity || Asymptomatic == severity # we treat all asymptomatic as if they were Mild cases
-    @assert !isnan(t1)
-    push!(state.queue, MildSymptomsEvent(time(event) + t1 - t0, subject_id))
+    @assert !isnan(progression.mild_symptoms_time)
+    push!(state.queue, MildSymptomsEvent(infected_time + progression.mild_symptoms_time, subject_id))
   elseif Severe == severity || Critical == severity # and all critical as if they were Severe cases
-    if !isnan(t1)
-      push!(state.queue, MildSymptomsEvent(time(event) + t1 - t0, subject_id))
+    if !isnan(progression.mild_symptoms_time)
+      push!(state.queue, MildSymptomsEvent(infected_time + progression.mild_symptoms_time, subject_id))
     else
-      push!(state.queue, SevereSymptomsEvent(time(event) + t2 - t0, subject_id))
+      push!(state.queue, SevereSymptomsEvent(infected_time + progression.severe_symptoms_time, subject_id))
     end
   else
     @error "Unsupported severity $severity"
@@ -95,15 +94,16 @@ function execute!(state::SimState, params::SimParams, event::MildSymptomsEvent)
   subject_id = subject(event)
   
   progression = progressionof(params, subject_id)
-  @assert !isnan(progression.symptom_onset_time)
+  @assert !isnan(progression.mild_symptoms_time)
   
+  infection_time = time(event) - progression.mild_symptoms_time
 
   if Severe == progression.severity || Critical == progression.severity
     @assert !isnan(progression.hospitalization_time)
-    push!(state.queue, SevereSymptomsEvent(time(event) + progression.symptom_onset_time - progression.incubation_time, subject_id))
+    push!(state.queue, SevereSymptomsEvent(time(event) - progression.mild_symptoms_time + progression.severe_symptoms_time, subject_id))
   else
     @assert (Mild == progression.severity) "unexpected severity $(progression.severity)"
-    push!(state.queue, RecoveryEvent(time(event) + 14, subject_id))
+    push!(state.queue, RecoveryEvent(time(event) - progression.mild_symptoms_time + progression.severe_symptoms_time, subject_id))
   end
 
   push!(state.queue, HomeTreatmentEvent(time(event), subject_id)) #immediately
@@ -247,7 +247,7 @@ end
 function execute!(state::SimState, params::SimParams, event::QuarantineEndEvent)
   subject_id = subject(event)
   
-  if  Hospitalized != freedom(state, subject_id) 
+  if  (Hospitalized != freedom(state, subject_id)) || (Released != freedom(state, subject_id))
     # false event as quarantine should be removed before hospitalization
     @assert isquarantined(state, subject_id)
     return false
@@ -276,7 +276,7 @@ function quarantinehousehold!(state::SimState, params::SimParams, subject_id::In
     if (Hospitalized == member_freedom) || (Released == member_freedom)
       continue
     end
-    @assert (Free == member_freedom) || (HomeTreatment == member_freedom) 
+    @assert (Free == member_freedom) || (HomeTreatment == member_freedom) || (HomeQuarantine == member_freedom)
 
     push!(state.queue, QuarantinedEvent(state.time, member)) #immediately
   end
@@ -288,8 +288,7 @@ function backtrack!(state::SimState, params::SimParams, person_id::Integer; trac
   current_time = state.time
   
   backward_id = backwardinfection(state, person_id)
-  if !ismissing(backward_id) || 0 != backward_id
-    
+  if 0 != backward_id # cannont backtrack outside infections
     if !isdetected(state, person_id) # check if the source was not already deteced, hence already backtracked
       if rand(state.rng) < params.backward_tracking_prob     
         push!(state.queue, BackTrackedEvent(current_time + params.backward_detection_delay, backward_id))

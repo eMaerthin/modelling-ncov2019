@@ -169,10 +169,19 @@ class InfectionModel:
         self._df_individuals = pd.read_csv(self.df_individuals_path)
         self._cpp_population = mocos_cpp.InitialPopulation(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
+        self._individuals_age = self._df_individuals[AGE].values
+        self._individuals_age_dct = self._df_individuals[AGE].to_dict()
+        self._individuals_gender_dct = self._df_individuals[GENDER].to_dict()
+        self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
+        self._individuals_indices = self._df_individuals.index.values
+        self._social_activity_scores = self._df_individuals.social_competence.to_dict()
 
-        probs = (person.social_competence for person in self._cpp_population)
-
-        self._social_activity_sampler = mocos_helper.AliasSampler(probs)
+        self._social_activity_sampler = mocos_helper.AgeDependentFriendSampler(
+            self._individuals_indices,
+            self._individuals_age,
+            self._df_individuals[GENDER].values,
+            self._df_individuals.social_competence.values
+            )
 
         logger.info('Set up data frames: Building households df...')
 
@@ -484,9 +493,12 @@ class InfectionModel:
         if end is None:
             end = prog_times[T2]
         total_infection_rate = (end - start) * self.gamma('friendship')
+        
         no_infected = mocos_helper.poisson(total_infection_rate * person.social_competence)
+        # Add a constant multiplicand above?
+        
         for _ in range(no_infected):
-            infected_idx = self._cpp_population[self._social_activity_sampler.gen()].csv_index
+            infected_idx = self._social_activity_sampler.gen(person.age, person.gender)
             if self.get_infection_status(infected_idx) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, infected_idx, TMINUS1, person_id, CONSTANT, self.global_time))

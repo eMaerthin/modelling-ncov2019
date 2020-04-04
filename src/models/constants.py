@@ -85,6 +85,7 @@ CARDINALITIES = 'cardinalities'
 EMPLOYMENT_STATUS = 'employment_status'
 PROFESSION_INDEX = 'profession_index'
 AGE = 'age'
+GENDER = 'gender'
 SOCIAL = 'social'
 P_TRANSPORT = 'public_transport_usage'
 

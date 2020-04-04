@@ -55,25 +55,23 @@ struct QuarantinedEvent <: FreedomEvent
   subject_id::UInt32
 end
 
+struct QuarantineEndEvent <: FreedomEvent
+  time::Float32
+  subject_id::UInt32
+end
+
 struct HomeTreatmentEvent <: FreedomEvent
   time::Float32
   subject_id::UInt32
 end
 
-#struct StayHomeToHospitalizeEvent <: FreedomEvent
-#  time::Float32
-#  subject_id::Int32
-#end
 
 struct GoHospitalEvent <: FreedomEvent
   time::Float32
   subject_id::UInt32
 end
 
-struct QuarantineEndEvent <: FreedomEvent
-  time::Float32
-  subject_id::UInt32
-end
+
 
 #
 # Other events
@@ -89,6 +87,31 @@ struct BackTrackedEvent <:AbstractEvent
   time::Float32
   subject_id::UInt32
 end
+
+TransmissionUnion = Union{
+  OutsideInfectionEvent,
+  TransmissionEvent
+}
+
+EventUnion = Union{
+  OutsideInfectionEvent,
+  TransmissionEvent,
+  
+  BecomeInfectiousEvent,
+  MildSymptomsEvent,
+  SevereSymptomsEvent,
+  CriticalSymptomsEvent,
+  DeathEvent,
+  RecoveryEvent,
+  
+  QuarantinedEvent,
+  QuarantineEndEvent,
+  HomeTreatmentEvent,
+  GoHospitalEvent,
+  
+  DetectedEvent,
+  BackTrackedEvent
+}
 
 time(event::AbstractEvent)::Float32 = event.time 
 

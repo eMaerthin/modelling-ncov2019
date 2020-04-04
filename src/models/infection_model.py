@@ -1601,7 +1601,7 @@ class InfectionModel:
                     new_infection = False
                     # TODO below is a spaghetti code that shoud be sorted out! SORRY!
                     if initiated_through != HOUSEHOLD:
-                        if mocos_helper.rand() < self.fear(initiated_through):
+                        if mocos_helper.rand() > self.fear(initiated_through):
                             return True
                         if initiated_inf_status != InfectionStatus.StayHome:
                             new_infection = True

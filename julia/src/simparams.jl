@@ -1,37 +1,43 @@
 using Random
 using Distributions
 
-
 struct Progression
     severity::Severity
     # times given with respect to the infection time
     incubation_time::Float32
-    symptom_onset_time::Float32
-    hospitalization_time::Float32
+    mild_symptoms_time::Float32
+    severe_symptoms_time::Float32
     #critical_symptoms_time::Float32
-    #recovery_time::Float32
-    #death_time::Float32
+    recovery_time::Float32
+    death_time::Float32
+    #Progression(severity::Severity, incubation_time::Real, mild_time::Real, severe_time::Real, recovery_time) = incubation < mild_time < severe_time < recovery_time
 end
 
 function sample_progression(rng::AbstractRNG, dist_severity, dist_incubation, dist_symptom_onset, dist_hospitalization)
     severity = rand(rng, dist_severity) |> Severity
     
     incubation_time = rand(rng, dist_incubation)
-    symptom_onset_time = incubation_time + rand(rng, dist_symptom_onset)
-    hospitalization_time = NaN    
-    
+    mild_symptoms_time = incubation_time + rand(rng, dist_symptom_onset)
+    severe_symptoms_time = NaN    
+    recovery_time = NaN
+    death_time = NaN
     if (severity==Severe) || (severity==Critical)
-        hospitalization_time = incubation_time + rand(dist_hospitalization)
-        if hospitalization_time < symptom_onset_time
-            symptom_onset_time = NaN
-        end
+      severe_symptoms_time = incubation_time + rand(dist_hospitalization)
+      if severe_symptoms_time < mild_symptoms_time
+        mild_symptoms_time = NaN
+      end
+      recovery_time = severe_symptoms_time + 14
+    else
+      recovery_time = mild_symptoms_time
     end
     
     Progression(
         severity,
         incubation_time,
-        symptom_onset_time,
-        hospitalization_time
+        mild_symptoms_time,
+        severe_symptoms_time,
+        recovery_time,
+        death_time
     )
 end
 

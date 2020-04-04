@@ -1,13 +1,9 @@
 function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContact}}, source_id::Integer, params::SimParams)
   progression = progressionof(params, source_id)
   
-  # times are counted from infection time
-  t0 = progression.incubation_time
-  t1 = progression.symptom_onset_time
-  t2 = progression.hospitalization_time
     
-  start_time = t0
-  end_time = isnan(t1) ? t2 : t1
+  start_time = progression.incubation_time
+  end_time = isnan(progression.mild_symptoms_time) ? progression.severe_symptoms_time : progression.mild_symptoms_time
           
   time_dist = Uniform(state.time, state.time + end_time - start_time) # in global time reference frame
     
@@ -39,16 +35,12 @@ end
 
 function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, source_id::Integer, params::SimParams)
   progression = progressionof(params, source_id)
-  
-  t0 = progression.incubation_time
-  t1 = progression.symptom_onset_time
-  t2 = progression.hospitalization_time
-  recovery_time = t0 + 14
     
-  start_time = t0
-  end_time = isnan(t2) ? recovery_time : t2
+  start_time = progression.incubation_time
+  end_time = isnan(progression.severe_symptoms_time) ? progression.recovery_time : progression.severe_symptoms_time
       
   time_dist = Uniform(state.time, state.time + end_time - start_time) # in global time reference frame
+  time_dist |> display  
     
   total_infection_rate = (end_time - start_time) * params.constant_kernel_param
   household_head_ptr, household_tail_ptr = params.household_ptrs[source_id]

@@ -454,7 +454,7 @@ class InfectionModel:
                                         self.fear_scale[kernel_id], self.fear_limit_value[kernel_id])
 
     def gamma(self, kernel_id):
-        return self._params[TRANSMISSION_PROBABILITIES][kernel_id] * self.fear(kernel_id)
+        return self._params[TRANSMISSION_PROBABILITIES][kernel_id]# experiment: * self.fear(kernel_id)
 
     def add_potential_contractions_from_household_kernel(self, person_id):
         prog_times = self._progression_times_dict[person_id]
@@ -1601,6 +1601,8 @@ class InfectionModel:
                     new_infection = False
                     # TODO below is a spaghetti code that shoud be sorted out! SORRY!
                     if initiated_through != HOUSEHOLD:
+                        if mocos_helper.rand() < self.fear(initiated_through):
+                            return True
                         if initiated_inf_status != InfectionStatus.StayHome:
                             new_infection = True
                         if self.get_quarantine_status_(initiated_by) == QuarantineStatus.Quarantine:
@@ -1634,7 +1636,7 @@ class InfectionModel:
                 self._deaths += 1
                 if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
                     self._icu_needed -= 1
-                    self._active_people -= 1
+                self._active_people -= 1
                 self._infection_status[person_id] = InfectionStatus.Death.value
 
         elif type_ == TRECOVERY: # TRECOVERY is exclusive with regards to TDEATH (when this comment was added)
@@ -1708,8 +1710,10 @@ class InfectionModel:
                 self.log_outputs()
             else:
                 simulation_output_dir = self._save_dir()
-                self.store_detections(simulation_output_dir)
-                self.lancet_store_graphs(simulation_output_dir)
+                self.df_progression_times.to_csv(os.path.join(simulation_output_dir, 'output_df_progression_times.csv'))
+                self.df_infections.to_csv(os.path.join(simulation_output_dir, 'output_df_potential_contractions.csv'))
+                #self.store_detections(simulation_output_dir)
+                #self.lancet_store_graphs(simulation_output_dir)
             if self._icu_needed >= self._params[ICU_AVAILABILITY]:
                 return True
             if self.affected_people >= self.stop_simulation_threshold:
@@ -1779,6 +1783,7 @@ class InfectionModel:
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
+        '''
         fitting_successes = self.test_detected_cases(simulation_output_dir)
         q_ = self._params[DETECTION_MILD_PROBA]
         rstar_out = 2.34 * self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
@@ -1790,6 +1795,7 @@ class InfectionModel:
         self.test_lognormal_prevalence(simulation_output_dir)
         self.test_lognormal_detected(simulation_output_dir)
         self.test_lognormal_severe(simulation_output_dir)
+        '''
         with open(output_log_file, "w") as out:
             out.write(output_log)
 

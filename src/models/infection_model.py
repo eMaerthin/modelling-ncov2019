@@ -142,14 +142,14 @@ class InfectionModel:
         return (bottom, top)
 
 
-    def get_detection_status_(self, person_id):
-        return self._detection_status.get(person_id, default_detection_status)
+    def get_detection_status_(self, person):
+        return self._detection_status.get(person.csv_index, default_detection_status)
 
-    def get_quarantine_status_(self, person_id):
-        return self._quarantine_status.get(person_id, default_quarantine_status)
+    def get_quarantine_status_(self, person):
+        return self._quarantine_status.get(person.csv_index, default_quarantine_status)
 
-    def get_infection_status(self, person_id):
-        return self._infection_status.get(person_id, InfectionStatus.Healthy.value)
+    def get_infection_status(self, person):
+        return self._infection_status.get(person.csv_index, InfectionStatus.Healthy.value)
 
     @staticmethod
     def parse_random_seed(random_seed):
@@ -202,7 +202,8 @@ class InfectionModel:
 
     @staticmethod
     def append_event(event: Event) -> None:
-        q.put(event)
+        # Use decorate, put, undecorate pattern instead of lambda for key
+        q.put((event[0], event[1].csv_index, event))
 
     def _fill_queue_based_on_auxiliary_functions(self) -> None:
         # TODO: THIS IS NOT WORKING WHEN CAP = INF, let's fix it
@@ -255,11 +256,11 @@ class InfectionModel:
         infectious_prob = import_intensity[INFECTIOUS]
         event_times = _generate_event_times(func=func, rate=rate, multiplier=multiplier, cap=cap)
         for event_time in event_times:
-            person_id = self._cpp_population[mocos_helper.randint(0, len(self._cpp_population)-1)].csv_index
+            person = self._cpp_population[mocos_helper.randint(0, len(self._cpp_population)-1)]
             t_state = TMINUS1
             if mocos_helper.rand() < infectious_prob:
                 t_state = T0
-            self.append_event(Event(event_time, person_id, t_state, None, IMPORT_INTENSITY, self.global_time))
+            self.append_event(Event(event_time, person, t_state, None, IMPORT_INTENSITY, self.global_time))
 
     def _fill_queue_based_on_initial_conditions(self):
         """
@@ -412,7 +413,7 @@ class InfectionModel:
 
         raise ValueError(f'Sampling from distribution {distribution} is not yet supported but we can quickly add it')
 
-    def add_potential_contractions_from_transport_kernel(self, person_id):
+    def add_potential_contractions_from_transport_kernel(self, person):
         pass
 
     def set_up_internal_fear(self, kernel_id):
@@ -450,9 +451,9 @@ class InfectionModel:
     def gamma(self, kernel_id):
         return self._params[TRANSMISSION_PROBABILITIES][kernel_id] * self.fear(kernel_id)
 
-    def add_potential_contractions_from_household_kernel(self, person_id):
-        person = self._cpp_population.by_csv_id(int(person_id))
-        prog_times = self._progression_times_dict[person_id]
+    def add_potential_contractions_from_household_kernel(self, person):
+#        person = self._cpp_population.by_csv_id(int(person_id))
+        prog_times = self._progression_times_dict[person.csv_index]
         start = prog_times[T0]
         end = prog_times[T2] or prog_times[TRECOVERY]
         total_infection_rate = (end - start) * self.gamma('household')
@@ -461,16 +462,17 @@ class InfectionModel:
             return
         household_id = person.household_index
         inhabitants = self._households_inhabitants[household_id]
-        possible_choices = [i for i in inhabitants if i != person_id]
+        possible_choices = [i for i in inhabitants if i != person.csv_index]
         for choice_idx in mocos_helper.sample_idxes_with_replacement_uniform(len(possible_choices), infected):
             person_idx = possible_choices[choice_idx]
-            if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
+            chosen_person = self._cpp_population.by_csv_id(person_idx)
+            if self.get_infection_status(chosen_person) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
-                self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
+                self.append_event(Event(contraction_time, chosen_person, TMINUS1, person, HOUSEHOLD, self.global_time))
 
-    def add_potential_contractions_from_constant_kernel(self, person_id):
-        person = self._cpp_population.by_csv_id(person_id)
-        prog_times = self._progression_times_dict[person_id]
+    def add_potential_contractions_from_constant_kernel(self, person):
+        #person = self._cpp_population.by_csv_id(person_id)
+        prog_times = self._progression_times_dict[person.csv_index]
         start = prog_times[T0]
         end = prog_times[T1]
         if end is None:
@@ -481,13 +483,13 @@ class InfectionModel:
             return
         selected_rows = mocos_helper.nonreplace_sample_few(self._cpp_population, infected, person)
         for selected_person in selected_rows:
-            if self.get_infection_status(selected_person.csv_index) == InfectionStatus.Healthy:
+            if self.get_infection_status(selected_person) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
-                self.append_event(Event(contraction_time, selected_person.csv_index, TMINUS1, person_id, CONSTANT, self.global_time))
+                self.append_event(Event(contraction_time, selected_person, TMINUS1, person, CONSTANT, self.global_time))
 
-    def add_potential_contractions_from_friendship_kernel(self, person_id):
-        person = self._cpp_population.by_csv_id(person_id)
-        prog_times = self._progression_times_dict[person_id]
+    def add_potential_contractions_from_friendship_kernel(self, person):
+        #person = self._cpp_population.by_csv_id(person_id)
+        prog_times = self._progression_times_dict[person.csv_index]
         start = prog_times[T0]
         end = prog_times[T1]
         if end is None:
@@ -499,31 +501,32 @@ class InfectionModel:
         
         for _ in range(no_infected):
             infected_idx = self._social_activity_sampler.gen(person.age, person.gender)
-            if self.get_infection_status(infected_idx) == InfectionStatus.Healthy:
+            infected_person = self._cpp_population.by_csv_id(infected_idx)
+            if self.get_infection_status(infected_person) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
-                self.append_event(Event(contraction_time, infected_idx, TMINUS1, person_id, CONSTANT, self.global_time))
+                self.append_event(Event(contraction_time, infected_person, TMINUS1, person, CONSTANT, self.global_time))
 
 
-    def handle_t0(self, person_id):
-        person = self._cpp_population.by_csv_id(int(person_id))
+    def handle_t0(self, person):
+        #person = self._cpp_population.by_csv_id(int(person_id))
         self._active_people += 1
-        if self.get_infection_status(person_id) in [
+        if self.get_infection_status(person) in [
             InfectionStatus.Healthy,
             InfectionStatus.Contraction
         ]:
-            self._infection_status[person_id] = InfectionStatus.Infectious.value
+            self._infection_status[person.csv_index] = InfectionStatus.Infectious.value
         else:
-            raise AssertionError(f'Unexpected state detected: {self.get_infection_status(person_id)}'
-                                 f'person_id: {person_id}')
+            raise AssertionError(f'Unexpected state detected: {self.get_infection_status(person.csv_index)}'
+                                 f'person.csv_index: {person.csv_index}')
 
         household_id = person.household_index
         capacity = self._households_capacities[household_id]  # self._df_households.loc[household_id][ID]
         if capacity > 1:
-            self.add_potential_contractions_from_household_kernel(person_id)
-        self.add_potential_contractions_from_constant_kernel(person_id)
-        self.add_potential_contractions_from_friendship_kernel(person_id)
+            self.add_potential_contractions_from_household_kernel(person)
+        self.add_potential_contractions_from_constant_kernel(person)
+        self.add_potential_contractions_from_friendship_kernel(person)
 
-    def generate_disease_progression(self, person_id, event_time: float,
+    def generate_disease_progression(self, person, event_time: float,
                                      initial_infection_status: str) -> None:
         """Returns list of disease progression events
         "future" disease_progression should be recalculated when the disease will be recognised at the state level
@@ -536,8 +539,8 @@ class InfectionModel:
         if initial_infection_status == InfectionStatus.Contraction:
             tminus1 = event_time
             t0 = tminus1 + self.rv_t0()
-            self.append_event(Event(t0, person_id, T0, person_id, DISEASE_PROGRESSION, tminus1))
-            self._infection_status[person_id] = initial_infection_status
+            self.append_event(Event(t0, person, T0, person, DISEASE_PROGRESSION, tminus1))
+            self._infection_status[person.csv_index] = initial_infection_status
         elif initial_infection_status == InfectionStatus.Infectious:
             t0 = event_time
             # tminus1 does not to be defined, but for completeness let's calculate it
@@ -545,16 +548,16 @@ class InfectionModel:
         else:
             raise ValueError(f'invalid initial infection status {initial_infection_status}')
         t2 = None
-        if self._expected_case_severity[person_id] in [
+        if self._expected_case_severity[person.csv_index] in [
             ExpectedCaseSeverity.Severe,
             ExpectedCaseSeverity.Critical
         ]:
             t2 = t0 + self.rv_t2()
-            self.append_event(Event(t2, person_id, T2, person_id, DISEASE_PROGRESSION, t0))
+            self.append_event(Event(t2, person, T2, person, DISEASE_PROGRESSION, t0))
 
         t1 = t0 + self.rv_t1()
         if not t2 or t1 < t2:
-            self.append_event(Event(t1, person_id, T1, person_id, DISEASE_PROGRESSION, t0))
+            self.append_event(Event(t1, person, T1, person, DISEASE_PROGRESSION, t0))
         else:
             # if t2 < t1 then we reset t1 to avoid misleading in data exported from the simulation
             t1 = None
@@ -562,22 +565,22 @@ class InfectionModel:
         tdetection = None
         trecovery = None
         tdeath = None
-        if mocos_helper.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person_id]]:
+        if mocos_helper.rand() <= self._params[DEATH_PROBABILITY][self._expected_case_severity[person.csv_index]]:
             tdeath = t0 + self.rv_tdeath()
-            self.append_event(Event(tdeath, person_id, TDEATH, person_id, DISEASE_PROGRESSION, t0))
+            self.append_event(Event(tdeath, person, TDEATH, person, DISEASE_PROGRESSION, t0))
         else:
-            if self._expected_case_severity[person_id] in [
+            if self._expected_case_severity[person.csv_index] in [
                 ExpectedCaseSeverity.Mild,
                 ExpectedCaseSeverity.Asymptomatic
             ]:
                 trecovery = t0 + mocos_helper.uniform(14.0 - 3.0, 14.0 + 3.0)  # TODO: this should not be hardcoded!
             else:
                 trecovery = t0 + mocos_helper.uniform(42.0 - 14.0, 42.0 + 14.0)
-            self.append_event(Event(trecovery, person_id, TRECOVERY, person_id, DISEASE_PROGRESSION, t0))
+            self.append_event(Event(trecovery, person, TRECOVERY, person, DISEASE_PROGRESSION, t0))
 
         """ Following is for checking whther tdetection should be picked up"""
         calculate_tdetection = self._params[TURN_ON_DETECTION]
-        if self._expected_case_severity[person_id] in [
+        if self._expected_case_severity[person.csv_index] in [
             ExpectedCaseSeverity.Mild,
             ExpectedCaseSeverity.Asymptomatic
         ]:
@@ -586,14 +589,14 @@ class InfectionModel:
         if calculate_tdetection:
             """ If t2 is defined (severe/critical), then use this time; if not; use some offset from t0 """
             tdetection = t2 or t0 + 2  # TODO: this should not be hardcoded
-            ev = Event(tdetection, person_id, TDETECTION, person_id, DETECTION, t0)
+            ev = Event(tdetection, person, TDETECTION, person, DETECTION, t0)
             self.append_event(ev)
 
-        self._progression_times_dict[person_id] = {ID: person_id, TMINUS1: tminus1, T0: t0, T1: t1, T2: t2,
+        self._progression_times_dict[person.csv_index] = {ID: person.csv_index, TMINUS1: tminus1, T0: t0, T1: t1, T2: t2,
                                                    TDEATH: tdeath, TRECOVERY: trecovery, TDETECTION: tdetection}
 
         if initial_infection_status == InfectionStatus.Infectious:
-            self.handle_t0(person_id)
+            self.handle_t0(person)
 
     @property
     def df_infections(self):
@@ -1456,25 +1459,25 @@ class InfectionModel:
                 if self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME] <= self._detected_people:
                     self._max_time_offset = self._global_time
 
-    def add_new_infection(self, person_id, infection_status,
+    def add_new_infection(self, person, infection_status,
                           initiated_by, initiated_through):
-        self._detection_status[person_id] = DetectionStatus.NotDetected.value
+        self._detection_status[person.csv_index] = DetectionStatus.NotDetected.value
 
         self._infections_dict[len(self._infections_dict)] = {
             SOURCE: initiated_by,
-            TARGET: person_id,
+            TARGET: person.csv_index,
             CONTRACTION_TIME: self.global_time,
             KERNEL: initiated_through
         }
         if self.global_time >= self._params[SERIAL_INTERVAL][MIN_TIME]:
             if self.global_time < self._params[SERIAL_INTERVAL][MAX_TIME]:
                 if initiated_by is not None:
-                    serial_interval = self.global_time - self._progression_times_dict[initiated_by][TMINUS1]
+                    serial_interval = self.global_time - self._progression_times_dict[initiated_by.csv_index][TMINUS1]
                     self.serial_intervals.append(serial_interval)
 
         self._affected_people += 1
 
-        self.generate_disease_progression(person_id,
+        self.generate_disease_progression(person,
                                           self.global_time,
                                           infection_status)
 
@@ -1504,25 +1507,25 @@ class InfectionModel:
         self._global_time = time
         if self._global_time > self._max_time + self._max_time_offset:
             return False
-        person_id = getattr(event, PERSON_INDEX)
-        person = self._cpp_population.by_csv_id(int(person_id))
+        person = getattr(event, PERSON_INDEX)
+        #person = self._cpp_population.by_csv_id(int(person_id))
         initiated_by = getattr(event, INITIATED_BY)
         initiated_through = getattr(event, INITIATED_THROUGH)
 
         # TODO the remaining attribute will be useful when we will take into account for backtracing
         # issued_time = getattr(event, ISSUED_TIME)
         if initiated_by is None and initiated_through != DISEASE_PROGRESSION:
-            if self.get_infection_status(person_id) == InfectionStatus.Healthy:
+            if self.get_infection_status(person) == InfectionStatus.Healthy:
                 if type_ == TMINUS1:
-                    self.add_new_infection(person_id, InfectionStatus.Contraction.value,
+                    self.add_new_infection(person, InfectionStatus.Contraction.value,
                                            initiated_by, initiated_through)
                 elif type_ == T0:
-                    self.add_new_infection(person_id, InfectionStatus.Infectious.value,
+                    self.add_new_infection(person, InfectionStatus.Infectious.value,
                                            initiated_by, initiated_through)
         elif type_ == TMINUS1:
             # check if this action is still valid first
-            initiated_inf_status = self._infection_status[initiated_by]
-            current_status = self.get_infection_status(person_id)
+            initiated_inf_status = self._infection_status[initiated_by.csv_index]
+            current_status = self.get_infection_status(person)
             if current_status == InfectionStatus.Healthy:
                 if initiated_inf_status in active_states:
                     new_infection = False
@@ -1532,73 +1535,74 @@ class InfectionModel:
                             new_infection = True
                         if self.get_quarantine_status_(initiated_by) == QuarantineStatus.Quarantine:
                             new_infection = False
-                        if self.get_quarantine_status_(person_id) == QuarantineStatus.Quarantine:
+                        if self.get_quarantine_status_(person) == QuarantineStatus.Quarantine:
                             new_infection = False
                     else:  # HOUSEHOLD kernel:
                         new_infection = True
                     if new_infection:
-                        self.add_new_infection(person_id, InfectionStatus.Contraction.value,
+                        self.add_new_infection(person, InfectionStatus.Contraction.value,
                                                initiated_by, initiated_through)
         elif type_ == T0:
-            if self.get_infection_status(person_id) == InfectionStatus.Contraction:
-                self.handle_t0(person_id)
+            if self.get_infection_status(person) == InfectionStatus.Contraction:
+                self.handle_t0(person)
         elif type_ == T1:
-            if self.get_infection_status(person_id) == InfectionStatus.Infectious:
-                self._infection_status[person_id] = InfectionStatus.StayHome.value
+            if self.get_infection_status(person) == InfectionStatus.Infectious:
+                self._infection_status[person.csv_index] = InfectionStatus.StayHome.value
         elif type_ == T2:
-            if self.get_infection_status(person_id) in [
+            if self.get_infection_status(person) in [
                 InfectionStatus.StayHome,
                 InfectionStatus.Infectious
             ]:
-                self._infection_status[person_id] = InfectionStatus.Hospital.value
-                if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
+                self._infection_status[person.csv_index] = InfectionStatus.Hospital.value
+                if self._expected_case_severity[person.csv_index] == ExpectedCaseSeverity.Critical:
                     self._icu_needed += 1
         elif type_ == TDEATH:
-            if self.get_infection_status(person_id) not in [
+            if self.get_infection_status(person) not in [
                 InfectionStatus.Death,
                 InfectionStatus.Recovered
             ]:
                 self._deaths += 1
-                if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
+                if self._expected_case_severity[person.csv_index] == ExpectedCaseSeverity.Critical:
                     self._icu_needed -= 1
                     self._active_people -= 1
-                self._infection_status[person_id] = InfectionStatus.Death.value
+                self._infection_status[person.csv_index] = InfectionStatus.Death.value
 
         elif type_ == TRECOVERY: # TRECOVERY is exclusive with regards to TDEATH (when this comment was added)
-            if self.get_infection_status(person_id) not in [
+            if self.get_infection_status(person) not in [
                 InfectionStatus.Recovered,
                 InfectionStatus.Death
             ]:
                 self._active_people -= 1
-                if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
+                if self._expected_case_severity[person.csv_index] == ExpectedCaseSeverity.Critical:
                     self._icu_needed -= 1
-                self._infection_status[person_id] = InfectionStatus.Recovered
+                self._infection_status[person.csv_index] = InfectionStatus.Recovered
         elif type_ == TDETECTION:
-            if self.get_infection_status(person_id) not in [
+            if self.get_infection_status(person) not in [
                 InfectionStatus.Recovered,
                 InfectionStatus.Healthy
             ]:
-                if self.get_detection_status_(person_id) == DetectionStatus.NotDetected:
-                    self._detection_status[person_id] = DetectionStatus.Detected.value
+                if self.get_detection_status_(person) == DetectionStatus.NotDetected:
+                    self._detection_status[person.csv_index] = DetectionStatus.Detected.value
                     self._detected_people += 1
                     self.update_max_time_offset()
                     household_id = person.household_index
-                    for inhabitant in self._households_inhabitants[household_id]:
+                    for inhabitant_idx in self._households_inhabitants[household_id]:
+                        inhabitant = self._cpp_population.by_csv_id(inhabitant_idx)
                         if self.get_quarantine_status_(inhabitant) == QuarantineStatus.NoQuarantine:
                             if self.get_infection_status(inhabitant) != InfectionStatus.Death:
-                                self._quarantine_status[inhabitant] = QuarantineStatus.Quarantine.value
+                                self._quarantine_status[inhabitant.csv_index] = QuarantineStatus.Quarantine.value
                                 self._quarantined_people += 1
-                                if inhabitant not in self._progression_times_dict:
-                                    self._progression_times_dict[inhabitant] = {}
-                                self._progression_times_dict[inhabitant][QUARANTINE] = self.global_time
+                                if inhabitant.csv_index not in self._progression_times_dict:
+                                    self._progression_times_dict[inhabitant.csv_index] = {}
+                                self._progression_times_dict[inhabitant.csv_index][QUARANTINE] = self.global_time
                                 if self.get_infection_status(inhabitant) in [InfectionStatus.Infectious,
                                                                              InfectionStatus.StayHome]:
                                     # TODO: this has to be implemented better, just a temporary solution:
-                                    if self._progression_times_dict[inhabitant].get(TDETECTION, None) is None:
+                                    if self._progression_times_dict[inhabitant.csv_index].get(TDETECTION, None) is None:
                                         new_detection_time = self.global_time + 2.0
-                                        self._progression_times_dict[inhabitant][TDETECTION] = new_detection_time
+                                        self._progression_times_dict[inhabitant.csv_index][TDETECTION] = new_detection_time
                                         ev = Event(new_detection_time, inhabitant, TDETECTION,
-                                                                person_id, 'quarantine_followed_detection',
+                                                                person, 'quarantine_followed_detection',
                                                                 self.global_time)
                                         self.append_event(ev)
         else:
@@ -1618,7 +1622,8 @@ class InfectionModel:
                 if self.affected_people >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
                     break
-                event = q.get()
+                # Drop the sorting keys, just grab the event
+                event = q.get()[2]
                 if not self.process_event(event):
                     logging.info(f"Processing event {event} returned False")
                     q.task_done()

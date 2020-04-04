@@ -17,11 +17,11 @@ mutable struct SimState
   rng::MersenneTwister
 
   time::Float64
-  queue::BinaryHeap{AbstractEvent, Earlier} # TODO change to union once all events are implemented
+  queue::BinaryHeap{EventUnion, Earlier} # TODO change to union once all events are implemented
   
   individuals::Vector{IndividualState}  
       
-  infections::SortedMultiDict{UInt32,AbstractInfectionEvent} # TODO change to union 
+  infections::SortedMultiDict{UInt32,TransmissionUnion} # TODO change to union 
   infection_sources::Vector{UInt32}
     
   num_dead::Int
@@ -33,11 +33,11 @@ mutable struct SimState
       MersenneTwister(seed),
       
       0.0,
-      BinaryHeap{AbstractEvent, Earlier}(),
+      BinaryHeap{EventUnion, Earlier}(),
       
       [IndividualState() for i in  1:num_individuals],
       
-      SortedMultiDict{UInt32,AbstractInfectionEvent}(),
+      SortedMultiDict{UInt32,TransmissionUnion}(),
       fill(0x00, num_individuals),
     
       0,

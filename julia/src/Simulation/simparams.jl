@@ -23,12 +23,12 @@ function sample_progression(rng::AbstractRNG, dist_severity, dist_incubation, di
     death_time = NaN
     if (severity==Severe) || (severity==Critical)
       severe_symptoms_time = incubation_time + rand(dist_hospitalization)
-      if severe_symptoms_time < mild_symptoms_time
+      if severe_symptoms_time <= mild_symptoms_time
         mild_symptoms_time = NaN
       end
       recovery_time = severe_symptoms_time + 14
     else
-      recovery_time = mild_symptoms_time
+      recovery_time = mild_symptoms_time + 14
     end
     
     Progression(

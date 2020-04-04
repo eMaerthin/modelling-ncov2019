@@ -12,6 +12,7 @@
 #include <algorithm>
 
 #include "csv_parser/csv.h"
+#include "random/platform.h"
 
 namespace mocos_cpp
 {
@@ -52,15 +53,17 @@ class Person
     void print(std::ostream& os = std::cout);
 };
 
-class InitialPopulation
+class Population
 {
-    const std::vector<Person> population;
+    std::vector<Person> population;
     std::vector<Person> get_pop_vector(const std::string& path);
     std::unordered_map<size_t, size_t> csv_id_map;
  public:
-    InitialPopulation(const std::string& path);
-    size_t size() const { return population.size(); };
-    const Person& operator[](size_t idx) { return population[idx]; };
+    Population(const std::string& path);
+    MOCOS_FORCE_INLINE size_t size() const { return population.size(); };
+    MOCOS_FORCE_INLINE Person& operator[](size_t idx) { return population[idx]; };
+    MOCOS_FORCE_INLINE std::vector<Person>::iterator begin() { return population.begin(); };
+    MOCOS_FORCE_INLINE std::vector<Person>::iterator end() { return population.end(); };
     const Person& by_csv_id(size_t idx) { if(csv_id_map.count(idx) > 0) return population[csv_id_map[idx]]; else throw std::logic_error("Referenced nonexistent person CSV ID"); };
 };
 
@@ -114,7 +117,7 @@ void Person::print(std::ostream& os)
     PRINT_FIELD(public_transport_duration);
 }
 
-InitialPopulation::InitialPopulation(const std::string& path) :
+Population::Population(const std::string& path) :
 population(get_pop_vector(path))
 {
     for(const Person& p : population)
@@ -122,7 +125,7 @@ population(get_pop_vector(path))
 
 };
 
-std::vector<Person> InitialPopulation::get_pop_vector(const std::string& path)
+std::vector<Person> Population::get_pop_vector(const std::string& path)
 {
     //std::cout << path << std::endl;
     io::CSVReader<9> csv_reader(path);

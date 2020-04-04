@@ -26,7 +26,6 @@ from collections import Counter
 
 import cppdefs
 import cppyy
-cppyy.cppdef("""#include "cpp_src/all.h" """)
 from cppyy.gbl import std, mocos_cpp
 from cppyy.gbl import DetectionStatus
 import mocos_helper
@@ -168,21 +167,11 @@ class InfectionModel:
         """
         logger.info('Set up data frames: Reading population csv...')
         self._df_individuals = pd.read_csv(self.df_individuals_path)
-        self._cpp_population = mocos_cpp.InitialPopulation(self.df_individuals_path)
+        self._cpp_population = mocos_cpp.Population(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
-        self._individuals_age = self._df_individuals[AGE].values
-        self._individuals_age_dct = self._df_individuals[AGE].to_dict()
-        self._individuals_gender_dct = self._df_individuals[GENDER].to_dict()
         self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
-        self._individuals_indices = self._df_individuals.index.values
-        self._social_activity_scores = self._df_individuals.social_competence.to_dict()
 
-        self._social_activity_sampler = mocos_helper.AgeDependentFriendSampler(
-            self._individuals_indices,
-            self._individuals_age,
-            self._df_individuals[GENDER].values,
-            self._df_individuals.social_competence.values
-            )
+        self._social_activity_sampler = mocos_cpp.AgeDependentFriendSampler(self._cpp_population)
 
         logger.info('Set up data frames: Building households df...')
 
@@ -501,8 +490,7 @@ class InfectionModel:
         # Add a constant multiplicand above?
         
         for _ in range(no_infected):
-            infected_idx = self._social_activity_sampler.gen(person.age, person.gender)
-            infected_person = self._cpp_population.by_csv_id(infected_idx)
+            infected_person = self._social_activity_sampler.gen(person.age, person.gender)
             if self.get_infection_status(infected_person) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, infected_person, TMINUS1, person, CONSTANT, self.global_time))

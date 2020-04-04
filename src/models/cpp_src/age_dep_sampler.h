@@ -1,11 +1,13 @@
 #pragma once
 #include <cmath>
+#include "population.h"
 
-
+namespace mocos_cpp
+{
 
 class AgeDependentFriendSampler
 {
-    const std::vector<size_t> csv_idxes;
+    Population& population;
     std::vector<std::vector<AliasSampler>> samplers;
     const double alpha, beta;
 
@@ -14,16 +16,16 @@ class AgeDependentFriendSampler
     double g(size_t a1, size_t a2);
 
  public:
-    AgeDependentFriendSampler(std::vector<size_t>&& _csv_idxes, const std::vector<size_t>& ages, const std::vector<size_t>& genders, const std::vector<double>& social_competences, double _alpha = 0.75, double _beta = 1.6);
-    size_t gen(size_t age, size_t gender);
+    AgeDependentFriendSampler(Population& pop, double _alpha = 0.75, double _beta = 1.6);
+    Person& gen(size_t age, size_t gender);
 };
 
 
 
 
-MOCOS_FORCE_INLINE size_t AgeDependentFriendSampler::gen(size_t age, size_t gender)
+MOCOS_FORCE_INLINE Person& AgeDependentFriendSampler::gen(size_t age, size_t gender)
 {
-    return csv_idxes[samplers[gender][age].gen()];
+    return population[samplers[gender][age].gen()];
 }
 
 MOCOS_FORCE_INLINE double AgeDependentFriendSampler::phi(double a)
@@ -52,8 +54,8 @@ MOCOS_FORCE_INLINE double AgeDependentFriendSampler::g(size_t a1, size_t a2)
     return ret;
 }
 
-AgeDependentFriendSampler::AgeDependentFriendSampler(std::vector<size_t>&& _csv_idxes, const std::vector<size_t>& ages, const std::vector<size_t>& genders, const std::vector<double>& social_competences, double _alpha, double _beta) :
-csv_idxes(std::move(_csv_idxes)), // Dunno if cppyy can elide the copy needed here. This is ugly but makes *sure* we avoid the expensive copy.
+AgeDependentFriendSampler::AgeDependentFriendSampler(Population& pop, double _alpha, double _beta) :
+population(pop),
 alpha(_alpha),
 beta(_beta)
 {
@@ -61,11 +63,11 @@ beta(_beta)
     std::vector<size_t> ages_hist;
     ages_hist.resize(150);
 
-    for(size_t age : ages)
-        ages_hist[age]++;
+    for(Person& p : population)
+        ages_hist[p.age]++;
 
     h.reserve(ages_hist.size());
-    const double dsize = static_cast<double>(ages.size());
+    const double dsize = static_cast<double>(population.size());
     for(auto it = ages_hist.begin(); it != ages_hist.end(); ++it)
         h.push_back(static_cast<double>(*it) / dsize);
 
@@ -75,7 +77,7 @@ beta(_beta)
         for(size_t age = 0; age < ages_hist.size(); age++)
         {
             std::vector<double> probs_t;
-            probs_t.reserve(_csv_idxes.size());
+            probs_t.reserve(population.size());
 
             if(0 == ages_hist[age])
             {
@@ -83,8 +85,8 @@ beta(_beta)
                 continue;
             }
 
-            for(size_t idx = 0; idx < ages.size(); idx++)
-                probs_t.push_back(g(age, ages[idx]) * social_competences[idx] * (gender == genders[idx] ? 1.2 : 0.8));
+            for(Person& p : population)
+                probs_t.push_back(g(age, p.age) * p.social_competence * (gender == p.gender ? 1.2 : 0.8));
             // The reminder: social competence of a1, scaling constant must be taken into account while sampling amount of contacts, 
             // that is, deciding how many times to call the gen() function
 
@@ -93,3 +95,5 @@ beta(_beta)
 
 
 }
+
+} // namespace mocos_cpp

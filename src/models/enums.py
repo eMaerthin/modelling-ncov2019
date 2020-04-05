@@ -44,11 +44,6 @@ class ExpectedCaseSeverity(EnumWithPublicValue2MemberMap):  # to be added to nod
 
 
 
-class PyQuarantineStatus(EnumWithPublicValue2MemberMap):
-    NoQuarantine = 0
-    Quarantine = 1
-
-
 class InfectionStatus(EnumWithPublicValue2MemberMap):
     Healthy = 'healthy'
     Contraction = CONTRACTION

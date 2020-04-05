@@ -70,7 +70,7 @@ function execute!(state::SimState, params::SimParams, event::BecomeInfectiousEve
   severity = progression.severity
   
   infected_time = time(event) - progression.incubation_time 
-  if Asymptotic == severity
+  if Asymptomatic == severity
     @assert !isnan(progression.recovery_time)
     push!(state.quque, Recovered(infected_time + progression.recovery_time), subject_id)   
   elseif Mild == severity
@@ -118,8 +118,9 @@ end
 function execute!(state::SimState, params::SimParams, event::SevereSymptomsEvent)
   @assert Infectious == subjecthealth(state, event) || MildSymptoms == subjecthealth(state, event)
   setsubjecthealth!(state, event, SevereSymptoms)
-  const subject_id = subject(event)
-  const progression = progressionof(params, subject_id)
+  
+  subject_id = subject(event)
+  progression = progressionof(params, subject_id)
 
   #push!(state.queue, RecoveryEvent(time(event)+14, subject(event)))
   push!(state.queue, GoHospitalEvent(time(event), subject(event)))  # immediately

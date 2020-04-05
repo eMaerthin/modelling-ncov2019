@@ -1,5 +1,7 @@
 module Simulation
-  
+
+__precompile__(true)
+
 using CSV
 using DataFrames
 using DataStructures

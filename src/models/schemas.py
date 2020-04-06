@@ -89,6 +89,11 @@ serial_interval_schema = Schema(And({
 
 detection_mild_proba_schema = Schema(And(Or(int, float), probability_condition))
 
+r_out_schedule_schema = Schema([{
+    MIN_TIME: And(Use(float), lambda x: 0.0 <= x),
+    MAX_TIME: And(Use(float), lambda x: 0.0 <= x),
+    OVERRIDE_R_FRACTION: And(Use(float), lambda x: 0.0 <= x <= 1.0)}])
+
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
     STOP_SIMULATION_THRESHOLD: Schema(And(Use(int), lambda n: n > 0)),
@@ -134,4 +139,5 @@ infection_model_schemas = {
     PLOT_YLIM_BOTTOM: Schema(Or(int, float, None)),
     PLOT_YLIM_TOP: Schema(Or(int, float, None)),
     ENABLE_VISUALIZATION: Schema(bool),
+    R_OUT_SCHEDULE: r_out_schedule_schema,
 }

@@ -113,6 +113,8 @@ default_plot_ylim_cut_bottom = None
 
 default_enable_visualization = False
 
+default_r_out_schedule = []
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -151,7 +153,8 @@ defaults = {
     PLOT_YLIM_CUT_TOP: default_plot_ylim_cut_top,
     PLOT_YLIM_BOTTOM: default_plot_ylim_bottom,
     PLOT_YLIM_TOP: default_plot_ylim_top,
-    ENABLE_VISUALIZATION: default_enable_visualization
+    ENABLE_VISUALIZATION: default_enable_visualization,
+    R_OUT_SCHEDULE: default_r_out_schedule
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

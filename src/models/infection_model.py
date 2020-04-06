@@ -104,8 +104,6 @@ class InfectionModel:
         self.fear_limit_value = dict()
 
         self.serial_intervals = []
-        self.experimental_ub = None
-        self.experimental_lb = None
 
         self.band_time = None
         self._last_affected = None
@@ -677,7 +675,10 @@ class InfectionModel:
         serial_interval = self.save_serial_interval(simulation_output_dir)
         if self._params[ENABLE_VISUALIZATION]:
             self._vis.visualize_simulation(simulation_output_dir, serial_interval, self.fear,
-                                           self.active_people, self._max_time_offset, self.detected_cases)
+                                           self.active_people, self._max_time_offset, self.detected_cases,
+                                           self.df_progression_times,
+                                           self.df_infections
+                                           )
 
     def update_max_time_offset(self):
         if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
@@ -685,6 +686,22 @@ class InfectionModel:
                 if self._params[NUMBER_OF_DETECTED_AT_ZERO_TIME] <= self._detected_people:
                     self._max_time_offset = self._global_time
                     self._init_for_stats = self._active_people
+
+    def quick_return_condition(self, initiated_through):
+        """ Checks if event of type 'initiated_through' should be abandoned given current situation """
+        r = mocos_helper.rand()
+        if initiated_through == CONSTANT and len(self._params[R_OUT_SCHEDULE]) > 0:
+            t = self._global_time - self._max_time_offset
+            for s in self._params[R_OUT_SCHEDULE]:
+                if s[MIN_TIME] <= t <= s[MAX_TIME]:
+                    if r > s[OVERRIDE_R_FRACTION]:
+                        return True
+                    else:
+                        return False
+
+        if r > self.fear(initiated_through):
+            return True
+        return False
 
     def add_new_infection(self, person_id, infection_status,
                           initiated_by, initiated_through):
@@ -757,7 +774,7 @@ class InfectionModel:
                     new_infection = False
                     # TODO below is a spaghetti code that shoud be sorted out! SORRY!
                     if initiated_through != HOUSEHOLD:
-                        if mocos_helper.rand() > self.fear(initiated_through):
+                        if self.quick_return_condition(initiated_through):
                             return True
                         if initiated_inf_status != InfectionStatus.StayHome:
                             new_infection = True
@@ -978,8 +995,7 @@ class InfectionModel:
         self._quarantine_status = {}
         self._detection_status = {}
         if self._params[ENABLE_VISUALIZATION]:
-            self._vis = Visualize(self._params, self.df_progression_times,
-                                  self.df_infections, self.df_individuals,
+            self._vis = Visualize(self._params, self.df_individuals,
                                   self._expected_case_severity, logger)
 
 

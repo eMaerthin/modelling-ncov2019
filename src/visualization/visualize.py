@@ -8,10 +8,10 @@ from src.models.states_and_functions import *
 
 
 class Visualize:
-    def __init__(self, params, df_progression_times, df_infections, df_individuals, expected_case_severity, logger):
+    def __init__(self, params, df_individuals, expected_case_severity, logger):
         self._params = params
-        self.df_progression_times = df_progression_times
-        self.df_infections = df_infections
+        self.df_progression_times = None
+        self.df_infections = None
         self.df_individuals = df_individuals
         self.serial_interval_median = None
         self.fear = None
@@ -72,7 +72,9 @@ class Visualize:
         self.test_lognormal_severe(simulation_output_dir)
 
     def visualize_simulation(self, simulation_output_dir, serial_interval, fear, active_people, max_time_offset,
-                             detected_cases):
+                             detected_cases, df_progression_times, df_infections):
+        self.df_progression_times = df_progression_times
+        self.df_infections = df_infections
         self.serial_interval_median = serial_interval
         self.fear = fear
         self.active_people = active_people
@@ -370,22 +372,16 @@ class Visualize:
         ho_cases = hospitalized_cases[hospitalized_cases <= r2_max_time].sort_values()
         death_cases = df_r1[~df_r1.tdeath.isna()].sort_values(by='tdeath').tdeath
         d_cases = death_cases[death_cases <= r2_max_time].sort_values()
-        recovery_cases = df_r1[~df_r1.trecovery.isna()].sort_values(by='trecovery').trecovery
-        r_cases = recovery_cases[recovery_cases <= r2_max_time].sort_values()
         if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
             if self._max_time_offset != np.inf:
                 ho_cases -= self._max_time_offset
                 d_cases -= self._max_time_offset
-                r_cases -= self._max_time_offset
         if len(d_cases) > 0:
             arr.append(d_cases)
             legend.append('Deceased')
         if len(ho_cases) > 0:
             arr.append(ho_cases)
             legend.append('Hospitalized')
-        if len(r_cases) > 0:
-            arr.append(r_cases)
-            legend.append('Recovered')
         ax1.hist(arr, bins, histtype='bar', stacked=True, label=legend)
         ax1.legend()
         ax0.set_title(f'Daily stacked summaries of simulated covid19\n {self._params[EXPERIMENT_ID]}')
@@ -469,32 +465,7 @@ class Visualize:
 
         ax.legend()
         ax.set_title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
-        if self._params[FEAR_FACTORS].get(CONSTANT, self._params[FEAR_FACTORS][DEFAULT])[FEAR_FUNCTION] != FearFunctions.FearDisabled:
-            ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
 
-            ax2.set_ylabel('fear')  # we already handled the x-label with ax1
-            detected = np.arange(0, 1 + len(det_cases)) #.cumsum().values
-            yvals = []
-            kernel_id = CONSTANT
-            x = [0] + list(det_cases)
-
-            """
-            # TODO: this should be implemented in different way
-            for t_, de_ in zip(x, detected):
-
-                yvals.append(self.fear_fun[kernel_id](de_, 0, t_, self.fear_weights_detected[kernel_id],
-                                                      self.fear_weights_deaths[kernel_id],
-                                                      self.fear_loc[kernel_id],
-                                                      self.fear_scale[kernel_id],
-                                                      self.fear_limit_value[kernel_id]))
-            #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
-            #    if self._max_time_offset != np.inf:
-            #        x = [elem - self._max_time_offset for elem in x]
-            """
-            ax2.plot(x, yvals, 'k--')
-            ax2.tick_params(axis='y')
-            ax2.set_ylim(bottom=0, top=1)
-            ax2.legend()
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'summary.png'))
         plt.close(fig)
@@ -544,30 +515,7 @@ class Visualize:
             self.plot_values(q_cases, 'Quarantined', ax)
 
         ax.legend()
-        #ax.set_title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
-        if self._params[FEAR_FACTORS].get(CONSTANT, self._params[FEAR_FACTORS][DEFAULT])[FEAR_FUNCTION] != FearFunctions.FearDisabled:
-            ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
 
-            ax2.set_ylabel('fear')  # we already handled the x-label with ax1
-            detected = np.arange(0, 1 + len(det_cases)) #.cumsum().values
-            yvals = []
-            kernel_id = CONSTANT
-            x = [0] + list(det_cases)
-            """
-            for t_, de_ in zip(x, detected):
-                yvals.append(self.fear_fun[kernel_id](de_, 0, t_, self.fear_weights_detected[kernel_id],
-                                                      self.fear_weights_deaths[kernel_id],
-                                                      self.fear_loc[kernel_id],
-                                                      self.fear_scale[kernel_id],
-                                                      self.fear_limit_value[kernel_id]))
-            #if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
-            #    if self._max_time_offset != np.inf:
-            #        x = [elem - self._max_time_offset for elem in x]
-            """
-            ax2.plot(x, yvals, 'k--')
-            ax2.tick_params(axis='y')
-            ax2.set_ylim(bottom=0, top=1)
-            ax2.legend()
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'lancet_summary.png'))
         plt.close(fig)
@@ -577,14 +525,6 @@ class Visualize:
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
         vals = df_r2.contraction_time.sort_values()
-        if self.experimental_ub is None:
-            self.experimental_ub = vals
-        else:
-            self.experimental_ub = np.minimum(vals, self.experimental_ub)
-        if self.experimental_lb is None:
-            self.experimental_lb = vals
-        else:
-            self.experimental_lb = np.maximum(vals, self.experimental_lb)
 
         fig, ax = plt.subplots(nrows=1, ncols=1)
         self.plot_values(vals, 'Prevalence', ax, type='semilogy')
@@ -617,17 +557,6 @@ class Visualize:
         ax.set_title(f'simulation of covid19 dynamics\n {self._params[EXPERIMENT_ID]}')
         fig.tight_layout()
         plt.savefig(os.path.join(simulation_output_dir, 'summary_semilogy.png'))
-        plt.close(fig)
-
-
-    def test_bandwidth_plot(self, simulation_output_dir):
-        fig, ax = plt.subplots(nrows=1, ncols=1)
-        self.plot_values(self.experimental_ub, 'Prevalence UB', ax)
-        self.plot_values(self.experimental_lb, 'Prevalence LB', ax)
-        ax.legend()
-        ax.set_title(f'Test of bandwidth plot (showing min/max across multiple runs)')
-        fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'test_bandwidth_plot_summary_semilogy.png'))
         plt.close(fig)
 
 
@@ -822,8 +751,6 @@ class Visualize:
             laid_curve_x = np.array([float(elem) for elem in self._params[LAID_CURVE].keys()])
             if self._params[MOVE_ZERO_TIME_ACCORDING_TO_DETECTED]:
                 if self._max_time_offset != np.inf:
-                    print(self._max_time_offset)
-                    print(self._params[LAID_CURVE].keys())
                     laid_curve_x = np.array([float(elem) + self._max_time_offset for elem in self._params[LAID_CURVE].keys()])
             laid_curve_y = np.array(list(self._params[LAID_CURVE].values()))
             self.plot_values(laid_curve_x, 'Cases observed in PL', ax, yvalues=laid_curve_y, dots=True)

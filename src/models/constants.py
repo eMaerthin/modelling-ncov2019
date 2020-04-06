@@ -49,6 +49,9 @@ TARGET = 'target_id'
 KERNEL = 'kernel'
 INHABITANTS = 'inhabitants'
 
+R_OUT_SCHEDULE = 'r_out_schedule'
+OVERRIDE_R_FRACTION = 'override_r_fraction'
+
 TMINUS1 = 'tminus1'
 T0 = 't0' # contraction->infectious ACTIVE
 T1 = 't1' # infectious->stay_home ACTIVE

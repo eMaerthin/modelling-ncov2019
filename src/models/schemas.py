@@ -133,4 +133,5 @@ infection_model_schemas = {
     PLOT_YLIM_CUT_TOP: Schema(Or(int, float, None)),
     PLOT_YLIM_BOTTOM: Schema(Or(int, float, None)),
     PLOT_YLIM_TOP: Schema(Or(int, float, None)),
+    ENABLE_VISUALIZATION: Schema(bool),
 }

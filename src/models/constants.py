@@ -41,7 +41,7 @@ CASE_SEVERITY_DISTRIBUTION = 'case_severity_distribution'
 
 START_TIME = 'start_time'
 STOP_SIMULATION_THRESHOLD = 'stop_simulation_threshold'
-
+ENABLE_VISUALIZATION = 'enable_visualization'
 ID = 'idx'
 HOUSEHOLD_ID = 'household_index'
 SOURCE = 'source_id'

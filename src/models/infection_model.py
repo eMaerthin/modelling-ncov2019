@@ -483,11 +483,9 @@ class InfectionModel:
         infected = mocos_helper.poisson(total_infection_rate)
         if infected == 0:
             return
-        #possible_choices = self._individuals_indices # self._df_individuals.index.values
-        #possible_choices = possible_choices[possible_choices != person_id]
-        #r = range(possible_choices.shape[0])
+
         selected_rows = mocos_helper.nonreplace_sample_few(self._individuals_indices, infected, person_id)
-        #selected_rows = possible_choices[selected_rows_ids]
+
         for person_idx in selected_rows:
             if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)

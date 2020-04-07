@@ -115,6 +115,10 @@ default_enable_visualization = False
 
 default_r_out_schedule = []
 
+default_enable_additional_logs = False
+default_reuse_expected_case_severities = False
+default_reuse_time_distribution_realizations = False
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -154,7 +158,10 @@ defaults = {
     PLOT_YLIM_BOTTOM: default_plot_ylim_bottom,
     PLOT_YLIM_TOP: default_plot_ylim_top,
     ENABLE_VISUALIZATION: default_enable_visualization,
-    R_OUT_SCHEDULE: default_r_out_schedule
+    R_OUT_SCHEDULE: default_r_out_schedule,
+    ENABLE_ADDITIONAL_LOGS: default_enable_additional_logs,
+    REUSE_EXPECTED_CASE_SEVERITIES: default_reuse_expected_case_severities,
+    REUSE_TIME_DISTRIBUTION_REALIZATIONS: default_reuse_time_distribution_realizations,
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

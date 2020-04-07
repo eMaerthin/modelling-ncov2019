@@ -140,4 +140,7 @@ infection_model_schemas = {
     PLOT_YLIM_TOP: Schema(Or(int, float, None)),
     ENABLE_VISUALIZATION: Schema(bool),
     R_OUT_SCHEDULE: r_out_schedule_schema,
+    ENABLE_ADDITIONAL_LOGS: Schema(bool),
+    REUSE_EXPECTED_CASE_SEVERITIES: Schema(bool),
+    REUSE_TIME_DISTRIBUTION_REALIZATIONS: Schema(bool),
 }

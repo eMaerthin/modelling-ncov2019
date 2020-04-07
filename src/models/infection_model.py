@@ -57,16 +57,13 @@ class InfectionModel:
         self._expected_case_severity = None
         self._df_individuals = None
         self._df_households = None
-        #self._individuals_gender = {}
+        #self._individuals_gender = None
         self._individuals_age = None
-        self._individuals_household_id = {}
+        self._individuals_household_id = None
         self._individuals_indices = None
-        self._households_capacities = {}
-        self._households_inhabitants = {}
-        self._init_for_stats = 0  # TODO support different import methods
-        if isinstance(self._params[INITIAL_CONDITIONS], dict):
-            cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
-            self._init_for_stats = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
+        self._households_capacities = None
+        self._households_inhabitants = None
+        self._init_for_stats = None
 
         self._affected_people = 0
         self._active_people = 0
@@ -76,12 +73,14 @@ class InfectionModel:
         self._icu_needed = 0
 
         self._set_up_data_frames()
-        self._infection_status = {}
-        self._detection_status = {}
-        self._quarantine_status = {}
-        self._expected_case_severity = self.draw_expected_case_severity()
-        self._infections_dict = {}
-        self._progression_times_dict = {}
+        self._infection_status = None
+        self._detection_status = None
+        self._quarantine_status = None
+        self._expected_case_severity = None
+        if self._params[REUSE_EXPECTED_CASE_SEVERITIES]:
+            self._expected_case_severity = self.draw_expected_case_severity()
+        self._infections_dict = None
+        self._progression_times_dict = None
 
         t0_f, t0_args, t0_kwargs = self.setup_random_distribution(T0)
         self.rv_t0 = lambda: t0_f(*t0_args, **t0_kwargs)
@@ -361,15 +360,15 @@ class InfectionModel:
         if distribution == LOGNORMAL:
             mean = params.get('mean', 0.0)
             sigma = params.get('sigma', 1.0)
-            return mocos_helper.lognormal, [], {'mean':mean, 'sigma':sigma}
+            return mocos_helper.lognormal, [], {'mean': mean, 'sigma': sigma}
 
         if distribution == EXPONENTIAL:
             lambda_ = params.get('lambda', 1.0)
-            return mocos_helper.exponential, [], {'scale':1/lambda_}
+            return mocos_helper.exponential, [], {'scale': 1/lambda_}
 
         if distribution == POISSON:
             lambda_ = params.get('lambda', 1.0)
-            return mocos_helper.poisson, [], {'lam':lambda_}
+            return mocos_helper.poisson, [], {'lam': lambda_}
 
         raise ValueError(f'Sampling from distribution {distribution} is not yet supported but we can quickly add it')
 
@@ -429,6 +428,7 @@ class InfectionModel:
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
 
     def add_potential_contractions_from_constant_kernel(self, person_id):
+        """ Constant kernel draws a number of infections based on base gamma and enqueue anonymous events """
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
         end = prog_times[T1]
@@ -439,12 +439,9 @@ class InfectionModel:
         if infected == 0:
             return
 
-        selected_rows = mocos_helper.nonreplace_sample_few(self._individuals_indices, infected, person_id)
-
-        for person_idx in selected_rows:
-            if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
-                contraction_time = mocos_helper.uniform(low=start, high=end)
-                self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
+        for i in range(infected):
+            contraction_time = mocos_helper.uniform(low=start, high=end)
+            self.append_event(Event(contraction_time, None, TMINUS1, person_id, CONSTANT, self.global_time))
 
     def add_potential_contractions_from_friendship_kernel(self, person_id):
         prog_times = self._progression_times_dict[person_id]
@@ -492,6 +489,32 @@ class InfectionModel:
         t2 - time when individual goes to hospital due to Serious symptoms
         tdeath - time when individual dies (depending on death probability)
         trecovery - time when individual is recovered (in case the patient will not die from covid19)
+
+        If person is Infected:
+          A - tminus1 is known (event time),
+          B - t0 is calculated as tminus1 + rv_t0,
+
+        If person is added to population as Infectious:
+          A - t0 is known (event time),
+          B - tminus 1 is calculated as t0 - rv_t0
+
+        For all infected:
+          A - t1 is calculated as t0 + rv_t1
+
+        If person will develop Severe or Critical symptoms:
+          A - t2 is calculated as t0 + rv_t2
+          B - if t1 is larger than t2, discard t1
+          C - calculate trecovery time as t0 + 6 weeks <- these 6 weeks are from WHO report, in python we use uniform[4w,8w]
+          D - calculate tdetection as t2
+
+        If person will develop Asymptomatic or Mild symptoms:
+          A - calculate trecovery time as t0 + 2 weeks <- these 2 weeks are from WHO report, in python we use uniform[11d,17d]
+          B - draw a random number uniform[0,1] and if less than detection_mild_proba, calculate tdetection as t0 + 2
+
+        Draw a random number uniform[0,1] and if less than death_probability[expected_case(person_id)]:
+          A - calculate tdeath time as t0 + rv_tdeath,
+          B - discard all times that are larger than tdeath
+
         """
         if initial_infection_status == InfectionStatus.Contraction:
             tminus1 = event_time
@@ -577,9 +600,10 @@ class InfectionModel:
         with open(path, "w") as f:
             f.write('source_id,target_id,contraction_time,kernel\n')
             for elem in self._infections_dict.values():
-                str = f'{elem.get(SOURCE, None)},{elem.get(TARGET, None)},{elem.get(CONTRACTION_TIME, None)},'\
-                      f'{elem.get(KERNEL, None)}\n'
-                f.write(str)
+                if elem.get(CONTRACTION_TIME) <= self._global_time: # skiping events that were not realized yet
+                    str = f'{elem.get(SOURCE, None)},{elem.get(TARGET, None)},{elem.get(CONTRACTION_TIME, None)},'\
+                          f'{elem.get(KERNEL, None)}\n'
+                    f.write(str)
         #self.df_infections.to_csv()
 
     def prevalance_at(self, time):
@@ -689,6 +713,9 @@ class InfectionModel:
 
     def quick_return_condition(self, initiated_through):
         """ Checks if event of type 'initiated_through' should be abandoned given current situation """
+        if initiated_through == HOUSEHOLD:
+            return False
+
         r = mocos_helper.rand()
         if initiated_through == CONSTANT and len(self._params[R_OUT_SCHEDULE]) > 0:
             t = self._global_time - self._max_time_offset
@@ -768,25 +795,32 @@ class InfectionModel:
         elif type_ == TMINUS1:
             # check if this action is still valid first
             initiated_inf_status = self._infection_status[initiated_by]
-            current_status = self.get_infection_status(person_id)
-            if current_status == InfectionStatus.Healthy:
-                if initiated_inf_status in active_states:
-                    new_infection = False
-                    # TODO below is a spaghetti code that shoud be sorted out! SORRY!
-                    if initiated_through != HOUSEHOLD:
-                        if self.quick_return_condition(initiated_through):
-                            return True
-                        if initiated_inf_status != InfectionStatus.StayHome:
+            if initiated_inf_status in active_states:
+                if self.quick_return_condition(initiated_through):
+                    return True
+
+                if person_id is None:
+                    person_id = initiated_by
+                    while person_id == initiated_by:
+                        person_id = self._individuals_indices[mocos_helper.randint(0, len(self._individuals_indices))]
+
+                current_status = self.get_infection_status(person_id)
+                if current_status == InfectionStatus.Healthy:
+                    if initiated_inf_status in active_states:
+                        new_infection = False
+                        # TODO below is a spaghetti code that should be sorted out! SORRY!
+                        if initiated_through != HOUSEHOLD:
+                            if initiated_inf_status != InfectionStatus.StayHome:
+                                new_infection = True
+                            if self.get_quarantine_status_(initiated_by) == QuarantineStatus.Quarantine:
+                                new_infection = False
+                            if self.get_quarantine_status_(person_id) == QuarantineStatus.Quarantine:
+                                new_infection = False
+                        else:  # HOUSEHOLD kernel:
                             new_infection = True
-                        if self.get_quarantine_status_(initiated_by) == QuarantineStatus.Quarantine:
-                            new_infection = False
-                        if self.get_quarantine_status_(person_id) == QuarantineStatus.Quarantine:
-                            new_infection = False
-                    else:  # HOUSEHOLD kernel:
-                        new_infection = True
-                    if new_infection:
-                        self.add_new_infection(person_id, InfectionStatus.Contraction.value,
-                                               initiated_by, initiated_through)
+                        if new_infection:
+                            self.add_new_infection(person_id, InfectionStatus.Contraction.value,
+                                                   initiated_by, initiated_through)
         elif type_ == T0:
             if self.get_infection_status(person_id) == InfectionStatus.Contraction:
                 self.handle_t0(person_id)
@@ -897,15 +931,18 @@ class InfectionModel:
 
         seeds = None
         if isinstance(self._params[RANDOM_SEED], str):
-            seeds = eval(self._params[RANDOM_SEED])
+            seeds = eval(self._params[RANDOM_SEED]) # TODO: warning, this is unsafe! not use in production
         elif isinstance(self._params[RANDOM_SEED], int):
             seeds = [self._params[RANDOM_SEED]]
         runs = 0
         output_log = 'Last_processed_time;Total_#Affected;Total_#Detected;Total_#Deceased;Total_#Quarantined;'\
-                     'c;c_norm;Init_#people;Prevalence_30days;Prevalence_60days;Prevalence_90days;'\
-                     'Prevalence_120days;Prevalence_150days;Prevalence_180days;Band_hit_time;Subcritical;'\
-                     'Prevalence_360days;runs;fear;detection_rate;increase_10;increase_20;increase_30;increase_40;'\
-                     'increase_50;increase_100;increase_150;incidents_per_last_day;over_icu;hospitalized;zero_time_offset\n'
+                     'c;c_norm;Init_#people;Band_hit_time;Subcritical;runs;fear;detection_rate;'\
+                     'incidents_per_last_day;over_icu;hospitalized;zero_time_offset'
+        if self._params[ENABLE_ADDITIONAL_LOGS]:
+            output_log += ';Prevalence_30days;Prevalence_60days;Prevalence_90days;Prevalence_120days;'\
+                          'Prevalence_150days;Prevalence_180days;Prevalence_360days;'\
+                          'increase_10;increase_20;increase_30;increase_40;increase_50;increase_100;increase_150'
+        output_log += '\n'
         for i, seed in enumerate(seeds):
             runs += 1
             self.parse_random_seed(seed)
@@ -919,40 +956,46 @@ class InfectionModel:
             last_processed_time = self._global_time
 
             c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
-            c_norm = c*self._params[AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL]
-            subcritical = self._active_people < self._init_for_stats/2 # at 200 days
+            c_norm = c * self._params[AVERAGE_INFECTIVITY_TIME_CONSTANT_KERNEL]
+            subcritical = self._active_people < self._init_for_stats / 2 # at 200 days
 
             bandtime = self.band_time
             #if bandtime:
             #    return 0
-            prev30 = self.prevalance_at(30)
-            prev60 = self.prevalance_at(60)
-            prev90 = self.prevalance_at(90)
-            prev120 = self.prevalance_at(120)
-            prev150 = self.prevalance_at(150)
-            prev180 = self.prevalance_at(180)
-            prev360 = self.prevalance_at(360)
             fear_ = self.fear(CONSTANT)
             detection_rate = self._params[DETECTION_MILD_PROBA]
             affected = self.affected_people
             detected = self.detected_people
             deceased = self.deaths
             quarantined = self.quarantined_people
-            mean_increase_at_10 = self.mean_day_increase_until(10)
-            mean_increase_at_20 = self.mean_day_increase_until(20)
-            mean_increase_at_30 = self.mean_day_increase_until(30)
-            mean_increase_at_40 = self.mean_day_increase_until(40)
-            mean_increase_at_50 = self.mean_day_increase_until(50)
-            mean_increase_at_100 = self.mean_day_increase_until(100)
-            mean_increase_at_150 = self.mean_day_increase_until(150)
             incidents_per_last_day = self.prevalance_at(self._global_time) - self.prevalance_at(self._global_time - 1)
             hospitalized = self._icu_needed
             zero_time_offset = self._max_time_offset
-            output_add = f'{last_processed_time };{affected};{detected};{deceased};{quarantined};'\
-                         f'{c};{c_norm};{self._init_for_stats};{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};'\
-                         f'{bandtime};{subcritical};{prev360};{runs};{fear_};{detection_rate};'\
-                         f'{mean_increase_at_10};{mean_increase_at_20};{mean_increase_at_30};{mean_increase_at_40};'\
-                         f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150};{incidents_per_last_day};{outbreak};{hospitalized};{zero_time_offset}\n'
+
+            output_add = f'{last_processed_time };{affected};{detected};{deceased};{quarantined};{c};{c_norm};'\
+                         f'{self._init_for_stats};{bandtime};{subcritical};{runs};{fear_};{detection_rate};'\
+                         f'{incidents_per_last_day};{outbreak};{hospitalized};{zero_time_offset}'
+
+            if self._params[ENABLE_ADDITIONAL_LOGS]:
+                prev30 = self.prevalance_at(30)
+                prev60 = self.prevalance_at(60)
+                prev90 = self.prevalance_at(90)
+                prev120 = self.prevalance_at(120)
+                prev150 = self.prevalance_at(150)
+                prev180 = self.prevalance_at(180)
+                prev360 = self.prevalance_at(360)
+                mean_increase_at_10 = self.mean_day_increase_until(10)
+                mean_increase_at_20 = self.mean_day_increase_until(20)
+                mean_increase_at_30 = self.mean_day_increase_until(30)
+                mean_increase_at_40 = self.mean_day_increase_until(40)
+                mean_increase_at_50 = self.mean_day_increase_until(50)
+                mean_increase_at_100 = self.mean_day_increase_until(100)
+                mean_increase_at_150 = self.mean_day_increase_until(150)
+                output_add += f'{prev30};{prev60};{prev90};{prev120};{prev150};{prev180};{prev360};'\
+                              f'{mean_increase_at_10};{mean_increase_at_20};{mean_increase_at_30};'\
+                              f'{mean_increase_at_40};{mean_increase_at_50};{mean_increase_at_100};'\
+                              f'{mean_increase_at_150}'
+            output_add += '\n'
             logger.info(output_add)
             output_log = f'{output_log}{output_add}'
         logger.info(output_log)
@@ -988,7 +1031,9 @@ class InfectionModel:
 
         self._global_time = self._params[START_TIME]
         self._max_time = self._params[MAX_TIME]
-        self._expected_case_severity = self.draw_expected_case_severity()
+
+        if not self._params[REUSE_EXPECTED_CASE_SEVERITIES]:
+            self._expected_case_severity = self.draw_expected_case_severity()
 
         self._last_affected = None
         self.band_time = None

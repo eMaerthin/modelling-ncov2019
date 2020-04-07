@@ -4,25 +4,27 @@ mutable struct IndividualState #TODO change to immutable
   health::HealthState
   freedom::FreedomState
   quarantine_level::Int8 # allow for negative values to detect corruption
-  detected::Bool
+  detected::DetectionStatus
   
   IndividualState() = new(
     Healthy,
     Free,
     0,
-    false)
+    Undetected)
 end
 
 mutable struct SimState
   rng::MersenneTwister
 
   time::Float64
-  queue::BinaryHeap{EventUnion, Earlier} # TODO change to union once all events are implemented
+  queue::BinaryHeap{Event, Earlier} # TODO change to union once all events are implemented
   
   individuals::Vector{IndividualState}  
-      
-  infections::SortedMultiDict{UInt32,TransmissionUnion} # TODO change to union 
-  infection_sources::Vector{UInt32}
+  
+  infections::Vector{Vector{Event}}    
+  #infections::SortedMultiDict{UInt32,Event}
+  
+  infection_sources::Vector{Tuple{UInt32, ContactKind}}
     
   num_dead::Int
   num_affected::Int
@@ -33,13 +35,15 @@ mutable struct SimState
       MersenneTwister(seed),
       
       0.0,
-      BinaryHeap{EventUnion, Earlier}(),
+      BinaryHeap{Event, Earlier}(),
       
       [IndividualState() for i in  1:num_individuals],
       
-      SortedMultiDict{UInt32,TransmissionUnion}(),
-      fill(0x00, num_individuals),
-    
+      [Vector{Event}() for i in 1:num_individuals],
+#      SortedMultiDict{UInt32, Event}(),
+
+      fill((0x00, UnknownContact), num_individuals),
+      
       0,
       0,
       0
@@ -52,32 +56,65 @@ freedom(state::SimState, person_id::Integer)::FreedomState = state.individuals[p
 
 quarantine_advance!(state::SimState, person_id::Integer, val::Integer) = (state.individuals[person_id].quarantine_level += val)
 quarantine_cancel!(state::SimState, person_id::Integer) = (state.individuals[person_id].quarantine_level = 0)
-quarantine_level(state::SimState, person_id::Integer)::Integer = state.individuals[person_id].quarantine_level < 0 ? error("quarantine corrupted") : state.individuals[person_id].quarantine_level
-isquarantined(state::SimState, person_id)::Bool = quarantine_level(state, person_id) != 0
-isdetected(state::SimState, person_id)::Bool = state.individuals[person_id].detected
+quarantine_level(state::SimState, person_id::Integer)::Integer = state.individuals[person_id].quarantine_level
+isquarantined(state::SimState, person_id::Integer)::Bool = quarantine_level(state, person_id) != 0
+detected(state::SimState, person_id::Integer)::DetectionStatus = state.individuals[person_id].detected 
+isdetected(state::SimState, person_id::Integer)::Bool = detected(state, person_id) == Detected
 
-subjecthealth(state::SimState, event::AbstractEvent)::HealthState = health(state, subject(event))
-subjectfreedom(state::SimState, event::AbstractEvent)::FreedomState = freedom(state, subject(event))
+subjecthealth(state::SimState, event::Event)::HealthState = health(state, subject(event))
+subjectfreedom(state::SimState, event::Event)::FreedomState = freedom(state, subject(event))
 
-sourcehealth(state::SimState, event::TransmissionEvent)::HealthState = health(state, source(event))
-sourcefreedom(state::SimState, event::TransmissionEvent)::FreedomState = freedom(state, subject(event))
+sourcehealth(state::SimState, event::Event)::HealthState = health(state, source(event))
+sourcefreedom(state::SimState, event::Event)::FreedomState = freedom(state, subject(event))
 
 sethealth!(state::SimState, subject_id::Integer, health::HealthState) = (state.individuals[subject_id].health = health)
 setfreedom!(state::SimState, subject_id::Integer, freedom::FreedomState) = (state.individuals[subject_id].freedom = freedom)
-setdetected!(state::SimState, subject_id::Integer, detected::Bool=true) = (state.individuals[subject_id].detected = detected)
+setdetected!(state::SimState, subject_id::Integer, detected::DetectionStatus) = (state.individuals[subject_id].detected = detected)
 
-setsubjecthealth!(state::SimState, event::AbstractEvent, health::HealthState) = sethealth!(state, subject(event), health)
-setsubjectfreedom!(state::SimState, event::AbstractEvent, freedom::FreedomState) = setfreedom!(state, subject(event), freedom)
+setsubjecthealth!(state::SimState, event::Event, health::HealthState) = sethealth!(state, subject(event), health)
+setsubjectfreedom!(state::SimState, event::Event, freedom::FreedomState) = setfreedom!(state, subject(event), freedom)
 
-forwardinfections(state::SimState, person_id::Integer) = inclusive(state.infections, searchequalrange(state.infections, person_id)...)
-backwardinfection(state::SimState, person_id::Integer)::Integer = state.infection_sources[person_id]
+#forwardinfections(state::SimState, person_id::Integer) = inclusive(state.infections, searchequalrange(state.infections, person_id)...) |> values
+forwardinfections(state::SimState, person_id::Integer)::Vector{Event} = state.infections[person_id]
+backwardinfection(state::SimState, person_id::Integer)::Tuple{UInt32,ContactKind} = state.infection_sources[person_id]
 
 
-function registerinfection!(state::SimState, infection::AbstractInfectionEvent) 
-  source_id = ismissing(source(infection)) ? 0 : source(infection) 
+function registerinfection!(state::SimState, infection::Event)
+  source_id = source(infection)
+
+  if 0 == source_id
+    @assert OutsideContact == contactkind(infection)
+    return nothing
+  end
+
   subject_id = subject(infection)
   
-  state.infection_sources[subject_id] = source_id
-  push!(state.infections, source_id => infection)
+  @assert state.infection_sources[subject_id][2] == UnknownContact "The infection source should be assigned only once: $(state.infection_sources[subject_id])"
+  @inbounds state.infection_sources[subject_id] = (source_id, contactkind(infection))
+  
+  push!(state.infections[source_id], infection)
+  
   nothing
 end
+
+#function registerinfection!(state::SimState, infection::Event)
+#  println("ismissing") 
+#  source_id = source(infection) 
+  
+#  if 0 == source_id
+#    @assert OutsideContact == contactkind(infection)
+#  end
+    
+  
+#  println("subject")
+#  subject_id = subject(infection)
+  
+#  println("source")
+#  if 0 != source_id
+#      state.infection_sources[subject_id] = (source_id, contactkind(infection))
+#  end
+  
+#  println("push")
+#  push!(state.infections, source_id => infection)
+#  nothing
+#end

@@ -9,20 +9,18 @@ using Distributions
 using GZip
 using JSON
 using LinearAlgebra
-using Logging
 using NPZ
 using ProgressMeter
-using PyPlot
-using PyCall
 using Random
 
+import Base.isless
 import DataStructures.compare
 
 include("enums.jl")
-include("events.jl")
+include("event.jl")
 
 struct Earlier end
-compare(c::Earlier, x::AbstractEvent, y::AbstractEvent) = time(x) < time(y)
+compare(c::Earlier, x::Event, y::Event) = time(x) < time(y)
 
 include("simstate.jl")
 include("simparams.jl")
@@ -80,7 +78,7 @@ function simulate!(state::SimState, params::SimParams)
   iter_no = 0
   while true
     if isempty(state.queue)
-      @info "Empty queue after $iter_no events "
+      println("Empty queue after $iter_no events ")
       break
     end
       

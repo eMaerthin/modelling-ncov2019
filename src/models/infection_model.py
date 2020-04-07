@@ -428,7 +428,7 @@ class InfectionModel:
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
 
     def add_potential_contractions_from_constant_kernel(self, person_id):
-        """ Constant kernel draws a number of infections based on base gamma and enqueue anonymous events """
+        """ Constant kernel draws a number of infections based on base gamma and enqueue randomly selected events """
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
         end = prog_times[T1]
@@ -439,9 +439,13 @@ class InfectionModel:
         if infected == 0:
             return
 
-        for i in range(infected):
-            contraction_time = mocos_helper.uniform(low=start, high=end)
-            self.append_event(Event(contraction_time, None, TMINUS1, person_id, CONSTANT, self.global_time))
+        selected_rows = mocos_helper.nonreplace_sample_few(self._individuals_indices,
+                                                           infected, person_id)
+
+        for person_idx in selected_rows:
+            if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
+                contraction_time = mocos_helper.uniform(low=start, high=end)
+                self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
 
     def add_potential_contractions_from_friendship_kernel(self, person_id):
         prog_times = self._progression_times_dict[person_id]
@@ -799,28 +803,22 @@ class InfectionModel:
                 if self.quick_return_condition(initiated_through):
                     return True
 
-                if person_id is None:
-                    person_id = initiated_by
-                    while person_id == initiated_by:
-                        person_id = self._individuals_indices[mocos_helper.randint(0, len(self._individuals_indices))]
-
                 current_status = self.get_infection_status(person_id)
                 if current_status == InfectionStatus.Healthy:
-                    if initiated_inf_status in active_states:
-                        new_infection = False
-                        # TODO below is a spaghetti code that should be sorted out! SORRY!
-                        if initiated_through != HOUSEHOLD:
-                            if initiated_inf_status != InfectionStatus.StayHome:
-                                new_infection = True
-                            if self.get_quarantine_status_(initiated_by) == QuarantineStatus.Quarantine:
-                                new_infection = False
-                            if self.get_quarantine_status_(person_id) == QuarantineStatus.Quarantine:
-                                new_infection = False
-                        else:  # HOUSEHOLD kernel:
+                    new_infection = False
+                    # TODO below is a spaghetti code that should be sorted out! SORRY!
+                    if initiated_through != HOUSEHOLD:
+                        if initiated_inf_status != InfectionStatus.StayHome:
                             new_infection = True
-                        if new_infection:
-                            self.add_new_infection(person_id, InfectionStatus.Contraction.value,
-                                                   initiated_by, initiated_through)
+                        if self.get_quarantine_status_(initiated_by) == QuarantineStatus.Quarantine:
+                            new_infection = False
+                        if self.get_quarantine_status_(person_id) == QuarantineStatus.Quarantine:
+                            new_infection = False
+                    else:  # HOUSEHOLD kernel:
+                        new_infection = True
+                    if new_infection:
+                        self.add_new_infection(person_id, InfectionStatus.Contraction.value,
+                                               initiated_by, initiated_through)
         elif type_ == T0:
             if self.get_infection_status(person_id) == InfectionStatus.Contraction:
                 self.handle_t0(person_id)

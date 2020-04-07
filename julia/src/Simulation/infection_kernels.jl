@@ -26,7 +26,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
         
     if Healthy == health(state, subject_id) 
       infection_time = rand(state.rng, time_dist)
-      push!(state.queue, TransmissionEvent(infection_time, subject_id, source_id, ConstantKernelContact))
+      push!(state.queue, Event(Val(TransmissionEvent), infection_time, subject_id, source_id, ConstantKernelContact))
     end
   end
 end
@@ -59,7 +59,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
     end
     
     if Healthy == health(state, subject_id)
-      push!(state.queue, TransmissionEvent(
+      push!(state.queue, Event(Val(TransmissionEvent),
         rand(state.rng, time_dist),
         subject_id,
         source_id,

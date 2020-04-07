@@ -4,6 +4,6 @@
 
 @enum FreedomState::UInt8 Free HomeQuarantine HomeTreatment Hospitalized Released
 
-@enum ContactKind::UInt8 HouseholdContact FriendshipContact SporadicContact ConstantKernelContact OutsideContact
+@enum ContactKind::UInt8 UnknownContact HouseholdContact FriendshipContact SporadicContact ConstantKernelContact OutsideContact
 
 @enum DetectionStatus::UInt8 Undetected TestPending Detected

@@ -1,4 +1,4 @@
-import Base.isless
+
 
 abstract type AbstractEvent end
 
@@ -114,6 +114,9 @@ EventUnion = Union{
 }
 
 time(event::AbstractEvent)::Float32 = event.time 
+
+
+
 
 subject(event::AbstractEvent)::UInt32 = event.subject_id
 

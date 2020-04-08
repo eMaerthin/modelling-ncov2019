@@ -52,7 +52,7 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
   
   source_health = sourcehealth(state, event)
   @assert source_health != Healthy && source_health != Recovered && source_health != Incubating
-  @assert source_health != SevereSymptoms && source_health != CriticalSymptoms && source_health != Dead && source_health != Recovered "sampled time exceeds infectability time frame, subject is now in state $source_health, the event is $event"
+  @assert source_health != SevereSymptoms && source_health != CriticalSymptoms && source_health != Dead && source_health != Recovered "infection time exceeds infectability time frame, subject is now in state $source_health, the event is $event source progressions are $(progressionof(params, source(event)))"
     
   # the transmission events are queued in advace, therefore it might be the case that it can not be realized
   # for the transmission to happen both source and subject must be free or both must be staying at home in case
@@ -186,7 +186,7 @@ function execute!(::Val{HomeTreatmentEvent}, state::SimState, params::SimParams,
   @assert Hospitalized != freedom && HomeTreatment != freedom
   
   if Free == freedom
-   setsubjectfreedom!(state, event, HomeTreatment)
+    setsubjectfreedom!(state, event, HomeTreatment)
   else
     @assert HomeQuarantine == freedom
     setsubjectfreedom!(state, event, HomeTreatment)
@@ -196,7 +196,7 @@ end
 
 function execute!(::Val{HomeTreatmentSuccessEvent}, state::SimState, params::SimParams, event::Event)::Bool
   @assert Recovered == subjecthealth(state, event)
-  @assert HomeTreatment == subjectfreedom(state, event)
+  @assert HomeTreatment == subjectfreedom(state, event) "subject $(subject(event)) was not in HomeTreatment but in $(subjectfreedom(state, event))"
   if isquarantined(state, subject(event))
     setfreedom!(state, subject(event), HomeQuarantine)
   else
@@ -363,7 +363,7 @@ function backtrack!(state::SimState, params::SimParams, person_id::Integer; trac
     return
   end
      
-  if rand(state.rng) >= params.forward_tracking_prob 
+  if rand(state.rng) >= params.backward_tracking_prob 
     return
   end
      

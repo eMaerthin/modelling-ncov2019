@@ -47,6 +47,7 @@ struct SimParams
   progressions::Vector{Progression}
     
   constant_kernel_param::Float64
+  household_kernel_param::Float64
 
   backward_tracking_prob::Float32
   backward_detection_delay::Float32

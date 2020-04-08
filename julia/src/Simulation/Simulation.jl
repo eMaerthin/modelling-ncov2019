@@ -38,7 +38,19 @@ function load_params(rng=MersenneTwister(0);
         population_path::AbstractString,
         incubation_time_samples_path::AbstractString,
         t0_to_t1_samples_path::AbstractString,
-        t0_to_t2_samples_path::AbstractString)
+        t0_to_t2_samples_path::AbstractString,
+        constant_kernel_param::Float64=1.0,
+        household_kernel_param::Float64=1.0,
+        
+        backward_tracking_prob::Float64=1.0,
+        backward_detection_delay::Float64=1.0,
+        
+        forward_tracking_prob::Float64=1.0,
+        forward_detection_delay::Float64=1.0,
+        
+        quarantine_length::Float64=14.0,
+        testing_time::Float64=1.0
+        )
   
   individuals_df = load_individuals(population_path)
   num_individuals = individuals_df |> nrow
@@ -60,16 +72,17 @@ function load_params(rng=MersenneTwister(0);
   params = SimParams(
     household_ptrs,
     progression,        
-    1.0,   
+    constant_kernel_param,   
+    household_kernel_param,
     
-    1.0,
-    2.0,
+    backward_tracking_prob,
+    backward_detection_delay,
     
-    1.0,
-    2.0,
+    forward_tracking_prob,
+    forward_detection_delay,
     
-    14.0, # quarantine length
-    2.0 # testing time
+    quarantine_length, # quarantine length
+    testing_time # testing time
   )
   params
 end
@@ -91,7 +104,7 @@ function simulate!(state::SimState, params::SimParams)
         #    @info "Max time reached"
         #    break
         #end
-    @assert state.time <= time(event)  
+    @assert state.time <= time(event)  "time for event $event was smaller than current time $(state.time)"
     state.time = time(event)
       
     execute!(state, params, event)

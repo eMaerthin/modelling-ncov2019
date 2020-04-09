@@ -17,7 +17,7 @@ end
 mutable struct SimState
   rng::MersenneTwister
 
-  time::Float64
+  time::TimePoint
   
   #immediates::CircularDeque{Event} # immediate events
   #event_queue::BinaryHeap{Event, Earlier} # TODO change to union once all events are implemented

@@ -13,7 +13,12 @@ using NPZ
 using ProgressMeter
 using Random
 
-import Base.isless
+using FixedPointNumbers
+
+TimePoint = Fixed{Int32, 16}
+TimeDiff = Fixed{Int32, 16}
+
+
 
 include("enums.jl")
 include("event.jl")

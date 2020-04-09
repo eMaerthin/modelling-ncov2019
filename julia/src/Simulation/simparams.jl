@@ -1,6 +1,7 @@
 using Random
 using Distributions
 
+
 struct Progression
     severity::Severity
     # times given with respect to the infection time

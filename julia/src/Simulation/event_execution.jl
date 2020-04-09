@@ -100,13 +100,13 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
   
   infected_time = time(event) - progression.incubation_time 
   if Asymptomatic == severity
-    @assert !isnan(progression.recovery_time)
+    @assert !ismissing(progression.recovery_time)
     push!(state.quque, Event(Val(RecoveredEvent), infected_time + progression.recovery_time), subject_id)   
   elseif Mild == severity
-    @assert !isnan(progression.mild_symptoms_time)
+    @assert !ismissing(progression.mild_symptoms_time)
     push!(state.queue, Event(Val(MildSymptomsEvent), infected_time + progression.mild_symptoms_time, subject_id))
   elseif Severe == severity || Critical == severity # treat all critical as if they were Severe cases
-    if !isnan(progression.mild_symptoms_time)
+    if !ismissing(progression.mild_symptoms_time)
       push!(state.queue, Event(Val(MildSymptomsEvent), infected_time + progression.mild_symptoms_time, subject_id))
     else
       push!(state.queue, Event(Val(SevereSymptomsEvent), infected_time + progression.severe_symptoms_time, subject_id))
@@ -134,12 +134,12 @@ function execute!(::Val{MildSymptomsEvent}, state::SimState, params::SimParams, 
   subject_id = subject(event)
   
   progression = progressionof(params, subject_id)
-  @assert !isnan(progression.mild_symptoms_time)
+  @assert !ismissing(progression.mild_symptoms_time)
   
   infection_time = time(event) - progression.mild_symptoms_time
 
   if Severe == progression.severity || Critical == progression.severity
-    @assert !isnan(progression.severe_symptoms_time)
+    @assert !ismissing(progression.severe_symptoms_time)
     @assert infection_time + progression.severe_symptoms_time > time(event)
     push!(state.queue, Event(Val(SevereSymptomsEvent), infection_time + progression.severe_symptoms_time, subject_id))
   else

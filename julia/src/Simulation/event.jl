@@ -19,7 +19,7 @@
 end
 
 struct Event
-  time::Float32
+  time::TimePoint
   subject_id::UInt32
   source_id::UInt32
   event_kind::EventKind

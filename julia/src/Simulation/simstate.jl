@@ -13,11 +13,15 @@ mutable struct IndividualState #TODO change to immutable
     Undetected)
 end
 
+
 mutable struct SimState
   rng::MersenneTwister
 
   time::Float64
-  queue::BinaryHeap{Event, Earlier} # TODO change to union once all events are implemented
+  
+  #immediates::CircularDeque{Event} # immediate events
+  #event_queue::BinaryHeap{Event, Earlier} # TODO change to union once all events are implemented
+  queue::EventQueue
   
   individuals::Vector{IndividualState}  
   
@@ -25,6 +29,7 @@ mutable struct SimState
   #infections::SortedMultiDict{UInt32,Event}
   
   infection_sources::Vector{Tuple{UInt32, ContactKind}}
+  
     
   num_dead::Int
   num_affected::Int
@@ -35,14 +40,15 @@ mutable struct SimState
       MersenneTwister(seed),
       
       0.0,
-      BinaryHeap{Event, Earlier}(),
+      #BinaryHeap{Event, Earlier}(),
+      EventQueue(),
       
       [IndividualState() for i in  1:num_individuals],
       
       [Vector{Event}() for i in 1:num_individuals],
 #      SortedMultiDict{UInt32, Event}(),
 
-      fill((0x00, UnknownContact), num_individuals),
+      fill((0x00, NoContact), num_individuals),
       
       0,
       0,
@@ -89,7 +95,7 @@ function registerinfection!(state::SimState, infection::Event)
 
   subject_id = subject(infection)
   
-  @assert state.infection_sources[subject_id][2] == UnknownContact "The infection source should be assigned only once: $(state.infection_sources[subject_id])"
+  @assert state.infection_sources[subject_id][2] == NoContact "The infection source should be assigned only once: $(state.infection_sources[subject_id])"
   @inbounds state.infection_sources[subject_id] = (source_id, contactkind(infection))
   
   push!(state.infections[source_id], infection)

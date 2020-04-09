@@ -4,7 +4,7 @@ __precompile__(true)
 
 using CSV
 using DataFrames
-using DataStructures
+
 using Distributions
 using GZip
 using JSON
@@ -14,14 +14,11 @@ using ProgressMeter
 using Random
 
 import Base.isless
-import DataStructures.compare
 
 include("enums.jl")
 include("event.jl")
 
-struct Earlier end
-compare(c::Earlier, x::Event, y::Event) = time(x) < time(y)
-
+include("eventqueue.jl")
 include("simstate.jl")
 include("simparams.jl")
 

@@ -2,3 +2,4 @@
 #include "enums.h"
 #include "population.h"
 #include "age_dep_sampler.h"
+#include "case_severity_sampler.h"

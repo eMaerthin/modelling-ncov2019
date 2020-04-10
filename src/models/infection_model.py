@@ -111,6 +111,8 @@ class InfectionModel:
         self._last_affected = None
         self._per_day_increases = {}
 
+        self.setup_case_severity_sampler()
+
     @property
     def xlim(self):
         return (self._params.get(PLOT_XLIM_LEFT, default_plot_xlim_left),
@@ -340,6 +342,25 @@ class InfectionModel:
     def deaths(self):
         return self._deaths
 
+    def get_expected_case_severity_by_age_vct(self):
+        ret = std.vector("std::tuple<decltype(mocos_cpp::Person::age)", "decltype(mocos_cpp::Person::age)", "std::vector<std::pair<CaseSeverity, double> > >")()
+        for age_min, age_max, fatality_prob in sorted(default_age_induced_fatality_rates):
+            age_induced_severity_distribution = dict()
+            age_induced_severity_distribution[CaseSeverity.Critical] = fatality_prob/self._params[DEATH_PROBABILITY][CaseSeverity.Critical]
+            for x in self.case_severity_distribution:
+                if x != CaseSeverity.Critical:
+                    age_induced_severity_distribution[x] = self.case_severity_distribution[x] / (1.0 - self.case_severity_distribution[CaseSeverity.Critical]) * (1.0 - age_induced_severity_distribution[CaseSeverity.Critical])
+            V = std.vector("std::pair<CaseSeverity, double>")(std.pair("CaseSeverity", "double")(x[0], x[1]) for x in sorted(age_induced_severity_distribution.items()))
+            #print(V[0])
+            #tpl = std.tuple("decltype(mocos_cpp::Person::age)", "decltype(mocos_cpp::Person::age)", "std::vector<std::pair<CaseSeverity, double> >")((age_min, age_max, V))
+            #ret.push_back(std.tuple("decltype(mocos_cpp::Person::age)", "decltype(mocos_cpp::Person::age)", "std::vector<std::pair<CaseSeverity, double> >")(age_min, age_max, V))
+        return ret
+
+    def setup_case_severity_sampler(self):
+        self.get_expected_case_severity_by_age_vct()
+        #mocos_cpp.CaseSeveritySampler(self.get_expected_case_severity_by_age_vct())
+
+
     def draw_expected_case_severity(self):
         case_severity_dict = self.case_severity_distribution
         keys = list(case_severity_dict.keys())
@@ -349,10 +370,10 @@ class InfectionModel:
             if len(subpopulation) == 0:
                 continue
             age_induced_severity_distribution = dict()
-            age_induced_severity_distribution[CRITICAL] = fatality_prob/self._params[DEATH_PROBABILITY][CRITICAL]
+            age_induced_severity_distribution[CaseSeverity.Critical] = fatality_prob/self._params[DEATH_PROBABILITY][CaseSeverity.Critical]
             for x in case_severity_dict:
-                if x != CRITICAL:
-                    age_induced_severity_distribution[x] = case_severity_dict[x] / (1 - case_severity_dict[CRITICAL]) * (1 - age_induced_severity_distribution[CRITICAL])
+                if x != CaseSeverity.Critical:
+                    age_induced_severity_distribution[x] = case_severity_dict[x] / (1 - case_severity_dict[CaseSeverity.Critical]) * (1 - age_induced_severity_distribution[CaseSeverity.Critical])
             #distribution_hist = np.array([age_induced_severity_distribution[x] for x in case_severity_dict])
             #dis = scipy.stats.rv_discrete(values=(
             #    np.arange(len(age_induced_severity_distribution)),

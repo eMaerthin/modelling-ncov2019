@@ -36,6 +36,7 @@ class Person
     // Parameters of person which WILL change during simulation are private and accessible only through getters/setters
     DetectionStatus detection_status;
     QuarantineStatus quarantine_status;
+    CaseSeverity expected_case_severity;
  public:
     // Getters and setters for the above parameters
     DetectionStatus getDetectionStatus() const { return detection_status; };
@@ -98,8 +99,9 @@ employment_status(_employment_status),
 social_competence(_social_competence),
 public_transport_usage(_public_transport_usage),
 public_transport_duration(_public_transport_duration),
-detection_status(NotDetected),
-quarantine_status(NoQuarantine)
+detection_status(DetectionStatus::NotDetected),
+quarantine_status(QuarantineStatus::NoQuarantine),
+expected_case_severity(UNCALCULATED)
 {
     assert(id < 10000000000);
     assert(age < 150);

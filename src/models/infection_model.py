@@ -167,15 +167,18 @@ class InfectionModel:
         self._df_individuals = pd.read_csv(self.df_individuals_path)
         self._df_individuals.index = self._df_individuals.idx
         self._individuals_age = self._df_individuals[AGE].values
+        self._individuals_age_dct = self._df_individuals[AGE].to_dict()
+        self._individuals_gender_dct = self._df_individuals[GENDER].to_dict()
         self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
         self._individuals_indices = self._df_individuals.index.values
         self._social_activity_scores = self._df_individuals.social_competence.to_dict()
 
-        # Note: people are indexed by their id in csv file, and these don't go 0..n-1, there might be gaps.
-        # Therefore we compute the max id as max(self._social_activity_scores) (the _social_activity_scores is keyed by them)
-        # and assign 0 probability to the missing keys.
-        probs = (self._social_activity_scores.get(person_idx, 0.0) for person_idx in range(max(self._social_activity_scores)))
-        self._social_activity_sampler = mocos_helper.AliasSampler(probs)
+        self._social_activity_sampler = mocos_helper.AgeDependentFriendSampler(
+            self._individuals_indices,
+            self._individuals_age,
+            self._df_individuals[GENDER].values,
+            self._df_individuals.social_competence.values
+            )
 
         logger.info('Set up data frames: Building households df...')
 
@@ -494,11 +497,15 @@ class InfectionModel:
             end = prog_times[T2]
         total_infection_rate = (end - start) * self.gamma('friendship')
         no_infected = mocos_helper.poisson(total_infection_rate * self._social_activity_scores[person_id])
+        # Add a constant multiplicand above?
+
+        age = self._individuals_age_dct[person_id]
+        gender = self._individuals_gender_dct[person_id]
         for _ in range(no_infected):
-            infected_idx = self._social_activity_sampler.gen()
+            infected_idx = self._social_activity_sampler.gen(age, gender)
             if self.get_infection_status(infected_idx) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
-                self.append_event(Event(contraction_time, infected_idx, TMINUS1, person_id, CONSTANT, self.global_time))
+                self.append_event(Event(contraction_time, infected_idx, TMINUS1, person_id, FRIENDSHIP, self.global_time))
 
 
     def handle_t0(self, person_id):

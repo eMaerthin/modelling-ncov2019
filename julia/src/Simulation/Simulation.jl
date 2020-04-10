@@ -12,6 +12,7 @@ using LinearAlgebra
 using NPZ
 using ProgressMeter
 using Random
+using StaticArrays
 
 using FixedPointNumbers
 

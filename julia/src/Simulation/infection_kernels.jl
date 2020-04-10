@@ -5,7 +5,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
   start_time = progression.incubation_time
   end_time = ismissing(progression.mild_symptoms_time) ? progression.severe_symptoms_time : progression.mild_symptoms_time
           
-  time_dist = Uniform(TimeDiff(0), end_time-start_time) # in global time reference frame
+  time_dist = Uniform(state.time, end_time - start_time + state.time) # in global time reference frame
     
   total_infection_rate = (end_time - start_time) * params.constant_kernel_param
 
@@ -15,6 +15,8 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
   if num_infections == 0
     return
   end
+  @assert start_time != end_time "pathologicaly short time for infections"
+  
     
   num_individuals = size(params.progressions, 1)
     
@@ -25,7 +27,8 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
     end
         
     if Healthy == health(state, subject_id) 
-      infection_time = rand(state.rng, time_dist) + state.time
+      infection_time::TimePoint = rand(state.rng, time_dist) |> TimePoint
+      @assert state.time <= infection_time <= (end_time-start_time + state.time)
       push!(state.queue, Event(Val(TransmissionEvent), infection_time, subject_id, source_id, ConstantKernelContact))
     end
   end
@@ -36,8 +39,9 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
     
   start_time = progression.incubation_time
   end_time = ismissing(progression.severe_symptoms_time) ? progression.recovery_time : progression.severe_symptoms_time
-      
-  time_dist = Uniform(TimeDiff(0), end_time-start_time) # in global time reference frame
+  
+   
+  time_dist = Uniform(state.time, end_time - start_time + state.time) # in global time reference frame
     
   total_infection_rate = (end_time - start_time) * params.constant_kernel_param
   household_head_ptr, household_tail_ptr = params.household_ptrs[source_id]
@@ -52,6 +56,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
     return
   end
     
+  @assert start_time != end_time "pathologicaly short time for infections"  
   for _ in 1:num_infections
     subject_id = sample(state.rng, UnitRange(household_head_ptr, household_tail_ptr-UInt32(1))) # exclude the source itself
     if subject_id >= source_id
@@ -59,8 +64,10 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
     end
     
     if Healthy == health(state, subject_id)
+      infection_time::TimePoint = rand(state.rng, time_dist) |> TimePoint
+      @assert state.time <= infection_time <= (end_time - start_time + state.time)
       push!(state.queue, Event(Val(TransmissionEvent),
-        rand(state.rng, time_dist) + state.time,
+        infection_time,
         subject_id,
         source_id,
         HouseholdContact)

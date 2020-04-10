@@ -40,7 +40,7 @@ function execute!(::Val{OutsideInfectionEvent}, state::SimState, params::SimPara
     
   registerinfection!(state, event) 
   incubation_time = progressionof(params, subject(event)).incubation_time 
-  
+  @assert !ismissing(incubation_time)
   event = Event(Val(BecomeInfectiousEvent), time(event) + incubation_time, subject(event))
   push!(state.queue, event)
   return true
@@ -52,8 +52,7 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
   end
   
   source_health = sourcehealth(state, event)
-  @assert source_health ∉ SA[Healthy, Recovered, Incubating]
-  @assert source_health ∉ SA[SevereSymptoms, CriticalSymptoms, Dead, Recovered] "infection time exceeds infectability time frame, subject is now in state $source_health, the event is $event source progressions are $(progressionof(params, source(event)))"
+  @assert source_health ∉ SA[Healthy, Incubating, SevereSymptoms, CriticalSymptoms, Dead, Recovered] "infection time exceeds infectability time frame, source is now in state $source_health, the event is $event source progressions are $(progressionof(params, source(event)))"
     
   # the transmission events are queued in advace, therefore it might be the case that it can not be realized
   # for the transmission to happen both source and subject must be free or both must be staying at home in case
@@ -63,19 +62,22 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
   source_freedom = sourcefreedom(state, event)  
 
   @assert subject_freedom ∉ SA[HomeTreatment, Hospitalized] "a healthy subject should not be in HomeTreatment or Hospital"
-  @assert source_freedom ∉ SA[Hospitalized,Released]
+  @assert source_freedom ∉ SA[Hospitalized, Released]
 
   # household contact conditions  
   # if it is an infection inside household and either source or subject are closed in home the event can not happen
-  if (contactkind(event) != HouseholdContact) && ( (HomeTreatment == source_freedom) || (HomeQuarantine == source_freedom) || (HomeQuarantine == subject_freedom) )
+  if (contactkind(event) != HouseholdContact) && ((HomeTreatment == source_freedom) || (HomeQuarantine == source_freedom) || (HomeQuarantine == subject_freedom))
     return false
   end
   
+  @assert (contactkind(event) == HouseholdContact) || (!isquarantined(state, source(event)) && !isquarantined(state, subject(event))) "the event $event should not be executed because subject state is $(state.individuals[subject(event)]) and source state is $(state.individuals[source(event)])"
+    
   setsubjecthealth!(state, event, Incubating)
       
   registerinfection!(state, event)
   
   incubation_time = progressionof(params, subject(event)).incubation_time
+  @assert !ismissing(incubation_time)
   push!(state.queue, 
     Event(Val(BecomeInfectiousEvent), time(event) + incubation_time, subject(event))
   )
@@ -95,13 +97,12 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
 
   progression = params.progressions[subject_id]
  
-    
   severity = progression.severity
   
   infected_time = time(event) - progression.incubation_time 
   if Asymptomatic == severity
     @assert !ismissing(progression.recovery_time)
-    push!(state.quque, Event(Val(RecoveredEvent), infected_time + progression.recovery_time), subject_id)   
+    push!(state.queue, Event(Val(RecoveredEvent), infected_time + progression.recovery_time), subject_id)   
   elseif Mild == severity
     @assert !ismissing(progression.mild_symptoms_time)
     push!(state.queue, Event(Val(MildSymptomsEvent), infected_time + progression.mild_symptoms_time, subject_id))
@@ -281,7 +282,7 @@ function execute!(::Val{BackTrackedEvent}, state::SimState, params::SimParams, e
     setdetected!(state, member, TestPending)
     
     member_health = health(state, member)
-    @assert SevereSymptoms != member_health && CriticalSymptoms != member_health && Dead != member_health "patient should have already been infected at the hospital"
+    @assert member_health ∉ SA[SevereSymptoms, CriticalSymptoms, Dead] "patient should have already been infected at the hospital"
     
     if Infectious == member_health || MildSymptoms == member_health
       push!(state.queue, Event(Val(DetectedFromQuarantineEvent), time(event) + params.testing_time, member))

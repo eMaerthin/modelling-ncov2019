@@ -1,19 +1,27 @@
-@enum EventKind::UInt8 begin
+@enum EventKind::UInt8 begin 
+# the underlying values are also priorites in case the time is the same
+# therefore the order of definition implies priority
+  BecomeInfectiousEvent 
+  
   OutsideInfectionEvent 
   TransmissionEvent 
-  BecomeInfectiousEvent 
+  
   MildSymptomsEvent 
   SevereSymptomsEvent 
   CriticalSymptomsEvent 
   DeathEvent
   RecoveryEvent
-  QuarantinedEvent
-  QuarantineEndEvent
+  
   HomeTreatmentEvent
+  DetectedOutsideQuarantineEvent
+  
+  QuarantinedEvent
+  DetectedFromQuarantineEvent  
+  QuarantineEndEvent
+  
   HomeTreatmentSuccessEvent
   GoHospitalEvent
-  DetectedOutsideQuarantineEvent
-  DetectedFromQuarantineEvent
+
   BackTrackedEvent
   ReleasedEvent
 end
@@ -28,17 +36,17 @@ struct Event
   
   Event(::Val{E}, time::Real, subject::Integer) where E = new(time, subject, 0, E, NoContact, false)
   Event(::Val{OutsideInfectionEvent}, time::Real, subject::Integer) = new(time, subject, 0, OutsideInfectionEvent, OutsideContact, false)
-  Event(::Val{TransmissionEvent}, time::Real, subject::Integer) = error("source and contact kind needed for transmission event")
+  Event(::Val{TransmissionEvent}, ::Real, ::Integer) = error("source and contact kind needed for transmission event")
   Event(::Val{TransmissionEvent}, time::Real, subject::Integer, source::Integer, contact_kind::ContactKind) = new(time, subject, source, TransmissionEvent, contact_kind, false)
   Event(::Val{QuarantinedEvent}, time::Real, subject::Integer, extension::Bool) = new(time, subject, 0, QuarantinedEvent, NoContact, extension)
   
 end
 
-time(event::Event) = event.time
-subject(event::Event) = event.subject_id
-source(event::Event) = event.source_id
-kind(event::Event) = event.event_kind
-contactkind(event::Event) = event.contact_kind
+time(event::Event)::TimePoint = event.time
+subject(event::Event)::Integer = event.subject_id
+source(event::Event)::Integer = event.source_id
+kind(event::Event)::EventKind = event.event_kind
+contactkind(event::Event)::ContactKind = event.contact_kind
 
 import Base.show
 

@@ -505,7 +505,7 @@ class InfectionModel:
             infected_idx = self._social_activity_sampler.gen(age, gender)
             if self.get_infection_status(infected_idx) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
-                self.append_event(Event(contraction_time, infected_idx, TMINUS1, person_id, CONSTANT, self.global_time))
+                self.append_event(Event(contraction_time, infected_idx, TMINUS1, person_id, FRIENDSHIP, self.global_time))
 
 
     def handle_t0(self, person_id):

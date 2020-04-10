@@ -52,8 +52,8 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
   end
   
   source_health = sourcehealth(state, event)
-  @assert source_health != Healthy && source_health != Recovered && source_health != Incubating
-  @assert source_health != SevereSymptoms && source_health != CriticalSymptoms && source_health != Dead && source_health != Recovered "infection time exceeds infectability time frame, subject is now in state $source_health, the event is $event source progressions are $(progressionof(params, source(event)))"
+  @assert source_health ∉ SA[Healthy, Recovered, Incubating]
+  @assert source_health ∉ SA[SevereSymptoms, CriticalSymptoms, Dead, Recovered] "infection time exceeds infectability time frame, subject is now in state $source_health, the event is $event source progressions are $(progressionof(params, source(event)))"
     
   # the transmission events are queued in advace, therefore it might be the case that it can not be realized
   # for the transmission to happen both source and subject must be free or both must be staying at home in case
@@ -62,8 +62,8 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
   subject_freedom = subjectfreedom(state, event)
   source_freedom = sourcefreedom(state, event)  
 
-  @assert subject_freedom != HomeTreatment && subject_freedom != Hospitalized "a healthy subject should not be in HomeTreatment or Hospital"
-  @assert source_freedom != Hospitalized && source_freedom != Released
+  @assert subject_freedom ∉ SA[HomeTreatment, Hospitalized] "a healthy subject should not be in HomeTreatment or Hospital"
+  @assert source_freedom ∉ SA[Hospitalized,Released]
 
   # household contact conditions  
   # if it is an infection inside household and either source or subject are closed in home the event can not happen
@@ -153,7 +153,7 @@ function execute!(::Val{MildSymptomsEvent}, state::SimState, params::SimParams, 
 end
 
 function execute!(::Val{SevereSymptomsEvent}, state::SimState, params::SimParams, event::Event)::Bool
-  @assert Infectious == subjecthealth(state, event) || MildSymptoms == subjecthealth(state, event)
+  @assert subjecthealth(state, event) in SA[Infectious, MildSymptoms]
   setsubjecthealth!(state, event, SevereSymptoms)
   
   subject_id = subject(event)
@@ -168,8 +168,8 @@ function execute!(::Val{SevereSymptomsEvent}, state::SimState, params::SimParams
 end
 
 function execute!(::Val{RecoveryEvent}, state::SimState, params::SimParams, event::Event)::Bool
-  @assert Recovered !== subjecthealth(state, event)
-  @assert Dead !== subjecthealth(state, event)
+  @assert subjecthealth(state, event) ∉ SA[Recovered, Dead]
+  
   setsubjecthealth!(state, event, Recovered)
   freedom_status = subjectfreedom(state, event)
   if Hospitalized == freedom_status
@@ -181,8 +181,8 @@ function execute!(::Val{RecoveryEvent}, state::SimState, params::SimParams, even
 end
 
 function execute!(::Val{DeathEvent}, state::SimState, params::SimParams, event::Event)::Bool
-  @assert Recovered !== subjecthealth(state, event)
-  @assert Dead !== subjecthealth(state, event)
+  @assert subjecthealth(state, event) ∉ SA[Recovered, Dead]
+  
   setsubjecthealth!(state, event, Dead)
   push!(state.queue, Event(Val(ReleasedEvent), time(event), subject(event)))
   return true
@@ -195,7 +195,7 @@ end
 function execute!(::Val{HomeTreatmentEvent}, state::SimState, params::SimParams, event::Event)::Bool
   @assert MildSymptoms == subjecthealth(state, event)  
   freedom = subjectfreedom(state, event)
-  @assert Hospitalized != freedom && HomeTreatment != freedom
+  @assert freedom ∉ SA[Hospitalized, HomeTreatment]
   
   if Free == freedom
     setsubjectfreedom!(state, event, HomeTreatment)
@@ -220,7 +220,7 @@ end
 function execute!(::Val{GoHospitalEvent}, state::SimState, params::SimParams, event::Event)::Bool
   @assert SevereSymptoms == subjecthealth(state, event)
   severity = severityof(params, subject(event))
-  @assert Severe == severity || Critical == severity
+  @assert severity in SA[Severe, Critical]
   subject_id = subject(event)
   
   is_from_quarantine = isquarantined(state, subject_id) 
@@ -275,7 +275,7 @@ function execute!(::Val{BackTrackedEvent}, state::SimState, params::SimParams, e
   
   for member in householdof(params, subject(event))
     if Undetected != detected(state, member) && UnderObservation != detected(state, member)
-      @assert TestPending == detected(state, member) || Detected == detected(state, member)
+      @assert detected(state, member) ∈ [TestPending, Detected]
       continue
     end
     setdetected!(state, member, TestPending)
@@ -341,12 +341,12 @@ function execute!(::Val{QuarantineEndEvent}, state::SimState, params::SimParams,
 
   subject_health = health(state, subject_id)
   
-  if Infectious == subject_health || MildSymptoms == subject_health 
+  if Infectious == subject_health || MildSymptoms == subject_health
     quarantinehousehold!(state, params, subject_id, include_subject=true, extension=true)
     return false
   end
     
-  @assert Healthy == subject_health || Incubating == subject_health || Recovered == subject_health "subject $subject_id must be in hospital hence not quarantined"
+  @assert subject_health in SA[Healthy, Incubating, Recovered] "subject $subject_id must be in hospital hence not quarantined"
   setfreedom!(state, subject_id, Free)
     
   return true
@@ -368,7 +368,7 @@ function quarantinehousehold!(state::SimState, params::SimParams, subject_id::In
     if (Hospitalized == member_freedom) || (Released == member_freedom)
       continue
     end
-    @assert (Free == member_freedom) || (HomeTreatment == member_freedom) || (HomeQuarantine == member_freedom)
+    @assert member_freedom in SA[Free, HomeTreatment, HomeQuarantine]
     push!(state.queue, Event(Val(QuarantinedEvent), state.time, member, extension), immediate=true) #immediately
   end
   nothing
@@ -412,7 +412,7 @@ function forwardtrack!(state::SimState, params::SimParams, person_id::Integer; t
   for infection in forwardinfections(state, person_id)
     
     contact_kind = contactkind(infection)
-    @assert OutsideContact != contact_kind && NoContact != contact_kind
+    @assert contact_kind ∉ SA[OutsideContact, NoContact]
       
     forward_id = subject(infection)
 
@@ -432,9 +432,9 @@ function forwardtrack!(state::SimState, params::SimParams, person_id::Integer; t
       continue
     end
     
-    @assert SevereSymptoms != health_state && CriticalSymptoms != health_state && Dead != health_state "the forward $forward_id should have already been detected at the hospital but his health is $health_state"
+    @assert health_state ∉ SA[SevereSymptoms, CriticalSymptoms, Dead] "the forward $forward_id should have already been detected at the hospital but his health is $health_state"
     freedom_state = freedom(state, forward_id)
-    @assert Hospitalized != freedom_state && Released != freedom_state "the forward $forward_id should have already been detected at the hospital but he is $freedom_state"
+    @assert freedom_state ∉ SA[Hospitalized, Released] "the forward $forward_id should have already been detected at the hospital but he is $freedom_state"
     
     # the probability that the contact is NOT tracked
     if rand(state.rng) >= params.forward_tracking_prob 

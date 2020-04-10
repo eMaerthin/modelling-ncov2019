@@ -90,7 +90,7 @@ function load_params(rng=MersenneTwister(0);
   params
 end
 
-function simulate!(state::SimState, params::SimParams)
+function simulate!(state::SimState, params::SimParams; history::Union{Nothing, Vector{Event}}=nothing)
   iter_no = 0
   while true
     if isempty(state.queue)
@@ -107,6 +107,9 @@ function simulate!(state::SimState, params::SimParams)
         #    @info "Max time reached"
         #    break
         #end
+    if nothing != history
+      push!(history, event)
+    end
     @assert state.time <= time(event)  "time for event $event was smaller than current time $(state.time)"
     state.time = time(event)
       

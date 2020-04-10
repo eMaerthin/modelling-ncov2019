@@ -6,7 +6,7 @@ import Base: push!, pop!, isempty
 export push!, pop!, isempty!
 
 struct Earlier end
-compare(c::Earlier, x::Event, y::Event) = time(x) < time(y)
+compare(c::Earlier, x::Event, y::Event) = time(x) == time(y) ? kind(x) < kind(y) : time(x) < time(y)
 
 
 struct EventQueue

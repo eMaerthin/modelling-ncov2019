@@ -71,7 +71,7 @@ subjecthealth(state::SimState, event::Event)::HealthState = health(state, subjec
 subjectfreedom(state::SimState, event::Event)::FreedomState = freedom(state, subject(event))
 
 sourcehealth(state::SimState, event::Event)::HealthState = health(state, source(event))
-sourcefreedom(state::SimState, event::Event)::FreedomState = freedom(state, subject(event))
+sourcefreedom(state::SimState, event::Event)::FreedomState = freedom(state, source(event))
 
 sethealth!(state::SimState, subject_id::Integer, health::HealthState) = (state.individuals[subject_id].health = health)
 setfreedom!(state::SimState, subject_id::Integer, freedom::FreedomState) = (state.individuals[subject_id].freedom = freedom)

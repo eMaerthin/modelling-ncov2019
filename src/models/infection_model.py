@@ -72,6 +72,7 @@ class InfectionModel:
         self._deaths = 0
         self._icu_needed = 0
 
+        self._disable_friendship_kernel = False
         self._set_up_data_frames()
         self._infection_status = None
         self._detection_status = None
@@ -107,7 +108,6 @@ class InfectionModel:
         self.band_time = None
         self._last_affected = None
         self._per_day_increases = {}
-        self._disable_friendship_kernel = False
 
     def get_detection_status_(self, person_id):
         return self._detection_status.get(person_id, default_detection_status)
@@ -150,8 +150,8 @@ class InfectionModel:
             )
             self._disable_friendship_kernel = False
         else:
+            logger.info('Social competence missing - Disable friendship kernel...')
             self._disable_friendship_kernel = True
-
         logger.info('Set up data frames: Building households df...')
 
         if os.path.exists(self.df_households_path):
@@ -481,7 +481,7 @@ class InfectionModel:
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
 
     def add_potential_contractions_from_friendship_kernel(self, person_id):
-        if self._disable_friendship_kernel:
+        if self._disable_friendship_kernel is True:
             return
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
@@ -875,7 +875,8 @@ class InfectionModel:
             ]:
                 self._deaths += 1
                 if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
-                    self._icu_needed -= 1
+                    if self._progression_times_dict[person_id][T2] < self.global_time:
+                        self._icu_needed -= 1
                 self._active_people -= 1
                 self._infection_status[person_id] = InfectionStatus.Death.value
 
@@ -886,7 +887,8 @@ class InfectionModel:
             ]:
                 self._active_people -= 1
                 if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
-                    self._icu_needed -= 1
+                    if self._progression_times_dict[person_id][T2] < self.global_time:
+                        self._icu_needed -= 1
                 self._infection_status[person_id] = InfectionStatus.Recovered
         elif type_ == TDETECTION:
             if self.get_infection_status(person_id) not in [

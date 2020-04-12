@@ -8,7 +8,7 @@
   "transmission_probabilities": {
     "sporadic": 0.001,
     "transport": 0.01,
-    "friendship": 1,
+    "friendship": 0,
     "household": 1,
     "workplace": 0.1,
     "constant": 0.376

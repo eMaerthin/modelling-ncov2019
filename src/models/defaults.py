@@ -119,6 +119,8 @@ default_enable_additional_logs = False
 default_reuse_expected_case_severities = False
 default_reuse_time_distribution_realizations = False
 
+default_stop_simulation_threshold_type = PREVALENCE
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -157,6 +159,7 @@ defaults = {
     PLOT_YLIM_CUT_TOP: default_plot_ylim_cut_top,
     PLOT_YLIM_BOTTOM: default_plot_ylim_bottom,
     PLOT_YLIM_TOP: default_plot_ylim_top,
+    STOP_SIMULATION_THRESHOLD_TYPE: default_stop_simulation_threshold_type,
     ENABLE_VISUALIZATION: default_enable_visualization,
     R_OUT_SCHEDULE: default_r_out_schedule,
     ENABLE_ADDITIONAL_LOGS: default_enable_additional_logs,

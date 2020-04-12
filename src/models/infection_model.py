@@ -414,17 +414,24 @@ class InfectionModel:
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
         end = prog_times[T2] or prog_times[TRECOVERY]
-        total_infection_rate = (end - start) * self.gamma('household')
-        infected = mocos_helper.poisson(total_infection_rate)
-        if infected == 0:
-            return
+        #total_infection_rate = (end - start) * self.gamma('household')
+        #infected = mocos_helper.poisson(total_infection_rate)
+        #if infected == 0:
+        #    return
         household_id = self._individuals_household_id[person_id]
         inhabitants = self._households_inhabitants[household_id]
         possible_choices = [i for i in inhabitants if i != person_id]
-        for choice_idx in mocos_helper.sample_idxes_with_replacement_uniform(len(possible_choices), infected):
-            person_idx = possible_choices[choice_idx]
+        #for choice_idx in mocos_helper.sample_idxes_with_replacement_uniform(len(possible_choices), infected):
+        #    person_idx = possible_choices[choice_idx]
+        for person_idx in possible_choices:
             if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
-                contraction_time = mocos_helper.uniform(low=start, high=end)
+                scale = len(possible_choices) / self.gamma('household')
+                contraction_time = start + mocos_helper.exponential(scale=scale)
+                #while contraction_time >= end:
+                if contraction_time >= end:
+                    continue #contraction_time = start + mocos_helper.exponential(scale=scale)
+
+                #contraction_time = mocos_helper.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
 
     def add_potential_contractions_from_constant_kernel(self, person_id):
@@ -888,14 +895,23 @@ class InfectionModel:
 
     def run_simulation(self):
         def _inner_loop(iter):
+            threshold_type = self._params[STOP_SIMULATION_THRESHOLD_TYPE]
+            value_to_be_checked = None
+
             start = time.time()
             times_mean = 0.0
             i = 0
             while not q.empty():
                 event_start = time.time()
-
-                if self.affected_people >= self.stop_simulation_threshold:
-                    logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")
+                if threshold_type == PREVALENCE:
+                    value_to_be_checked = self.affected_people
+                elif threshold_type == DETECTIONS:
+                    value_to_be_checked = self.detected_people
+                if value_to_be_checked is None:
+                    logging.error(f"we have an error here")
+                if value_to_be_checked >= self.stop_simulation_threshold:
+                    logging.info(
+                        f"The outbreak reached a high number {self.stop_simulation_threshold} ({threshold_type})")
                     break
                 event = q.get()
                 if not self.process_event(event):
@@ -923,7 +939,7 @@ class InfectionModel:
 
             if self._icu_needed >= self._params[ICU_AVAILABILITY]:
                 return True
-            if self.affected_people >= self.stop_simulation_threshold:
+            if value_to_be_checked >= self.stop_simulation_threshold:
                 return True
             return False
 

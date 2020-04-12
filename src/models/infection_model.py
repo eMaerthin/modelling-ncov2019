@@ -107,6 +107,7 @@ class InfectionModel:
         self.band_time = None
         self._last_affected = None
         self._per_day_increases = {}
+        self._disable_friendship_kernel = False
 
     def get_detection_status_(self, person_id):
         return self._detection_status.get(person_id, default_detection_status)
@@ -137,14 +138,19 @@ class InfectionModel:
         self._individuals_gender_dct = self._df_individuals[GENDER].to_dict()
         self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
         self._individuals_indices = self._df_individuals.index.values
-        self._social_activity_scores = self._df_individuals.social_competence.to_dict()
+        if SOCIAL_COMPETENCE in self._df_individuals.columns:
+            logger.info('Set up data frames: Social competence and loading social activity sampler...')
+            self._social_activity_scores = self._df_individuals[SOCIAL_COMPETENCE].to_dict()
 
-        self._social_activity_sampler = mocos_helper.AgeDependentFriendSampler(
-            self._individuals_indices,
-            self._individuals_age,
-            self._df_individuals[GENDER].values,
-            self._df_individuals.social_competence.values
+            self._social_activity_sampler = mocos_helper.AgeDependentFriendSampler(
+                self._individuals_indices,
+                self._individuals_age,
+                self._df_individuals[GENDER].values,
+                self._df_individuals[SOCIAL_COMPETENCE].values
             )
+            self._disable_friendship_kernel = False
+        else:
+            self._disable_friendship_kernel = True
 
         logger.info('Set up data frames: Building households df...')
 
@@ -410,7 +416,27 @@ class InfectionModel:
     def gamma(self, kernel_id):
         return self._params[TRANSMISSION_PROBABILITIES][kernel_id]
 
+    def household_kernel_old_implementation(self, person_id):
+        prog_times = self._progression_times_dict[person_id]
+        start = prog_times[T0]
+        end = prog_times[T2] or prog_times[TRECOVERY]
+        total_infection_rate = (end - start) * self.gamma('household')
+        infected = mocos_helper.poisson(total_infection_rate)
+        if infected == 0:
+           return
+        household_id = self._individuals_household_id[person_id]
+        inhabitants = self._households_inhabitants[household_id]
+        possible_choices = [i for i in inhabitants if i != person_id]
+        for choice_idx in mocos_helper.sample_idxes_with_replacement_uniform(len(possible_choices), infected):
+            person_idx = possible_choices[choice_idx]
+            if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
+                contraction_time = mocos_helper.uniform(low=start, high=end)
+                self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
+
     def add_potential_contractions_from_household_kernel(self, person_id):
+        if self._params[OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL]:
+            self.household_kernel_old_implementation(person_id)
+            return
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
         end = prog_times[T2] or prog_times[TRECOVERY]
@@ -455,6 +481,8 @@ class InfectionModel:
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
 
     def add_potential_contractions_from_friendship_kernel(self, person_id):
+        if self._disable_friendship_kernel:
+            return
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
         end = prog_times[T1]

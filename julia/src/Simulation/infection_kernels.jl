@@ -50,21 +50,33 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
     return
   end
   
-  num_infections = min(rand(state.rng, Poisson(total_infection_rate)), household_tail_ptr-household_head_ptr) #shouldn't it be a binomial dist?
+  num_infections = min(
+    rand(state.rng, Poisson(total_infection_rate)), 
+    household_tail_ptr-household_head_ptr) #shouldn't it be a binomial dist?
 
   if 0 == num_infections
     return
   end
-    
   @assert start_time != end_time "pathologicaly short time for infections"  
-  for _ in 1:num_infections
-    subject_id = sample(state.rng, UnitRange(household_head_ptr, household_tail_ptr-UInt32(1))) # exclude the source itself
+  
+  selected_ids = state.sample_id_buf
+  resize!(selected_ids, num_infections)
+  
+  sample!(state.rng, UnitRange(household_head_ptr, household_tail_ptr-UInt32(1)), selected_ids) # exclude the source itself
+  
+  infection_times = state.sample_time_buf
+  resize!(infection_times, num_infections)
+  
+  infection_times = rand!(state.rng, time_dist, infection_times)
+    
+  for i in 1:num_infections
+    subject_id = selected_ids[i]
     if subject_id >= source_id
-      subject_id += 1 # restore the indexing
+      subject_id += UInt32(1) # restore the indexing
     end
     
     if Healthy == health(state, subject_id)
-      infection_time::TimePoint = rand(state.rng, time_dist) |> TimePoint
+      infection_time = infection_times[i]
       @assert state.time <= infection_time <= (end_time - start_time + state.time)
       push!(state.queue, Event(Val(TransmissionEvent),
         infection_time,
@@ -75,4 +87,23 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
     end
   end
   
+#  for _ in 1:num_infections
+#    subject_id = sample(state.rng, UnitRange(household_head_ptr, household_tail_ptr-UInt32(1))) # exclude the source itself
+#    if subject_id >= source_id
+#      subject_id += UInt32(1) # restore the indexing
+#    end
+#    
+#    if Healthy == health(state, subject_id)
+#      infection_time::TimePoint = rand(state.rng, time_dist) |> TimePoint
+#      @assert state.time <= infection_time <= (end_time - start_time + state.time)
+#      push!(state.queue, Event(Val(TransmissionEvent),
+#        infection_time,
+#        subject_id,
+#        source_id,
+#        HouseholdContact)
+#      )
+#    end
+#  end
+  
 end
+

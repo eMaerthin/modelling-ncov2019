@@ -6,22 +6,22 @@
 function execute!(state::SimState, params::SimParams, event::Event)::Bool 
   kind::EventKind = event.event_kind
   
-  if     OutsideInfectionEvent==kind;           execute!(Val(OutsideInfectionEvent), state, params, event) 
-  elseif TransmissionEvent==kind;               execute!(Val(TransmissionEvent), state, params, event)
-  elseif BecomeInfectiousEvent==kind;           execute!(Val(BecomeInfectiousEvent), state, params, event)
-  elseif MildSymptomsEvent==kind;               execute!(Val(MildSymptomsEvent), state, params, event)
-  elseif SevereSymptomsEvent==kind;             execute!(Val(SevereSymptomsEvent), state, params, event)
-  elseif RecoveryEvent==kind;                   execute!(Val(RecoveryEvent), state, params, event)
-  elseif DeathEvent==kind;                      execute!(Val(DeathEvent), state, params, event)
-  elseif HomeTreatmentEvent==kind;              execute!(Val(HomeTreatmentEvent), state, params, event)
-  elseif HomeTreatmentSuccessEvent==kind;       execute!(Val(HomeTreatmentSuccessEvent), state, params, event)
-  elseif GoHospitalEvent==kind;                 execute!(Val(GoHospitalEvent), state, params, event)
-  elseif ReleasedEvent==kind;                   execute!(Val(ReleasedEvent), state, params, event)
-  elseif DetectedOutsideQuarantineEvent==kind;  execute!(Val(DetectedOutsideQuarantineEvent), state, params, event)
-  elseif DetectedFromQuarantineEvent==kind;     execute!(Val(DetectedFromQuarantineEvent), state, params, event)
-  elseif BackTrackedEvent==kind;                execute!(Val(BackTrackedEvent), state, params, event)
-  elseif QuarantinedEvent==kind;                execute!(Val(QuarantinedEvent), state, params, event)
-  elseif QuarantineEndEvent==kind;              execute!(Val(QuarantineEndEvent), state, params, event)
+  if     OutsideInfectionEvent==kind;           return execute!(Val(OutsideInfectionEvent), state, params, event) 
+  elseif TransmissionEvent==kind;               return execute!(Val(TransmissionEvent), state, params, event)
+  elseif BecomeInfectiousEvent==kind;           return execute!(Val(BecomeInfectiousEvent), state, params, event)
+  elseif MildSymptomsEvent==kind;               return execute!(Val(MildSymptomsEvent), state, params, event)
+  elseif SevereSymptomsEvent==kind;             return execute!(Val(SevereSymptomsEvent), state, params, event)
+  elseif RecoveryEvent==kind;                   return execute!(Val(RecoveryEvent), state, params, event)
+  elseif DeathEvent==kind;                      return execute!(Val(DeathEvent), state, params, event)
+  elseif HomeTreatmentEvent==kind;              return execute!(Val(HomeTreatmentEvent), state, params, event)
+  elseif HomeTreatmentSuccessEvent==kind;       return execute!(Val(HomeTreatmentSuccessEvent), state, params, event)
+  elseif GoHospitalEvent==kind;                 return execute!(Val(GoHospitalEvent), state, params, event)
+  elseif ReleasedEvent==kind;                   return execute!(Val(ReleasedEvent), state, params, event)
+  elseif DetectedOutsideQuarantineEvent==kind;  return execute!(Val(DetectedOutsideQuarantineEvent), state, params, event)
+  elseif DetectedFromQuarantineEvent==kind;     return execute!(Val(DetectedFromQuarantineEvent), state, params, event)
+  elseif TrackedEvent==kind;                    return execute!(Val(TrackedEvent), state, params, event)
+  elseif QuarantinedEvent==kind;                return execute!(Val(QuarantinedEvent), state, params, event)
+  elseif QuarantineEndEvent==kind;              return execute!(Val(QuarantineEndEvent), state, params, event)
   else error("unsupported event kind $kind")
   end
   return true
@@ -119,13 +119,7 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
   enqueue_transmissions!(state, Val{ConstantKernelContact}, event.subject_id, params)
   enqueue_transmissions!(state, Val{HouseholdContact}, event.subject_id, params)
   
-  if UnderObservation == detected(state, subject_id)
-    if isquarantined(state, subject_id)
-      push!(state.queue, Event(Val(DetectedFromQuarantineEvent), time(event), subject_id), immediate=true) # immediately  
-    else
-      push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event), subject_id), immediate=true) # immediately
-    end
-  end
+  detectioncheck!(state, params, subject_id)
   return true
 end
 
@@ -150,6 +144,9 @@ function execute!(::Val{MildSymptomsEvent}, state::SimState, params::SimParams, 
   end
 
   push!(state.queue, Event(Val(HomeTreatmentEvent), time(event), subject_id), immediate=true) #immediately
+  
+  detectioncheck!(state, params, subject_id)
+   
   return true
 end
 
@@ -271,7 +268,7 @@ function execute!(::Val{DetectedFromQuarantineEvent}, state::SimState, params::S
   return true
 end
 
-function execute!(::Val{BackTrackedEvent}, state::SimState, params::SimParams, event::Event)::Bool  
+function execute!(::Val{TrackedEvent}, state::SimState, params::SimParams, event::Event)::Bool  
   quarantinehousehold!(state, params, subject(event), include_subject=true)
   
   for member in householdof(params, subject(event))
@@ -358,6 +355,17 @@ end
 # Quarantine and backtracking helpers
 #
 
+function detectioncheck!(state::SimState, params::SimParams, person_id::Integer)
+  now = state.time
+  if Undetected != detected(state, person_id) 
+    if isquarantined(state, person_id)
+      push!(state.queue, Event(Val(DetectedFromQuarantineEvent), now, person_id), immediate=true) # immediately  
+    else
+      push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), now, person_id), immediate=true) # immediately
+    end
+  end 
+end
+
 function quarantinehousehold!(state::SimState, params::SimParams, subject_id::Integer; include_subject::Bool, extension::Bool=false)
   for member in householdof(params, subject_id)
     if !include_subject && (member == subject_id)
@@ -403,7 +411,7 @@ function backtrack!(state::SimState, params::SimParams, person_id::Integer; trac
     return
   end
      
-  push!(state.queue, Event(Val(BackTrackedEvent), current_time + params.backward_detection_delay, backward_id))
+  push!(state.queue, Event(Val(TrackedEvent), current_time + params.backward_detection_delay, backward_id))
   nothing
 end
 
@@ -433,16 +441,17 @@ function forwardtrack!(state::SimState, params::SimParams, person_id::Integer; t
       continue
     end
     
-    @assert health_state ∉ SA[SevereSymptoms, CriticalSymptoms, Dead] "the forward $forward_id should have already been detected at the hospital but his health is $health_state"
+    # in very rare circumstances these asserts are actually not true - if the backtracking comes in exactly between hospitalization and detection
+#    @assert health_state ∉ SA[SevereSymptoms, CriticalSymptoms, Dead] "the forward $forward_id should have already been detected at the hospital but his health is $health_state"
     freedom_state = freedom(state, forward_id)
-    @assert freedom_state ∉ SA[Hospitalized, Released] "the forward $forward_id should have already been detected at the hospital but he is $freedom_state"
+#    @assert freedom_state ∉ SA[Hospitalized, Released] "the forward $forward_id should have already been detected at the hospital but he is $freedom_state"
     
     # the probability that the contact is NOT tracked
     if rand(state.rng) >= params.forward_tracking_prob 
       continue
     end
     # if it is found
-    push!(state.queue, Event(Val(BackTrackedEvent), current_time + params.forward_detection_delay, forward_id))
+    push!(state.queue, Event(Val(TrackedEvent), current_time + params.forward_detection_delay, forward_id))
   end
   nothing
 end

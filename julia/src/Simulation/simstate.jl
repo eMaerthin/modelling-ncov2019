@@ -1,17 +1,23 @@
+
+
+
 # the mutable part of the simulation
 
-mutable struct IndividualState #TODO change to immutable
+struct IndividualState #TODO change to immutable
   health::HealthState
   freedom::FreedomState
-  quarantine_level::Int8 # allow for negative values to detect corruption
   detected::DetectionStatus
-  
-  IndividualState() = new(
-    Healthy,
-    Free,
-    0,
-    Undetected)
+  quarantine_level::Int8 # allow for negative values to detect corruption
 end
+
+IndividualState() = IndividualState(
+  Healthy,
+  Free,
+  Undetected,
+  0
+)
+
+show(io::IO, s::IndividualState) = print(io, "(",s.health, ", ", s.freedom, ", ", s.detected, ", ", s.quarantine_level, ")")
 
 
 mutable struct SimState
@@ -35,6 +41,11 @@ mutable struct SimState
   num_affected::Int
   num_detected::Int
     
+  # buffers for rand
+  sample_id_buf::Vector{UInt32}
+  sample_time_buf::Vector{TimePoint}
+    
+    
   SimState(num_individuals::Integer; seed=0) = num_individuals<=0 ? error("number of individuals must be positive") : 
     new(
       MersenneTwister(seed),
@@ -52,7 +63,11 @@ mutable struct SimState
       
       0,
       0,
-      0
+      0,
+      
+      # just the initial size, will be resized to meet the needs
+      Vector{UInt32}(undef, 100),
+      Vector{TimePoint}(undef, 100) 
     ) 
 end
 
@@ -60,12 +75,10 @@ end
 health(state::SimState, person_id::Integer)::HealthState = state.individuals[person_id].health
 freedom(state::SimState, person_id::Integer)::FreedomState = state.individuals[person_id].freedom
 
-quarantine_advance!(state::SimState, person_id::Integer, val::Integer) = (state.individuals[person_id].quarantine_level += val)
-quarantine_cancel!(state::SimState, person_id::Integer) = (state.individuals[person_id].quarantine_level = 0)
-quarantine_level(state::SimState, person_id::Integer)::Integer = state.individuals[person_id].quarantine_level
+quarantine_level(state::SimState, person_id::Integer) = state.individuals[person_id].quarantine_level
 isquarantined(state::SimState, person_id::Integer)::Bool = quarantine_level(state, person_id) != 0
 detected(state::SimState, person_id::Integer)::DetectionStatus = state.individuals[person_id].detected 
-isdetected(state::SimState, person_id::Integer)::Bool = detected(state, person_id) == Detected
+isdetected(state::SimState, person_id::Integer)::Bool = (Detected == detected(state, person_id))
 
 subjecthealth(state::SimState, event::Event)::HealthState = health(state, subject(event))
 subjectfreedom(state::SimState, event::Event)::FreedomState = freedom(state, subject(event))
@@ -73,16 +86,44 @@ subjectfreedom(state::SimState, event::Event)::FreedomState = freedom(state, sub
 sourcehealth(state::SimState, event::Event)::HealthState = health(state, source(event))
 sourcefreedom(state::SimState, event::Event)::FreedomState = freedom(state, source(event))
 
-sethealth!(state::SimState, subject_id::Integer, health::HealthState) = (state.individuals[subject_id].health = health)
-setfreedom!(state::SimState, subject_id::Integer, freedom::FreedomState) = (state.individuals[subject_id].freedom = freedom)
-setdetected!(state::SimState, subject_id::Integer, detected::DetectionStatus) = (state.individuals[subject_id].detected = detected)
+#forwardinfections(state::SimState, person_id::Integer) = inclusive(state.infections, searchequalrange(state.infections, person_id)...) |> values
+forwardinfections(state::SimState, person_id::Integer)::Vector{Event} = state.infections[person_id]
+backwardinfection(state::SimState, person_id::Integer)::Tuple{UInt32,ContactKind} = state.infection_sources[person_id]
+
+
+function sethealth!(state::SimState, person_id::Integer, new_health::HealthState)
+  orig = state.individuals[person_id]
+  state.individuals[person_id] = @set orig.health = new_health
+  nothing
+end
+
+function setfreedom!(state::SimState, person_id::Integer, new_freedom::FreedomState)
+  orig = state.individuals[person_id]
+  state.individuals[person_id] = @set orig.freedom = new_freedom
+  nothing
+end
+
+function setdetected!(state::SimState, person_id::Integer, new_detected::DetectionStatus)
+  orig = state.individuals[person_id]
+  state.individuals[person_id] = @set orig.detected = new_detected
+  nothing
+end
+
+function quarantine_advance!(state::SimState, person_id::Integer, adv_val::Integer) 
+  orig = state.individuals[person_id]
+  state.individuals[person_id] = @set orig.quarantine_level = orig.quarantine_level+adv_val
+  nothing
+end
+
+function quarantine_cancel!(state::SimState, person_id::Integer)
+  orig = state.individuals[person_id]
+  state.individuals[person_id] = @set orig.quarantine_level = 0 
+  nothing
+end
 
 setsubjecthealth!(state::SimState, event::Event, health::HealthState) = sethealth!(state, subject(event), health)
 setsubjectfreedom!(state::SimState, event::Event, freedom::FreedomState) = setfreedom!(state, subject(event), freedom)
 
-#forwardinfections(state::SimState, person_id::Integer) = inclusive(state.infections, searchequalrange(state.infections, person_id)...) |> values
-forwardinfections(state::SimState, person_id::Integer)::Vector{Event} = state.infections[person_id]
-backwardinfection(state::SimState, person_id::Integer)::Tuple{UInt32,ContactKind} = state.infection_sources[person_id]
 
 
 function registerinfection!(state::SimState, infection::Event)

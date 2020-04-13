@@ -13,16 +13,18 @@
   RecoveryEvent
   
   HomeTreatmentEvent
-  DetectedOutsideQuarantineEvent
   
   QuarantinedEvent
   DetectedFromQuarantineEvent  
+  HomeTreatmentSuccessEvent
   QuarantineEndEvent
   
-  HomeTreatmentSuccessEvent
-  GoHospitalEvent
 
-  BackTrackedEvent
+  GoHospitalEvent
+  DetectedOutsideQuarantineEvent
+
+
+  TrackedEvent
   ReleasedEvent
 end
 
@@ -42,19 +44,19 @@ struct Event
   
 end
 
-time(event::Event)::TimePoint = event.time
-subject(event::Event)::Integer = event.subject_id
-source(event::Event)::Integer = event.source_id
-kind(event::Event)::EventKind = event.event_kind
-contactkind(event::Event)::ContactKind = event.contact_kind
+time(event::Event) = event.time
+subject(event::Event) = event.subject_id
+source(event::Event) = event.source_id
+kind(event::Event) = event.event_kind
+contactkind(event::Event) = event.contact_kind
 
 import Base.show
 
 function show(io::IO, event::Event)
-  print(io, time(event), ":", kind(event), " ", subject(event), " ")
+  print(io, time(event), ":", kind(event), " ", subject(event))
   if TransmissionEvent == kind(event) || OutsideContact == kind(event)
-    print(io, "<= ", source(event), " ", contactkind(event))
+    print(io, " <= ", source(event), " ", contactkind(event))
   elseif QuarantinedEvent == kind(event)
-    print(io, "extension=", event.extension)
+    print(io, " extension=", event.extension)
   end
 end

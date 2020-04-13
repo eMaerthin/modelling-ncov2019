@@ -1,15 +1,17 @@
+using LinearAlgebra
+
 struct AliasSampler
     alias_indices::Vector{Int64}
     nonalias_probs::Vector{Float64}
 end
 
 function AliasSampler(weights::Vector{Float64})
-    probabilities = normalize(weights)
+    probabilities = normalize(weights, 1.0)
     n = length(weights)
 
-    smalls = Vector{Int64}(undefined, n)
+    smalls = Vector{Int64}(undef, n)
     smalls_idx = 0
-    larges = Vector{Int64}(undefined, n)
+    larges = Vector{Int64}(undef, n)
     larges_idx = 0
 
     avg_prob = 1.0/n
@@ -24,8 +26,8 @@ function AliasSampler(weights::Vector{Float64})
         end
     end
 
-    aliases = Vector{Int64}(undefined)
-    nonalias_probs = Vector{Float64}(undefined)
+    aliases = Vector{Int64}(undef, n)
+    nonalias_probs = Vector{Float64}(undef, n)
 
     while larges_idx > 0 && smalls_idx > 0
         sm_p_idx = smalls[smalls_idx]

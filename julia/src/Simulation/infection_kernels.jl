@@ -3,10 +3,13 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
   
     
   start_time = progression.incubation_time
-  end_time = ismissing(progression.mild_symptoms_time) ? progression.severe_symptoms_time : progression.mild_symptoms_time
+              
+  end_time =  if      !ismissing(progression.mild_symptoms_time);   progression.mild_symptoms_time 
+              elseif  !ismissing(progression.severe_symptoms_time); progression.severe_symptoms_time
+              elseif  !ismissing(progression.recovery_time);        progression.recovery_time
+              else    error("no recovery nor symptoms time defined")
+              end  
           
-  time_dist = Uniform(state.time, end_time - start_time + state.time) # in global time reference frame
-    
   total_infection_rate = (end_time - start_time) * params.constant_kernel_param
 
   num_infections = rand(state.rng, Poisson(total_infection_rate))
@@ -15,8 +18,9 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
   if num_infections == 0
     return
   end
-  @assert start_time != end_time "pathologicaly short time for infections"
+  @assert start_time != end_time "pathologicaly short time for infections there shouldn't be any infections but are $num_infections, progression=$progression"
   
+  time_dist = Uniform(state.time, end_time - start_time + state.time) # in global time reference frame
     
   num_individuals = size(params.progressions, 1)
     
@@ -40,8 +44,11 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
   start_time = progression.incubation_time
   end_time = ismissing(progression.severe_symptoms_time) ? progression.recovery_time : progression.severe_symptoms_time
   
+  end_time =  if      !ismissing(progression.severe_symptoms_time); progression.severe_symptoms_time
+              elseif  !ismissing(progression.recovery_time);        progression.recovery_time
+              else    error("no recovery nor severe symptoms time defined")
+              end
    
-  time_dist = Uniform(state.time, end_time - start_time + state.time) # in global time reference frame
     
   total_infection_rate = (end_time - start_time) * params.constant_kernel_param
   household_head_ptr, household_tail_ptr = params.household_ptrs[source_id]
@@ -57,7 +64,9 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
   if 0 == num_infections
     return
   end
-  @assert start_time != end_time "pathologicaly short time for infections"  
+
+  @assert start_time != end_time "pathologicaly short time for infections there shouldn't be any infections but are $num_infections, progression=$progression"
+  time_dist = Uniform(state.time, end_time - start_time + state.time) # in global time reference frame  
   
   selected_ids = state.sample_id_buf
   resize!(selected_ids, num_infections)

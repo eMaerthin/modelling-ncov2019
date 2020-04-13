@@ -46,9 +46,9 @@ mutable struct SimState
   sample_time_buf::Vector{TimePoint}
     
     
-  SimState(num_individuals::Integer; seed=0) = num_individuals<=0 ? error("number of individuals must be positive") : 
+  SimState(rng::AbstractRNG, num_individuals::Integer) = num_individuals <= 0 || num_individuals > typemax(UInt32) ? error("number of individuals must be positive and smaller than $(typemax(UInt32))") : 
     new(
-      MersenneTwister(seed),
+      rng,
       
       0.0,
       #BinaryHeap{Event, Earlier}(),
@@ -71,6 +71,7 @@ mutable struct SimState
     ) 
 end
 
+SimState(num_individuals::Integer; seed::Integer=0) = SimState(MersenneTwister(seed), num_individuals)
 
 health(state::SimState, person_id::Integer)::HealthState = state.individuals[person_id].health
 freedom(state::SimState, person_id::Integer)::FreedomState = state.individuals[person_id].freedom

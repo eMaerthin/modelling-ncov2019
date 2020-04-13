@@ -102,7 +102,7 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
   infected_time = time(event) - progression.incubation_time 
   if Asymptomatic == severity
     @assert !ismissing(progression.recovery_time)
-    push!(state.queue, Event(Val(RecoveredEvent), infected_time + progression.recovery_time), subject_id)   
+    push!(state.queue, Event(Val(RecoveryEvent), infected_time + progression.recovery_time, subject_id))  
   elseif Mild == severity
     @assert !ismissing(progression.mild_symptoms_time)
     push!(state.queue, Event(Val(MildSymptomsEvent), infected_time + progression.mild_symptoms_time, subject_id))

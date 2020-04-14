@@ -8,6 +8,8 @@ struct RunParams
   constant_kernel_param::Float64
   household_kernel_param::Float64
 
+  hospital_detections::Bool
+
   backward_tracking_prob::Float32
   backward_detection_delay::TimeDiff
 
@@ -72,9 +74,9 @@ function sample_progression(rng::AbstractRNG, age::Real, dist_incubation, dist_s
     if severe_symptoms_time <= mild_symptoms_time
       mild_symptoms_time = missing
     end
-    recovery_time = severe_symptoms_time + 14
+    recovery_time = severe_symptoms_time + rand(rng, Uniform(4*7, 8*7))
   else
-    recovery_time = mild_symptoms_time + 14
+    recovery_time = mild_symptoms_time + rand(rng, Uniform(11, 17))
   end
     
   Progression(
@@ -94,6 +96,8 @@ struct SimParams
     
   constant_kernel_param::Float64
   household_kernel_param::Float64
+
+  hospital_detections::Bool
 
   backward_tracking_prob::Float32
   backward_detection_delay::TimeDiff
@@ -137,6 +141,8 @@ function make_params(rng::AbstractRNG=MersenneTwister(0);
         constant_kernel_param::Float64=1.0,
         household_kernel_param::Float64=1.0,
         
+        hospital_detections::Bool=true,
+        
         backward_tracking_prob::Float64=1.0,
         backward_detection_delay::Float64=1.0,
         
@@ -160,6 +166,8 @@ function make_params(rng::AbstractRNG=MersenneTwister(0);
     
     constant_kernel_param,   
     household_kernel_param,
+    
+    hospital_detections,
     
     backward_tracking_prob,
     backward_detection_delay,

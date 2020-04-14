@@ -22,6 +22,7 @@
 
   GoHospitalEvent
   DetectedOutsideQuarantineEvent
+  DetectedFromTrackingEvent
 
 
   TrackedEvent
@@ -41,6 +42,8 @@ struct Event
   Event(::Val{TransmissionEvent}, ::Real, ::Integer) = error("source and contact kind needed for transmission event")
   Event(::Val{TransmissionEvent}, time::Real, subject::Integer, source::Integer, contact_kind::ContactKind) = new(time, subject, source, TransmissionEvent, contact_kind, false)
   Event(::Val{QuarantinedEvent}, time::Real, subject::Integer, extension::Bool) = new(time, subject, 0, QuarantinedEvent, NoContact, extension)
+  Event(::Val{TrackedEvent}, time::Real, subject::Integer) = error("source must be given for TrackedEvent")
+  Event(::Val{TrackedEvent}, time::Real, subject::Integer, source::Integer) = new(time, subject, source, TrackedEvent, NoContact, false)
   
 end
 
@@ -58,5 +61,7 @@ function show(io::IO, event::Event)
     print(io, " <= ", source(event), " ", contactkind(event))
   elseif QuarantinedEvent == kind(event)
     print(io, " extension=", event.extension)
+  elseif TrackedEvent == kind(event)
+    print(io, " <= ", source(event))
   end
 end

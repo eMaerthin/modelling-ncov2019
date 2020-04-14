@@ -48,7 +48,7 @@ end
 
 function make_severity_dist(age::Real)
   if age < 0;       error("age should be non-negative")
-  elseif age < 40;  return Categorical(SA[0,  0.852, 0.144, 0.004])
+  elseif age < 40;  return Categorical(SA[0,  0.852,  0.144,  0.004])
   elseif age < 50;  return Categorical(SA[0,  0.848,  0.144,  0.008])    
   elseif age < 60;  return Categorical(SA[0,  0.832,  0.141,  0.027])
   elseif age < 70;  return Categorical(SA[0,  0.793,  0.134,  0.073])
@@ -127,7 +127,7 @@ function load_params(rng=MersenneTwister(0);
     dist_symptom_onset_time, 
     dist_hospitalization_time)
   
-  make_params(rng, individuals_df=individuals_df, progressions=progressions)
+  make_params(rng, individuals_df=individuals_df, progressions=progressions; kwargs...)
 end
 
 function make_params(rng::AbstractRNG=MersenneTwister(0);
@@ -157,6 +157,7 @@ function make_params(rng::AbstractRNG=MersenneTwister(0);
   params = SimParams(
     household_ptrs,
     progressions,        
+    
     constant_kernel_param,   
     household_kernel_param,
     

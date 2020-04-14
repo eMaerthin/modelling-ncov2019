@@ -230,6 +230,10 @@ function execute!(::Val{GoHospitalEvent}, state::SimState, params::SimParams, ev
   setfreedom!(state, subject_id, Hospitalized)
   
   # all hospitalized cases are detected
+  if !params.hospital_detections
+    return true
+  end
+  
   if is_from_quarantine
     push!(state.queue, Event(Val(DetectedFromQuarantineEvent), time(event), subject_id), immediate=true) # immediately
   else
@@ -290,7 +294,7 @@ function execute!(::Val{TrackedEvent}, state::SimState, params::SimParams, event
     end
     
     if member == source(event) # avoid detection loops
-      @assert detected(state, source(member))
+      #@assert Detected == detected(state, member) "member was in state $(state.individual[member])"
       continue
     end
     

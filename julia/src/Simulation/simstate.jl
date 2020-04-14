@@ -37,9 +37,9 @@ mutable struct SimState
   infection_sources::Vector{Tuple{UInt32, ContactKind}}
   
     
-  num_dead::Int
-  num_affected::Int
-  num_detected::Int
+  #num_dead::Int
+  #num_affected::Int
+  #num_detected::Int
     
   # buffers for rand
   sample_id_buf::Vector{UInt32}
@@ -61,9 +61,9 @@ mutable struct SimState
 
       fill((0x00, NoContact), num_individuals),
       
-      0,
-      0,
-      0,
+    #  0,
+    #  0,
+    #  0,
       
       # just the initial size, will be resized to meet the needs
       Vector{UInt32}(undef, 100),
@@ -94,6 +94,7 @@ backwardinfection(state::SimState, person_id::Integer)::Tuple{UInt32,ContactKind
 
 function sethealth!(state::SimState, person_id::Integer, new_health::HealthState)
   orig = state.individuals[person_id]
+  @assert orig.health <= new_health
   state.individuals[person_id] = @set orig.health = new_health
   nothing
 end
@@ -106,6 +107,7 @@ end
 
 function setdetected!(state::SimState, person_id::Integer, new_detected::DetectionStatus)
   orig = state.individuals[person_id]
+  @assert orig.detected <= new_detected
   state.individuals[person_id] = @set orig.detected = new_detected
   nothing
 end

@@ -123,6 +123,10 @@ default_stop_simulation_threshold_type = PREVALENCE
 
 default_old_implementation_for_household_kernel = False
 
+default_constant_age_setup = None
+
+default_inter_age_contacts = False
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -167,7 +171,8 @@ defaults = {
     ENABLE_ADDITIONAL_LOGS: default_enable_additional_logs,
     REUSE_EXPECTED_CASE_SEVERITIES: default_reuse_expected_case_severities,
     REUSE_TIME_DISTRIBUTION_REALIZATIONS: default_reuse_time_distribution_realizations,
-    OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL: default_old_implementation_for_household_kernel
+    OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL: default_old_implementation_for_household_kernel,
+    CONSTANT_AGE_SETUP: default_constant_age_setup,
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

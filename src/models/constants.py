@@ -125,6 +125,9 @@ FRIENDSHIP = 'friendship'
 WORKPLACE = 'workplace'
 TRANSPORT = 'transport'
 CONSTANT = 'constant'
+CONSTANT_AGE = 'constant_age'
+CONSTANT_AGE_SETUP = 'constant_age_setup'
+INTER_AGE_CONTACTS = 'inter_age_contacts'
 
 IMPORT_INTENSITY = 'import_intensity'
 

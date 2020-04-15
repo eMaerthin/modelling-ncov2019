@@ -80,6 +80,7 @@ class KernelType(EnumWithPublicValue2MemberMap):
     Workplace = WORKPLACE
     Transport = TRANSPORT
     Constant = CONSTANT
+    ConstantAge = CONSTANT_AGE
 
 
 class ImportIntensityFunctions(EnumWithPublicValue2MemberMap):

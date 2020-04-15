@@ -8,6 +8,7 @@ import logging
 import mocos_helper
 #import random
 import time
+from collections import defaultdict
 import pickle
 import psutil
 from shutil import copyfile
@@ -108,6 +109,31 @@ class InfectionModel:
         self.band_time = None
         self._last_affected = None
         self._per_day_increases = {}
+
+        self._disable_constant_age_kernel = False
+        self._constant_age_helper_age_dict = {}
+        self._constant_age_individuals = defaultdict(list)
+        self._setup_constant_age_kernel()
+
+    def _setup_constant_age_kernel(self):
+        if self._params[CONSTANT_AGE_SETUP] is None:
+            self._disable_constant_age_kernel = True
+            return
+
+        if isinstance(self._params[CONSTANT_AGE_SETUP][AGE], int):
+            self._constant_age_helper_age_dict[self._params[CONSTANT_AGE_SETUP][AGE]] = 0
+        else:
+            if self._params[CONSTANT_AGE_SETUP][INTER_AGE_CONTACTS]:
+                # so all ages specified can be mixed
+                for age in self._params[CONSTANT_AGE_SETUP][AGE]:
+                    self._constant_age_helper_age_dict[age] = 0
+            else:
+                for i, age in enumerate(self._params[CONSTANT_AGE_SETUP][AGE]):
+                    self._constant_age_helper_age_dict[age] = i
+        for age, individual_list_key in self._constant_age_helper_age_dict.items():
+            self._constant_age_individuals[individual_list_key].extend([
+                k for k, v in self._individuals_age_dct.items() if v==age
+            ])
 
     def get_detection_status_(self, person_id):
         return self._detection_status.get(person_id, default_detection_status)
@@ -440,24 +466,18 @@ class InfectionModel:
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
         end = prog_times[T2] or prog_times[TRECOVERY]
-        #total_infection_rate = (end - start) * self.gamma('household')
-        #infected = mocos_helper.poisson(total_infection_rate)
-        #if infected == 0:
-        #    return
         household_id = self._individuals_household_id[person_id]
         inhabitants = self._households_inhabitants[household_id]
         possible_choices = [i for i in inhabitants if i != person_id]
-        #for choice_idx in mocos_helper.sample_idxes_with_replacement_uniform(len(possible_choices), infected):
-        #    person_idx = possible_choices[choice_idx]
+
         for person_idx in possible_choices:
             if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
                 scale = len(possible_choices) / self.gamma('household')
                 contraction_time = start + mocos_helper.exponential(scale=scale)
-                #while contraction_time >= end:
-                if contraction_time >= end:
-                    continue #contraction_time = start + mocos_helper.exponential(scale=scale)
 
-                #contraction_time = mocos_helper.uniform(low=start, high=end)
+                if contraction_time >= end:
+                    continue
+
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
 
     def add_potential_contractions_from_constant_kernel(self, person_id):
@@ -479,6 +499,34 @@ class InfectionModel:
             if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
                 contraction_time = mocos_helper.uniform(low=start, high=end)
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT, self.global_time))
+
+    def add_potential_contractions_from_constant_age_kernel(self, person_id):
+        if self._disable_constant_age_kernel is True:
+            return
+        age = self._individuals_age_dct[person_id]
+        if age not in self._constant_age_helper_age_dict:
+            return
+        prog_times = self._progression_times_dict[person_id]
+        start = prog_times[T0]
+        end = prog_times[T1]
+        if end is None:
+            end = prog_times[T2]
+        total_infection_rate = (end - start) * self.gamma('constant_age')
+
+        infected = mocos_helper.poisson(total_infection_rate)
+        if infected == 0:
+            return
+
+        selected_rows = mocos_helper.nonreplace_sample_few(
+            self._constant_age_individuals[self._constant_age_helper_age_dict[age]],
+            infected,
+            person_id
+        )
+
+        for person_idx in selected_rows:
+            if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
+                contraction_time = mocos_helper.uniform(low=start, high=end)
+                self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT_AGE, self.global_time))
 
     def add_potential_contractions_from_friendship_kernel(self, person_id):
         if self._disable_friendship_kernel is True:
@@ -518,6 +566,7 @@ class InfectionModel:
             self.add_potential_contractions_from_household_kernel(person_id)
         self.add_potential_contractions_from_constant_kernel(person_id)
         self.add_potential_contractions_from_friendship_kernel(person_id)
+        self.add_potential_contractions_from_constant_age_kernel(person_id)
 
     def generate_disease_progression(self, person_id, event_time: float,
                                      initial_infection_status: str) -> None:
@@ -619,11 +668,11 @@ class InfectionModel:
 
     @property
     def df_infections(self):
-        return pd.DataFrame.from_dict(self._infections_dict, orient='index') #, ignore_index=True) #orient='index', columns=columns)
+        return pd.DataFrame.from_dict(self._infections_dict, orient='index')
 
     @property
     def df_progression_times(self):
-        return pd.DataFrame.from_dict(self._progression_times_dict, orient='index') #, ignore_index=True)
+        return pd.DataFrame.from_dict(self._progression_times_dict, orient='index')
 
     def save_progression_times(self, path):
         with open(path, "w") as f:
@@ -633,7 +682,6 @@ class InfectionModel:
                       f'{elem.get(T1, None)},{elem.get(T2, None)},{elem.get(TDEATH, None)},'\
                       f'{elem.get(TRECOVERY, None)},{elem.get(TDETECTION, None)},{elem.get(QUARANTINE, None)}\n'
                 f.write(str)
-        #self.df_progression_times.to_csv()
 
     def save_potential_contractions(self, path):
         with open(path, "w") as f:
@@ -643,7 +691,6 @@ class InfectionModel:
                     str = f'{elem.get(SOURCE, None)},{elem.get(TARGET, None)},{elem.get(CONTRACTION_TIME, None)},'\
                           f'{elem.get(KERNEL, None)}\n'
                     f.write(str)
-        #self.df_infections.to_csv()
 
     def prevalance_at(self, time):
         return len([1 for elem in self._infections_dict.values() if elem.get(CONTRACTION_TIME, np.inf) <= time])

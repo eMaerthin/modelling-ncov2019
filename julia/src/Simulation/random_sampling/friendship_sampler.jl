@@ -5,30 +5,31 @@ include("alias_sampling.jl")
 struct FriendshipSampler
     categories_selectors::Vector{AliasSampler}
     category_samplers::Vector{AliasSampler}
+    categories::Vector{Int64}
 end
+
+function to_idx(age::Int64, gender::Bool)::Int64
+    if gender
+        return age+max_age+1
+    else
+        return age+1
+    end
+end
+
+function to_age_gender(idx::Int64)::Tuple{Int64, Bool}
+    if idx <= max_age
+        return idx-1, false
+    else
+        return idx-max_age-1, true
+    end
+end
+
 
 function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::Float64 = 1.6)
 
     max_age = 200
 
     categories = [Vector{Int64}() for _ in 1:(2*max_age)]
-
-    function to_idx(age::Int64, gender::Bool)
-        if gender
-            return age+max_age+1
-        else
-            return age+1
-        end
-    end
-
-    function to_age_gender(idx::Int64)
-        if idx <= max_age
-            return idx-1, false
-        else
-            return idx-max_age-1, true
-        end
-    end
-
 
     function phi(age::Int64)::Float64
         fla = Float64(a)
@@ -58,8 +59,13 @@ function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::F
         push!(categories_selectors, AliasSampler(P))
     end
 
-    category_samplers = [AliasSampler([population.social_competence[person_id] for person_id in category]) for category in categories]
+    category_samplers = [AliasSampler([population.social_competence[person_id]::Float64 for person_id in category]) for category in categories]
 
-    return FriendshipSampler(categories_selectors, category_samplers)
+    return FriendshipSampler(categories_selectors, category_samplers, categories)
 
+end
+
+function sample(fs::FriendshipSampler, age::Int64, gender::Bool)
+    category = sample(fs.categories_selectors[to_idx(age, gender)])
+    return fs.categories[category][sample(fs.category_samplers[category])]
 end

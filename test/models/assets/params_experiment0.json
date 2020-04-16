@@ -25,7 +25,10 @@
   },
   "initial_conditions": {
     "selection_algorithm": "random_selection",
-    "cardinalities": {"immune":  0.9}
+    "cardinalities": {
+      "immune":  0.9,
+      "contraction":  10
+    }
   },
   "import_intensity": {
     "function": "exponential",

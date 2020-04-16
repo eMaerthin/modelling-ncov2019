@@ -305,7 +305,10 @@ class InfectionModel:
                         choice_set, selected_rows = mocos_helper.randomly_split_list(choice_set, howmuch=cardinality)
                         t_state = _assign_t_state(infection_status)
                         for row in selected_rows:
-                            self.append_event(Event(self.global_time, row, t_state, row, INITIAL_CONDITIONS,
+                            whom = None
+                            if t_state == TRECOVERY:
+                                whom = row
+                            self.append_event(Event(self.global_time, row, t_state, whom, INITIAL_CONDITIONS,
                                                     self.global_time))
             else:
                 err_msg = f'Unsupported selection algorithm provided {initial_conditions[SELECTION_ALGORITHM]}'
@@ -891,7 +894,10 @@ class InfectionModel:
                                            initiated_by, initiated_through)
         elif type_ == TMINUS1:
             # check if this action is still valid first
-            initiated_inf_status = self._infection_status[initiated_by]
+            try:
+                initiated_inf_status = self._infection_status[initiated_by]
+            except KeyError:
+                logging.error(f'infection status should not be blank for infection! key: {initiated_by}')
             if initiated_inf_status in active_states:
                 if self.quick_return_condition(initiated_through):
                     return True

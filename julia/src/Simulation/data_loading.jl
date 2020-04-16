@@ -10,7 +10,8 @@ function load_individuals(path::AbstractString)::DataFrame
     df = DataFrame(
       age=Int8.(df.age),
       gender = df.gender .== 1,
-      household_index = Int32.(df.household_index)
+      household_index = Int32.(df.household_index),
+      social_competence = Float64.(df.social_competence)
     )
     sort!(df, :household_index)
   end

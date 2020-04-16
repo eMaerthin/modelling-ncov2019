@@ -25,16 +25,16 @@ mutable struct SimState
 
   time::TimePoint
   
-  #immediates::CircularDeque{Event} # immediate events
-  #event_queue::BinaryHeap{Event, Earlier} # TODO change to union once all events are implemented
   queue::EventQueue
   
   individuals::Vector{IndividualState}  
   
-  infections::Vector{Vector{Event}}    
+  forest::InfectionForest
+  
+  #infections::Vector{Vector{Event}}    
   #infections::SortedMultiDict{UInt32,Event}
   
-  infection_sources::Vector{Tuple{UInt32, ContactKind}}
+  #infection_sources::Vector{Tuple{UInt32, ContactKind}}
   
     
   #num_dead::Int
@@ -51,19 +51,11 @@ mutable struct SimState
       rng,
       
       0.0,
-      #BinaryHeap{Event, Earlier}(),
       EventQueue(),
       
-      [IndividualState() for i in  1:num_individuals],
+      fill(IndividualState(), num_individuals),
       
-      [Vector{Event}() for i in 1:num_individuals],
-#      SortedMultiDict{UInt32, Event}(),
-
-      fill((0x00, NoContact), num_individuals),
-      
-    #  0,
-    #  0,
-    #  0,
+      InfectionForest(num_individuals),
       
       # just the initial size, will be resized to meet the needs
       Vector{UInt32}(undef, 100),
@@ -73,6 +65,21 @@ end
 
 SimState(num_individuals::Integer; seed::Integer=0) = SimState(MersenneTwister(seed), num_individuals)
 
+function reset!(state::SimState, rng::AbstractRNG)
+  if isa(rng, AbstractRNG)
+    state.rng = rng
+  end
+  state.time=0
+  empty!(state.queue)
+  reset!(state.forest)
+  fill!(state.individuals, IndividualState())
+  state
+end
+
+reset!(state::SimState) = reset!(state::SimState, state.rng)
+reset!(state::SimState, seed::Integer) = reset!(state, MersenneTwister(seed))
+
+individualstate(state::SimState, person_id::Integer) = state.individuals[person_id]
 health(state::SimState, person_id::Integer)::HealthState = state.individuals[person_id].health
 freedom(state::SimState, person_id::Integer)::FreedomState = state.individuals[person_id].freedom
 
@@ -88,8 +95,8 @@ sourcehealth(state::SimState, event::Event)::HealthState = health(state, source(
 sourcefreedom(state::SimState, event::Event)::FreedomState = freedom(state, source(event))
 
 #forwardinfections(state::SimState, person_id::Integer) = inclusive(state.infections, searchequalrange(state.infections, person_id)...) |> values
-forwardinfections(state::SimState, person_id::Integer)::Vector{Event} = state.infections[person_id]
-backwardinfection(state::SimState, person_id::Integer)::Tuple{UInt32,ContactKind} = state.infection_sources[person_id]
+forwardinfections(state::SimState, person_id::Integer)::Vector{Event} = forwardinfections(state.forest, person_id)
+backwardinfection(state::SimState, person_id::Integer)::Event = backwardinfection(state.forest, person_id)
 
 
 function sethealth!(state::SimState, person_id::Integer, new_health::HealthState)
@@ -129,24 +136,7 @@ setsubjectfreedom!(state::SimState, event::Event, freedom::FreedomState) = setfr
 
 
 
-function registerinfection!(state::SimState, infection::Event)
-  source_id = source(infection)
-
-  if 0 == source_id
-    @assert OutsideContact == contactkind(infection)
-    return nothing
-  end
-
-  subject_id = subject(infection)
-  
-  @assert state.infection_sources[subject_id][2] == NoContact "The infection source should be assigned only once: $(state.infection_sources[subject_id])"
-  @inbounds state.infection_sources[subject_id] = (source_id, contactkind(infection))
-  
-  push!(state.infections[source_id], infection)
-  
-  nothing
-end
-
+registerinfection!(state::SimState, infection::Event) = push!(state.forest, infection)
 #function registerinfection!(state::SimState, infection::Event)
 #  println("ismissing") 
 #  source_id = source(infection) 

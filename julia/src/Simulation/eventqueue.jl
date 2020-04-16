@@ -2,7 +2,7 @@ using DataStructures
 
 import DataStructures.compare
 
-import Base: push!, pop!, isempty
+import Base: push!, pop!, isempty, empty!
 export push!, pop!, isempty!
 
 struct Earlier end
@@ -24,6 +24,7 @@ struct EventQueue
   EventQueue() = new( BinaryHeap{Event, Earlier}())
 end
 
+empty!(queue::EventQueue) = empty!(queue.queue.valtree)
 push!(queue::EventQueue, event::Event; immediate::Bool=false) = push!(queue.queue, event)
 pop!(queue::EventQueue) = pop!(queue.queue)
 isempty(queue::EventQueue) = isempty(queue.queue)

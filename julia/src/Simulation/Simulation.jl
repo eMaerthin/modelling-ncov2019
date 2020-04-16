@@ -12,17 +12,14 @@ using Random
 using Setfield
 using StaticArrays
 
-
-
 TimePoint = Fixed{Int32, 16}
 TimeDiff = Fixed{Int32, 16}
-
-
 
 include("enums.jl")
 include("event.jl")
 
 include("eventqueue.jl")
+include("infection_forest.jl")
 include("simstate.jl")
 include("simparams.jl")
 

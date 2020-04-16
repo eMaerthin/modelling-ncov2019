@@ -23,7 +23,10 @@
       "fear_function": "fear_disabled"
     }
   },
-  "initial_conditions": [],
+  "initial_conditions": {
+    "selection_algorithm": "random_selection",
+    "cardinalities": {"immune":  0.9}
+  },
   "import_intensity": {
     "function": "exponential",
     "multiplier": 1,

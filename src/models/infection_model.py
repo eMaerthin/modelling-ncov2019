@@ -70,6 +70,7 @@ class InfectionModel:
         self._active_people = 0
         self._quarantined_people = 0
         self._detected_people = 0
+        self._immune_people = 0
         self._deaths = 0
         self._icu_needed = 0
 
@@ -270,6 +271,8 @@ class InfectionModel:
                 return TMINUS1
             if status == INFECTIOUS:
                 return T0
+            if status == IMMUNE:
+                return TRECOVERY
             raise ValueError(f'invalid initial infection status {status}')
 
         initial_conditions = self._params[INITIAL_CONDITIONS]
@@ -288,13 +291,21 @@ class InfectionModel:
                 choice_set = list(self._individuals_indices)
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
+                        if cardinality < 1:
+                            c = cardinality
+                            cardinality = int(cardinality * len(choice_set))
+                            if cardinality == 0:
+                                logger.info(f"too small cardinality provided {cardinality} ({c})")
+                                continue
+                        else:
+                            cardinality = int(cardinality)
                         #selected_rows = np.random.choice(choice_set, cardinality, replace=False)
                         # now only previously unselected indices can be drawn in next steps
                         #choice_set = np.array(list(set(choice_set) - set(selected_rows)))
                         choice_set, selected_rows = mocos_helper.randomly_split_list(choice_set, howmuch=cardinality)
                         t_state = _assign_t_state(infection_status)
                         for row in selected_rows:
-                            self.append_event(Event(self.global_time, row, t_state, None, INITIAL_CONDITIONS,
+                            self.append_event(Event(self.global_time, row, t_state, row, INITIAL_CONDITIONS,
                                                     self.global_time))
             else:
                 err_msg = f'Unsupported selection algorithm provided {initial_conditions[SELECTION_ALGORITHM]}'
@@ -932,11 +943,13 @@ class InfectionModel:
                 InfectionStatus.Recovered,
                 InfectionStatus.Death
             ]:
-                self._active_people -= 1
-                if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
-                    if self._progression_times_dict[person_id][T2] < self.global_time:
-                        self._icu_needed -= 1
+                if initiated_through != INITIAL_CONDITIONS:
+                    self._active_people -= 1
+                    if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
+                        if self._progression_times_dict[person_id][T2] < self.global_time:
+                            self._icu_needed -= 1
                 self._infection_status[person_id] = InfectionStatus.Recovered
+                self._immune_people += 1
         elif type_ == TDETECTION:
             if self.get_infection_status(person_id) not in [
                 InfectionStatus.Recovered,
@@ -974,7 +987,6 @@ class InfectionModel:
         def _inner_loop(iter):
             threshold_type = self._params[STOP_SIMULATION_THRESHOLD_TYPE]
             value_to_be_checked = None
-
             start = time.time()
             times_mean = 0.0
             i = 0
@@ -1028,7 +1040,7 @@ class InfectionModel:
         runs = 0
         output_log = 'Last_processed_time;Total_#Affected;Total_#Detected;Total_#Deceased;Total_#Quarantined;'\
                      'c;c_norm;Init_#people;Band_hit_time;Subcritical;runs;fear;detection_rate;'\
-                     'incidents_per_last_day;over_icu;hospitalized;zero_time_offset'
+                     'incidents_per_last_day;over_icu;hospitalized;zero_time_offset;total_#immune'
         if self._params[ENABLE_ADDITIONAL_LOGS]:
             output_log += ';Prevalence_30days;Prevalence_60days;Prevalence_90days;Prevalence_120days;'\
                           'Prevalence_150days;Prevalence_180days;Prevalence_360days;'\
@@ -1040,6 +1052,7 @@ class InfectionModel:
             self.setup_simulation()
             logger.info('Filling queue based on initial conditions...')
             self._fill_queue_based_on_initial_conditions()
+
             logger.info('Filling queue based on auxiliary functions...')
             self._fill_queue_based_on_auxiliary_functions()
             logger.info('Initialization step is done!')
@@ -1062,10 +1075,10 @@ class InfectionModel:
             incidents_per_last_day = self.prevalance_at(self._global_time) - self.prevalance_at(self._global_time - 1)
             hospitalized = self._icu_needed
             zero_time_offset = self._max_time_offset
-
+            immune = self._immune_people
             output_add = f'{last_processed_time };{affected};{detected};{deceased};{quarantined};{c};{c_norm};'\
                          f'{self._init_for_stats};{bandtime};{subcritical};{runs};{fear_};{detection_rate};'\
-                         f'{incidents_per_last_day};{outbreak};{hospitalized};{zero_time_offset}'
+                         f'{incidents_per_last_day};{outbreak};{hospitalized};{zero_time_offset};{immune}'
 
             if self._params[ENABLE_ADDITIONAL_LOGS]:
                 prev30 = self.prevalance_at(30)
@@ -1109,6 +1122,7 @@ class InfectionModel:
         self._active_people = 0
         self._detected_people = 0
         self._quarantined_people = 0
+        self._immune_people = 0
         self._deaths = 0
         self._icu_needed = 0
         self._max_time_offset = 0

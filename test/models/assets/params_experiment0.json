@@ -8,24 +8,28 @@
   "transmission_probabilities": {
     "sporadic": 0.001,
     "transport": 0.01,
-    "friendship": 1,
-    "household": 1,
+    "friendship": 0,
+    "household": 0.3,
     "workplace": 0.1,
-    "constant": 0.376
+    "constant": 0.06,
+    "constant_age": 10.0
+  },
+  "constant_age_setup": {
+    "age": [16, 17],
+    "inter_age_contacts": false
   },
   "fear_factors": {
-    "household": {
-      "fear_function": "fear_disabled"
-    },
     "default": {
-      "fear_function": "fear_tanh",
-      "scale_factor": 5000,
-      "limit_value": 0.2,
-      "detected_multiplier": 1,
-      "deaths_multiplier": 10
+      "fear_function": "fear_disabled"
     }
   },
-  "initial_conditions": [],
+  "initial_conditions": {
+    "selection_algorithm": "random_selection",
+    "cardinalities": {
+      "immune":  0.9,
+      "contraction":  10
+    }
+  },
   "import_intensity": {
     "function": "exponential",
     "multiplier": 1,
@@ -46,7 +50,7 @@
     "critical": 0.49
   },
   "epidemic_status": "not_detected",
-  "stop_simulation_threshold": 1000,
+  "stop_simulation_threshold": 1000000,
   "disease_progression": {
     "default": {
       "t0": {

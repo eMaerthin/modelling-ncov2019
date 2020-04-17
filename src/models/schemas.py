@@ -64,8 +64,8 @@ initial_conditions_schema1 = [{
 
 initial_conditions_schema2 = {
     SELECTION_ALGORITHM: Or(*InitialConditionSelectionAlgorithms.map()),
-    CARDINALITIES: {Optional(k, default=0): And(Use(int), lambda n: n >= 0) for k in [
-        CONTRACTION, INFECTIOUS
+    CARDINALITIES: {Optional(k, default=0): And(Use(float), lambda n: n >= 0) for k in [
+        CONTRACTION, INFECTIOUS, IMMUNE
     ]}
 }
 
@@ -88,6 +88,17 @@ serial_interval_schema = Schema(And({
 }, lambda x: x[MIN_TIME] <= x[MAX_TIME]))
 
 detection_mild_proba_schema = Schema(And(Or(int, float), probability_condition))
+
+r_out_schedule_schema = Schema([{
+    KERNEL: Or(*KernelType.map()),
+    MIN_TIME: And(Use(float), lambda x: 0.0 <= x),
+    MAX_TIME: And(Use(float), lambda x: 0.0 <= x),
+    OVERRIDE_R_FRACTION: And(Use(float), lambda x: 0.0 <= x <= 1.0)}])
+
+constant_age_setup_schema = Schema(Or(None, {
+    AGE: Or(int, [int]),
+    INTER_AGE_CONTACTS: bool,
+}))
 
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
@@ -133,4 +144,12 @@ infection_model_schemas = {
     PLOT_YLIM_CUT_TOP: Schema(Or(int, float, None)),
     PLOT_YLIM_BOTTOM: Schema(Or(int, float, None)),
     PLOT_YLIM_TOP: Schema(Or(int, float, None)),
+    ENABLE_VISUALIZATION: Schema(bool),
+    R_OUT_SCHEDULE: r_out_schedule_schema,
+    ENABLE_ADDITIONAL_LOGS: Schema(bool),
+    REUSE_EXPECTED_CASE_SEVERITIES: Schema(bool),
+    REUSE_TIME_DISTRIBUTION_REALIZATIONS: Schema(bool),
+    STOP_SIMULATION_THRESHOLD_TYPE: Schema(Or(PREVALENCE, DETECTIONS)),
+    OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL: Schema(bool),
+    CONSTANT_AGE_SETUP: constant_age_setup_schema,
 }

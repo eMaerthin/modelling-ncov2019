@@ -111,6 +111,22 @@ default_plot_ylim_cut_top = None
 default_plot_xlim_cut_left = None
 default_plot_ylim_cut_bottom = None
 
+default_enable_visualization = False
+
+default_r_out_schedule = []
+
+default_enable_additional_logs = False
+default_reuse_expected_case_severities = False
+default_reuse_time_distribution_realizations = False
+
+default_stop_simulation_threshold_type = PREVALENCE
+
+default_old_implementation_for_household_kernel = False
+
+default_constant_age_setup = None
+
+default_inter_age_contacts = False
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -149,7 +165,14 @@ defaults = {
     PLOT_YLIM_CUT_TOP: default_plot_ylim_cut_top,
     PLOT_YLIM_BOTTOM: default_plot_ylim_bottom,
     PLOT_YLIM_TOP: default_plot_ylim_top,
-
+    STOP_SIMULATION_THRESHOLD_TYPE: default_stop_simulation_threshold_type,
+    ENABLE_VISUALIZATION: default_enable_visualization,
+    R_OUT_SCHEDULE: default_r_out_schedule,
+    ENABLE_ADDITIONAL_LOGS: default_enable_additional_logs,
+    REUSE_EXPECTED_CASE_SEVERITIES: default_reuse_expected_case_severities,
+    REUSE_TIME_DISTRIBUTION_REALIZATIONS: default_reuse_time_distribution_realizations,
+    OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL: default_old_implementation_for_household_kernel,
+    CONSTANT_AGE_SETUP: default_constant_age_setup,
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

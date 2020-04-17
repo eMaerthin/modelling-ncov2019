@@ -16,6 +16,7 @@ CONTRACTION = 'contraction'
 INFECTIOUS = 'infectious'
 MAX_TIME = 'max_time'
 CAPACITY = 'capacity'
+IMMUNE = 'immune'
 
 ICU_AVAILABILITY = 'icu_availability'
 HOSPITAL_BEDS_AVAILABILITY = 'hospital_beds_availability'
@@ -41,13 +42,24 @@ CASE_SEVERITY_DISTRIBUTION = 'case_severity_distribution'
 
 START_TIME = 'start_time'
 STOP_SIMULATION_THRESHOLD = 'stop_simulation_threshold'
-
+STOP_SIMULATION_THRESHOLD_TYPE = 'stop_simulation_threshold_type'
+PREVALENCE = 'prevalence'
+DETECTIONS = 'detections'
+ENABLE_VISUALIZATION = 'enable_visualization'
 ID = 'idx'
 HOUSEHOLD_ID = 'household_index'
 SOURCE = 'source_id'
 TARGET = 'target_id'
 KERNEL = 'kernel'
 INHABITANTS = 'inhabitants'
+ENABLE_ADDITIONAL_LOGS = 'additional_logs'
+SOCIAL_COMPETENCE = 'social_competence'
+REUSE_EXPECTED_CASE_SEVERITIES = 'reuse_expected_case_severities'
+REUSE_TIME_DISTRIBUTION_REALIZATIONS = 'reuse_time_distribution_realizations'
+OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL = 'old_implementation_for_household_kernel'
+
+R_OUT_SCHEDULE = 'r_out_schedule'
+OVERRIDE_R_FRACTION = 'override_r_fraction'
 
 TMINUS1 = 'tminus1'
 T0 = 't0' # contraction->infectious ACTIVE
@@ -114,6 +126,9 @@ FRIENDSHIP = 'friendship'
 WORKPLACE = 'workplace'
 TRANSPORT = 'transport'
 CONSTANT = 'constant'
+CONSTANT_AGE = 'constant_age'
+CONSTANT_AGE_SETUP = 'constant_age_setup'
+INTER_AGE_CONTACTS = 'inter_age_contacts'
 
 IMPORT_INTENSITY = 'import_intensity'
 

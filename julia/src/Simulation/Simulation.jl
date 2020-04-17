@@ -12,8 +12,8 @@ using Random
 using Setfield
 using StaticArrays
 
-TimePoint = Fixed{Int32, 16}
-TimeDiff = Fixed{Int32, 16}
+const TimePoint = Fixed{Int32, 16}
+const TimeDiff = Fixed{Int32, 16}
 
 include("enums.jl")
 include("event.jl")
@@ -44,7 +44,7 @@ function simulate!(state::SimState,
   iter_no = 0
   while true
     if isempty(state.queue)
-      println("Empty queue after $iter_no events ")
+      #println("Empty queue after $iter_no events ")
       break
     end
       

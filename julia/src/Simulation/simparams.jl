@@ -28,7 +28,7 @@ end
 struct Progression
     severity::Severity
     # times given with respect to the infection time
-    incubation_time::Union{Missing,TimeDiff}
+    incubation_time::TimeDiff
     mild_symptoms_time::Union{Missing,TimeDiff}
     severe_symptoms_time::Union{Missing,TimeDiff}
     #critical_symptoms_time::Float32
@@ -36,6 +36,8 @@ struct Progression
     death_time::Union{Missing, TimeDiff}
     #Progression(severity::Severity, incubation_time::Real, mild_time::Real, severe_time::Real, recovery_time) = incubation < mild_time < severe_time < recovery_time
 end
+Progression() = Progression(Asymptomatic, missing, missing, missing, missing, missing)
+
 
 function make_progression(severity::Severity, t0::Real, t1::Real, t2::Real, tr1::Real, tr2::Real)    
   incubation_time = TimeDiff(t0)
@@ -72,14 +74,14 @@ const severity_dists = [
   Categorical([0,  0.596,  0.102,  0.302]),
 ]
 
-const severity_dists_hacked = [
-  Categorical([0,  0.746,  0.250,  0.004]),
-  Categorical([0,  0.742,  0.250,  0.008]),
-  Categorical([0,  0.723,  0.250,  0.027]),
-  Categorical([0,  0.677,  0.250,  0.073]),
-  Categorical([0,  0.587,  0.250,  0.163]),
-  Categorical([0,  0.448,  0.250,  0.302]),
-]
+#const severity_dists_hacked = [
+#  Categorical([0,  0.746,  0.250,  0.004]),
+#  Categorical([0,  0.742,  0.250,  0.008]),
+#  Categorical([0,  0.723,  0.250,  0.027]),
+#  Categorical([0,  0.677,  0.250,  0.073]),
+#  Categorical([0,  0.587,  0.250,  0.163]),
+#  Categorical([0,  0.448,  0.250,  0.302]),
+#]
 
 function sample_severity(rng::AbstractRNG, age::Real)
   dist = severity_dists[1]
@@ -91,18 +93,29 @@ function sample_severity(rng::AbstractRNG, age::Real)
   elseif age < 80;  dist = severity_dists[5]
   else;             dist = severity_dists[6]
   end
-  rand(rng, dist) |> UInt8 |> Severity
+  severity_int = rand(rng, dist)
+  severity = rand(rng, dist) |> Severity
 end
 
 
-function sample_progression(rng::AbstractRNG, age::Real, dist_incubation, dist_symptom_onset, dist_hospitalization)
-  dist_severity = make_severity_dist(age)
-  severity = rand(rng, dist_severity) |> UInt8
-  severity = severity_int |> Severity
+@inline function sample_progression(rng::AbstractRNG, age::Real, 
+    dist_incubation, 
+    dist_symptom_onset, 
+    dist_hospitalization,         
+    dist_mild_recovery,
+    dist_severe_recovery
+  )
+
+  severity = sample_severity(rng, age)
+ 
+  mild_symptoms_time = missing
+  severe_symptoms_time = missing
+  recovery_time = missing
+  death_time = missing
     
-  incubation_time = rand(rng, dist_incubation) |> TimeDiff
-  
-  mild_symptoms_time = incubation_time + rand(rng, dist_symptom_onset) |> TimeDiff
+  incubation_time = rand(rng, dist_incubation)
+   
+  mild_symptoms_time = incubation_time + rand(rng, dist_symptom_onset)
   
   severe_symptoms_time = missing 
   recovery_time = missing
@@ -112,18 +125,18 @@ function sample_progression(rng::AbstractRNG, age::Real, dist_incubation, dist_s
     if severe_symptoms_time <= mild_symptoms_time
       mild_symptoms_time = missing
     end
-    recovery_time = severe_symptoms_time + rand(rng, Uniform(4*7, 8*7))
+    recovery_time = severe_symptoms_time + rand(rng, dist_severe_recovery)
   else
-    recovery_time = mild_symptoms_time + rand(rng, Uniform(11, 17))
+    recovery_time = mild_symptoms_time + rand(rng, dist_mild_recovery)
   end
     
   Progression(
     severity,
-    incubation_time,
-    mild_symptoms_time,
-    severe_symptoms_time,
-    recovery_time,
-    death_time
+    incubation_time |> TimeDiff,
+    ismissing(mild_symptoms_time) ? missing : TimeDiff(mild_symptoms_time),
+    ismissing(severe_symptoms_time) ? missing : TimeDiff(severe_symptoms_time),
+    ismissing(recovery_time) ? missing : TimeDiff(recovery_time),
+    ismissing(death_time) ? missing : TimeDiff(death_time)
   )
 end
 
@@ -166,18 +179,33 @@ function load_params(rng=MersenneTwister(0);
   dist_hospitalization_time = Gamma(1.1765988120148885, 2.6664347368236787)
   dist_mild_recovery_time = Uniform(11, 17)
   dist_severe_recovery_time = Uniform(4*7, 8*7)
+  
+  progressions = Vector{Simulation.Progression}(undef, nrow(individuals_df));
+  for i in 1:nrow(individuals_df)
+      progressions[i] = Simulation.sample_progression(
+        rng, 
+        individuals_df.age[i],         
+        dist_incubation_time, 
+        dist_symptom_onset_time, 
+        dist_hospitalization_time,
+        dist_mild_recovery_time,
+        dist_severe_recovery_time
+      )
+  end
 
-  progressions = Simulation.make_progression.(
-    sample_severity.(rng, individuals_df.age), 
-    rand(rng, dist_incubation_time, num_individuals),
-    rand(rng, dist_symptom_onset_time, num_individuals),
-    rand(rng, dist_hospitalization_time, num_individuals),
-    rand(rng, dist_mild_recovery_time, num_individuals),
-    rand(rng, dist_severe_recovery_time, num_individuals)
-  )
+  #Simulation.make_progression.(
+  #  sample_severity.(rng, individuals_df.age), 
+  #  rand(rng, dist_incubation_time, num_individuals),
+  #  rand(rng, dist_symptom_onset_time, num_individuals),
+  #  rand(rng, dist_hospitalization_time, num_individuals),
+  #  rand(rng, dist_mild_recovery_time, num_individuals),
+  #  rand(rng, dist_severe_recovery_time, num_individuals)
+  #3)
   
   make_params(rng, individuals_df=individuals_df, progressions=progressions; kwargs...)
 end
+
+make_household_ptrs(individuals_df) = collect( zip(groupptrs(individuals_df.household_index)...))
 
 function make_params(rng::AbstractRNG=MersenneTwister(0);
         individuals_df::DataFrame,
@@ -204,7 +232,7 @@ function make_params(rng::AbstractRNG=MersenneTwister(0);
     
   @assert num_individuals == length(progressions)
 
-  household_ptrs = collect( zip(groupptrs(individuals_df.household_index)...))
+  household_ptrs 
   
   params = SimParams(
     household_ptrs,

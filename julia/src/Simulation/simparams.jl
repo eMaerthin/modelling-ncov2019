@@ -140,6 +140,25 @@ end
   )
 end
 
+function resample_progressions!(rng, progressions, ages,#::AbstractArray{T} where T <: Real,       
+                                dist_incubation_time, 
+                                dist_symptom_onset_time, 
+                                dist_hospitalization_time,
+                                dist_mild_recovery_time,
+                                dist_severe_recovery_time
+                                )
+
+  for i in 1:length(ages)
+    progressions[i] = Simulation.sample_progression(rng, ages[i],         
+      dist_incubation_time, 
+      dist_symptom_onset_time, 
+      dist_hospitalization_time,
+      dist_mild_recovery_time,
+      dist_severe_recovery_time)
+  end
+  progressions
+end
+
 struct SimParams 
   household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
     
@@ -180,32 +199,19 @@ function load_params(rng=MersenneTwister(0);
   dist_mild_recovery_time = Uniform(11, 17)
   dist_severe_recovery_time = Uniform(4*7, 8*7)
   
-  progressions = Vector{Simulation.Progression}(undef, nrow(individuals_df));
-  for i in 1:nrow(individuals_df)
-      progressions[i] = Simulation.sample_progression(
-        rng, 
-        individuals_df.age[i],         
-        dist_incubation_time, 
-        dist_symptom_onset_time, 
-        dist_hospitalization_time,
-        dist_mild_recovery_time,
-        dist_severe_recovery_time
-      )
-  end
-
-  #Simulation.make_progression.(
-  #  sample_severity.(rng, individuals_df.age), 
-  #  rand(rng, dist_incubation_time, num_individuals),
-  #  rand(rng, dist_symptom_onset_time, num_individuals),
-  #  rand(rng, dist_hospitalization_time, num_individuals),
-  #  rand(rng, dist_mild_recovery_time, num_individuals),
-  #  rand(rng, dist_severe_recovery_time, num_individuals)
-  #3)
+  progressions = Vector{Simulation.Progression}(undef, num_individuals);
+  resample_progressions!(rng, progressions, individuals_df.age,
+    dist_incubation_time, 
+    dist_symptom_onset_time, 
+    dist_hospitalization_time,
+    dist_mild_recovery_time,
+    dist_severe_recovery_time
+  )
   
   make_params(rng, individuals_df=individuals_df, progressions=progressions; kwargs...)
 end
 
-make_household_ptrs(individuals_df) = collect( zip(groupptrs(individuals_df.household_index)...))
+make_household_ptrs(household_indices) = collect( zip(groupptrs(household_indices)...))
 
 function make_params(rng::AbstractRNG=MersenneTwister(0);
         individuals_df::DataFrame,
@@ -232,7 +238,7 @@ function make_params(rng::AbstractRNG=MersenneTwister(0);
     
   @assert num_individuals == length(progressions)
 
-  household_ptrs = make_household_ptrs(individuals_df) = collect( zip(groupptrs(individuals_df.household_index)...))
+  household_ptrs = make_household_ptrs(individuals_df.household_index)
   
   params = SimParams(
     household_ptrs,

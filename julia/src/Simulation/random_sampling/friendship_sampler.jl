@@ -65,7 +65,7 @@ function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::F
 
 end
 
-function sample(fs::FriendshipSampler, age::Int64, gender::Bool)
-    category = sample(fs.categories_selectors[to_idx(age, gender)])
-    return fs.categories[category][sample(fs.category_samplers[category])]
+function sample(fs::FriendshipSampler, age::Int64, gender::Bool, rng=Random.GLOBAL_RNG)
+    category = sample(fs.categories_selectors[to_idx(age, gender)], rng)
+    return fs.categories[category][sample(fs.category_samplers[category], rng)]
 end

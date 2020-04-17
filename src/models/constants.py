@@ -93,6 +93,7 @@ DETECTION_MILD_PROBA = 'detection_mild_proba'
 
 SELECTION_ALGORITHM = 'selection_algorithm'
 CARDINALITIES = 'cardinalities'
+VARIABLE_R_PATH = 'variable_r_path'
 
 EMPLOYMENT_STATUS = 'employment_status'
 PROFESSION_INDEX = 'profession_index'

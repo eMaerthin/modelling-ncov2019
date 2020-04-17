@@ -100,6 +100,8 @@ constant_age_setup_schema = Schema(Or(None, {
     INTER_AGE_CONTACTS: bool,
 }))
 
+variable_r_path_schema = Schema(Or(None, And(Use(str), lambda x: os.path.exists(x))))
+
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
     STOP_SIMULATION_THRESHOLD: Schema(And(Use(int), lambda n: n > 0)),
@@ -152,4 +154,5 @@ infection_model_schemas = {
     STOP_SIMULATION_THRESHOLD_TYPE: Schema(Or(PREVALENCE, DETECTIONS)),
     OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL: Schema(bool),
     CONSTANT_AGE_SETUP: constant_age_setup_schema,
+    VARIABLE_R_PATH: variable_r_path_schema,
 }

@@ -8,16 +8,14 @@
   "transmission_probabilities": {
     "sporadic": 0.001,
     "transport": 0.01,
-    "friendship": 0,
+    "friendship": 0.1,
     "household": 0.3,
     "workplace": 0.1,
-    "constant": 0.06,
-    "constant_age": 10.0
+    "constant": 1.25,
+    "constant_age": 0.0
   },
-  "constant_age_setup": {
-    "age": [16, 17],
-    "inter_age_contacts": false
-  },
+  "variable_r_path": "/Users/ub436ne/Workspace/modelling-ncov2019/data/processed/variable_r_test_pl.csv",
+
   "fear_factors": {
     "default": {
       "fear_function": "fear_disabled"
@@ -26,7 +24,7 @@
   "initial_conditions": {
     "selection_algorithm": "random_selection",
     "cardinalities": {
-      "immune":  0.9,
+      "immune":  0.01,
       "contraction":  10
     }
   },
@@ -51,6 +49,7 @@
   },
   "epidemic_status": "not_detected",
   "stop_simulation_threshold": 1000000,
+  "stop_simulation_threshold_type": "detections",
   "disease_progression": {
     "default": {
       "t0": {

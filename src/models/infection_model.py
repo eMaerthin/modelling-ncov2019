@@ -115,6 +115,16 @@ class InfectionModel:
         self._constant_age_helper_age_dict = {}
         self._constant_age_individuals = defaultdict(list)
         self._setup_constant_age_kernel()
+        self._variable_r_detections_levels = []
+        self._variable_r_levels = []
+        self._setup_variable_r()
+
+    def _setup_variable_r(self):
+        if self._params[VARIABLE_R_PATH] is None:
+            return
+        df = pd.read_csv(self._params[VARIABLE_R_PATH])
+        self._variable_r_detections_levels = df.detections.values
+        self._variable_r_levels = df.average.values
 
     def _setup_constant_age_kernel(self):
         if self._params[CONSTANT_AGE_SETUP] is None:
@@ -829,6 +839,13 @@ class InfectionModel:
                         return True
                     else:
                         return False
+
+        if len(self._variable_r_levels) > 0:
+            a = np.argmax(np.array(self._variable_r_detections_levels) >= self._detected_people)
+            if r > self._variable_r_levels[a]:
+                return True
+            else:
+                return False
 
         if r > self.fear(initiated_through):
             return True

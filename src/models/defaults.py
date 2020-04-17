@@ -127,6 +127,8 @@ default_constant_age_setup = None
 
 default_inter_age_contacts = False
 
+default_variable_r_path = None
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -173,6 +175,7 @@ defaults = {
     REUSE_TIME_DISTRIBUTION_REALIZATIONS: default_reuse_time_distribution_realizations,
     OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL: default_old_implementation_for_household_kernel,
     CONSTANT_AGE_SETUP: default_constant_age_setup,
+    VARIABLE_R_PATH: default_variable_r_path,
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

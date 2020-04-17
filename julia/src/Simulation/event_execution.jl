@@ -19,6 +19,7 @@ function execute!(state::SimState, params::SimParams, event::Event)::Bool
   elseif ReleasedEvent==kind;                   return execute!(Val(ReleasedEvent), state, params, event)
   elseif DetectedOutsideQuarantineEvent==kind;  return execute!(Val(DetectedOutsideQuarantineEvent), state, params, event)
   elseif DetectedFromQuarantineEvent==kind;     return execute!(Val(DetectedFromQuarantineEvent), state, params, event)
+  elseif DetectedFromTrackingEvent==kind;       return execute!(Val(DetectedFromTrackingEvent), state, params, event)
   elseif TrackedEvent==kind;                    return execute!(Val(TrackedEvent), state, params, event)
   elseif QuarantinedEvent==kind;                return execute!(Val(QuarantinedEvent), state, params, event)
   elseif QuarantineEndEvent==kind;              return execute!(Val(QuarantineEndEvent), state, params, event)
@@ -135,7 +136,7 @@ function execute!(::Val{MildSymptomsEvent}, state::SimState, params::SimParams, 
 
   if Severe == progression.severity || Critical == progression.severity
     @assert !ismissing(progression.severe_symptoms_time)
-    @assert infection_time + progression.severe_symptoms_time > time(event)
+    @assert infection_time + progression.severe_symptoms_time >= time(event) "$(infection_time + progression.severe_symptoms_time) !>= $(time(event))"
     push!(state.queue, Event(Val(SevereSymptomsEvent), infection_time + progression.severe_symptoms_time, subject_id))
   else
     @assert infection_time + progression.recovery_time > time(event) "next event time $(infection_time + progression.recovery_time) is than current event $event"
@@ -146,7 +147,12 @@ function execute!(::Val{MildSymptomsEvent}, state::SimState, params::SimParams, 
   push!(state.queue, Event(Val(HomeTreatmentEvent), time(event), subject_id), immediate=true) #immediately
   
   detectioncheck!(state, params, subject_id)
+  
+  if(rand(state.rng) >= params.mild_detection_prob)
+    return true
+  end
    
+  push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event)+2, subject_id)) # immediately
   return true
 end
 
@@ -191,7 +197,7 @@ end
 #
 
 function execute!(::Val{HomeTreatmentEvent}, state::SimState, params::SimParams, event::Event)::Bool
-  @assert MildSymptoms == subjecthealth(state, event)  
+  @assert MildSymptoms == subjecthealth(state, event)  "subject $(subject(event)) does not have mild symptoms, its state is $(state.individuals[subject(event)]) progression is $(progressionof(params,subject(event)))"
   freedom = subjectfreedom(state, event)
   @assert freedom ∉ SA[Hospitalized, HomeTreatment]
   
@@ -229,6 +235,10 @@ function execute!(::Val{GoHospitalEvent}, state::SimState, params::SimParams, ev
   setfreedom!(state, subject_id, Hospitalized)
   
   # all hospitalized cases are detected
+  if !params.hospital_detections
+    return true
+  end
+  
   if is_from_quarantine
     push!(state.queue, Event(Val(DetectedFromQuarantineEvent), time(event), subject_id), immediate=true) # immediately
   else
@@ -268,6 +278,17 @@ function execute!(::Val{DetectedFromQuarantineEvent}, state::SimState, params::S
   return true
 end
 
+function execute!(::Val{DetectedFromTrackingEvent}, state::SimState, params::SimParams, event::Event)::Bool
+  subject_id = subject(event)
+  if isdetected(state, subject_id)
+    return false
+  end
+  setdetected!(state, subject_id, Detected)
+  quarantinehousehold!(state, params, subject_id, include_subject=true) #make the quarantine longer
+  trackhousehold!(state, params, subject_id, track_household_connections=true)
+  return true
+end
+
 function execute!(::Val{TrackedEvent}, state::SimState, params::SimParams, event::Event)::Bool  
   quarantinehousehold!(state, params, subject(event), include_subject=true)
   
@@ -276,13 +297,19 @@ function execute!(::Val{TrackedEvent}, state::SimState, params::SimParams, event
       @assert detected(state, member) ∈ [TestPending, Detected]
       continue
     end
+    
+    if member == source(event) # avoid detection loops
+      #@assert Detected == detected(state, member) "member was in state $(state.individual[member])"
+      continue
+    end
+    
     setdetected!(state, member, TestPending)
     
     member_health = health(state, member)
     @assert member_health ∉ SA[SevereSymptoms, CriticalSymptoms, Dead] "patient should have already been infected at the hospital"
     
     if Infectious == member_health || MildSymptoms == member_health
-      push!(state.queue, Event(Val(DetectedFromQuarantineEvent), time(event) + params.testing_time, member))
+      push!(state.queue, Event(Val(DetectedFromTrackingEvent), time(event) + params.testing_time, member))
     end
   end
   return true
@@ -305,12 +332,16 @@ function execute!(::Val{QuarantinedEvent}, state::SimState, params::SimParams, e
   elseif Free == freedom_state
     @assert !is_already_quarantined "quarantined cannot be free, but $subject_id is"
     setfreedom!(state, subject_id, HomeQuarantine)
-    setdetected!(state, subject_id, UnderObservation)
+    #setdetected!(state, subject_id, UnderObservation)
   elseif HomeQuarantine == freedom_state
     @assert is_already_quarantined "person's $subject_id state is quarantine therefore isquarantine should return true"
     @assert Undetected != detected(state, subject_id) "the subject should be at least under observation"
   else 
     @assert HomeTreatment == freedom_state "bad freedom status detected = $freedom_state"
+  end
+
+  detection_state = detected(state, subject_id)
+  if Undetected == detection_state
     setdetected!(state, subject_id, UnderObservation)
   end
   
@@ -344,7 +375,7 @@ function execute!(::Val{QuarantineEndEvent}, state::SimState, params::SimParams,
     return false
   end
     
-  @assert subject_health in SA[Healthy, Incubating, Recovered] "subject $subject_id must be in hospital hence not quarantined"
+  @assert subject_health in SA[Healthy, Incubating, Recovered] "subject $subject_id must be in hospital hence not quarantined state = $(individual_state(state, subject_id))"
   setfreedom!(state, subject_id, Free)
     
   return true
@@ -393,8 +424,10 @@ end
 function backtrack!(state::SimState, params::SimParams, person_id::Integer; track_household_connections::Bool)
   current_time = state.time
   
-  backward_id, contact_kind = backwardinfection(state, person_id)
-  if NoContact == contact_kind 
+  event = backwardinfection(state, person_id)
+  backward_id = source(event)
+  
+  if NoContact == contactkind(event) 
     @assert 0 == backward_id
     return
   end
@@ -403,7 +436,8 @@ function backtrack!(state::SimState, params::SimParams, person_id::Integer; trac
     return
   end
   
-  if isdetected(state, person_id)
+  @assert 0 != backward_id "backward_id=$backward_id infection=$event"
+  if isdetected(state, backward_id)
     return
   end
      
@@ -411,7 +445,7 @@ function backtrack!(state::SimState, params::SimParams, person_id::Integer; trac
     return
   end
      
-  push!(state.queue, Event(Val(TrackedEvent), current_time + params.backward_detection_delay, backward_id))
+  push!(state.queue, Event(Val(TrackedEvent), current_time + params.backward_detection_delay, backward_id, person_id))
   nothing
 end
 
@@ -451,7 +485,7 @@ function forwardtrack!(state::SimState, params::SimParams, person_id::Integer; t
       continue
     end
     # if it is found
-    push!(state.queue, Event(Val(TrackedEvent), current_time + params.forward_detection_delay, forward_id))
+    push!(state.queue, Event(Val(TrackedEvent), current_time + params.forward_detection_delay, forward_id, person_id))
   end
   nothing
 end

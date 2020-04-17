@@ -49,18 +49,25 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
               else    error("no recovery nor severe symptoms time defined")
               end
    
-    
-  total_infection_rate = (end_time - start_time) * params.constant_kernel_param
+  total_infection_rate = (end_time - start_time) * params.household_kernel_param
   household_head_ptr, household_tail_ptr = params.household_ptrs[source_id]
   
   if household_head_ptr == household_tail_ptr
+    #println("to się zdarzyło $(params.household_kernel_param)")
     return
   end
   
-  num_infections = min(
-    rand(state.rng, Poisson(total_infection_rate)), 
-    household_tail_ptr-household_head_ptr) #shouldn't it be a binomial dist?
+#  num_infections = min(
+#    rand(state.rng, 
+#      Poisson(total_infection_rate)), 
+#      household_tail_ptr-household_head_ptr
+#    ) #shouldn't it be a binomial dist?
+ 
+  dist =  Poisson(total_infection_rate)
+#  dist |> println
+  num_infections = rand(state.rng, dist)
 
+#  println("total_rate=$total_infection_rate num infections=$num_infections start_time=$start_time end_time=$end_time")
   if 0 == num_infections
     return
   end
@@ -72,13 +79,18 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
   resize!(selected_ids, num_infections)
   
   sample!(state.rng, UnitRange(household_head_ptr, household_tail_ptr-UInt32(1)), selected_ids) # exclude the source itself
+  unique!(selected_ids)
   
   infection_times = state.sample_time_buf
-  resize!(infection_times, num_infections)
+  resize!(infection_times, length(selected_ids))
   
   infection_times = rand!(state.rng, time_dist, infection_times)
-    
-  for i in 1:num_infections
+
+#  println("selected_ids=$selected_ids, times=$infection_times")
+  
+
+#  for i in 1:num_infections
+  for i in 1:length(selected_ids)  
     subject_id = selected_ids[i]
     if subject_id >= source_id
       subject_id += UInt32(1) # restore the indexing

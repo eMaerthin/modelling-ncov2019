@@ -1,4 +1,5 @@
 @enum EventKind::UInt8 begin 
+
 # the underlying values are also priorites in case the time is the same
 # therefore the order of definition implies priority
   BecomeInfectiousEvent 
@@ -8,8 +9,8 @@
   
   MildSymptomsEvent 
   SevereSymptomsEvent 
-  CriticalSymptomsEvent 
-  DeathEvent
+
+
   RecoveryEvent
   
   HomeTreatmentEvent
@@ -21,11 +22,19 @@
   
 
   GoHospitalEvent
+  
   DetectedOutsideQuarantineEvent
+  DetectedFromTrackingEvent
+
 
 
   TrackedEvent
   ReleasedEvent
+  
+  CriticalSymptomsEvent 
+  DeathEvent
+  
+  InvalidEvent # should not be executed
 end
 
 struct Event
@@ -36,11 +45,14 @@ struct Event
   contact_kind::ContactKind
   extension::Bool
   
+  Event() = new(0.0, 0, 0, InvalidEvent, NoContact, false)
   Event(::Val{E}, time::Real, subject::Integer) where E = new(time, subject, 0, E, NoContact, false)
   Event(::Val{OutsideInfectionEvent}, time::Real, subject::Integer) = new(time, subject, 0, OutsideInfectionEvent, OutsideContact, false)
   Event(::Val{TransmissionEvent}, ::Real, ::Integer) = error("source and contact kind needed for transmission event")
   Event(::Val{TransmissionEvent}, time::Real, subject::Integer, source::Integer, contact_kind::ContactKind) = new(time, subject, source, TransmissionEvent, contact_kind, false)
   Event(::Val{QuarantinedEvent}, time::Real, subject::Integer, extension::Bool) = new(time, subject, 0, QuarantinedEvent, NoContact, extension)
+  Event(::Val{TrackedEvent}, time::Real, subject::Integer) = error("source must be given for TrackedEvent")
+  Event(::Val{TrackedEvent}, time::Real, subject::Integer, source::Integer) = new(time, subject, source, TrackedEvent, NoContact, false)
   
 end
 
@@ -58,5 +70,9 @@ function show(io::IO, event::Event)
     print(io, " <= ", source(event), " ", contactkind(event))
   elseif QuarantinedEvent == kind(event)
     print(io, " extension=", event.extension)
+  elseif TrackedEvent == kind(event)
+    print(io, " <= ", source(event))
+  elseif InvalidEvent == kind(event)
+    print(io, " <= ", source(event), " ", kind(event), " ", contactkind(event), " ", event.extension)
   end
 end

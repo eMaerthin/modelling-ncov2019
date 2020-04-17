@@ -232,7 +232,7 @@ function make_params(rng::AbstractRNG=MersenneTwister(0);
     
   @assert num_individuals == length(progressions)
 
-  household_ptrs 
+  household_ptrs = make_household_ptrs(individuals_df) = collect( zip(groupptrs(individuals_df.household_index)...))
   
   params = SimParams(
     household_ptrs,

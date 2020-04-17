@@ -166,16 +166,20 @@ class InfectionModel:
         self._individuals_household_id = self._df_individuals[HOUSEHOLD_ID].to_dict()
         self._individuals_indices = self._df_individuals.index.values
         if SOCIAL_COMPETENCE in self._df_individuals.columns:
-            logger.info('Set up data frames: Social competence and loading social activity sampler...')
-            self._social_activity_scores = self._df_individuals[SOCIAL_COMPETENCE].to_dict()
+            if self._params[TRANSMISSION_PROBABILITIES][FRIENDSHIP] == 0:
+                logger.info('Friendship = 0.0 - Disable friendship kernel...')
+                self._disable_friendship_kernel = True
+            else:
+                logger.info('Set up data frames: Social competence and loading social activity sampler...')
+                self._social_activity_scores = self._df_individuals[SOCIAL_COMPETENCE].to_dict()
 
-            self._social_activity_sampler = mocos_helper.AgeDependentFriendSampler(
-                self._individuals_indices,
-                self._individuals_age,
-                self._df_individuals[GENDER].values,
-                self._df_individuals[SOCIAL_COMPETENCE].values
-            )
-            self._disable_friendship_kernel = False
+                self._social_activity_sampler = mocos_helper.AgeDependentFriendSampler(
+                    self._individuals_indices,
+                    self._individuals_age,
+                    self._df_individuals[GENDER].values,
+                    self._df_individuals[SOCIAL_COMPETENCE].values
+                )
+                self._disable_friendship_kernel = False
         else:
             logger.info('Social competence missing - Disable friendship kernel...')
             self._disable_friendship_kernel = True

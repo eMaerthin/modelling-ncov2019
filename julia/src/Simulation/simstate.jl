@@ -76,6 +76,8 @@ function reset!(state::SimState, rng::AbstractRNG)
   state
 end
 
+time(state) = state.time
+
 reset!(state::SimState) = reset!(state::SimState, state.rng)
 reset!(state::SimState, seed::Integer) = reset!(state, MersenneTwister(seed))
 
@@ -134,27 +136,18 @@ end
 setsubjecthealth!(state::SimState, event::Event, health::HealthState) = sethealth!(state, subject(event), health)
 setsubjectfreedom!(state::SimState, event::Event, freedom::FreedomState) = setfreedom!(state, subject(event), freedom)
 
-
-
 registerinfection!(state::SimState, infection::Event) = push!(state.forest, infection)
-#function registerinfection!(state::SimState, infection::Event)
-#  println("ismissing") 
-#  source_id = source(infection) 
+
+function initialfeed!(state::SimState, num_initial_infections::Integer)
+  @assert 0 == time(state)
   
-#  if 0 == source_id
-#    @assert OutsideContact == contactkind(infection)
-#  end
-    
+  N = length(state.individuals)  
+  individuals = 1:N
   
-#  println("subject")
-#  subject_id = subject(infection)
-  
-#  println("source")
-#  if 0 != source_id
-#      state.infection_sources[subject_id] = (source_id, contactkind(infection))
-#  end
-  
-#  println("push")
-#  push!(state.infections, source_id => infection)
-#  nothing
-#end
+  for _ in 1:num_initial_infections
+    person_id = sample(state.rng, individuals)
+    event = Event(Val(OutsideInfectionEvent), 0.0, person_id)
+    push!(state.queue, event)
+  end
+   
+end

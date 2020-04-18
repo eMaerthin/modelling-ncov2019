@@ -36,11 +36,11 @@ include("data_loading.jl")
 
 
 function simulate!(state::SimState, 
-                  params::SimParams; 
-                  history::Union{Nothing, Vector{Event}}=nothing, 
-                  execution_history::Union{Nothing, BitVector}=nothing,
-                  state_history::Union{Nothing, Vector{IndividualState}}=nothing,
-                  )
+                   params::SimParams; 
+                   history::Union{Nothing, Vector{Event}}=nothing, 
+                   execution_history::Union{Nothing, BitVector}=nothing,
+                   state_history::Union{Nothing, Vector{IndividualState}}=nothing)
+                         
   iter_no = 0
   while true
     if isempty(state.queue)
@@ -49,19 +49,10 @@ function simulate!(state::SimState,
     end
       
     event = pop!(state.queue)
-        #if state.affected_people >= params.stop_simulation_threshold
-        #    @info "The outbreak reached a high number $(params.stop_simulation_threshold)"
-        #    break
-        #else
-        #    event.time >= params.max_time
-        #    @info "Max time reached"
-        #    break
-        #end
+        
     if nothing !== history
       push!(history, event)
     end
-    @assert state.time <= time(event)  "time for event $event was smaller than current time $(state.time)"
-    state.time = time(event)
       
     result::Bool = execute!(state, params, event)
       
@@ -78,5 +69,29 @@ function simulate!(state::SimState,
   nothing
 end
   
-  
+using FunctionWrappers
+#const Callback = FunctionWrappers.FunctionWrapper{Nothing, Tuple{Event, SimState, SimParams}}
+
+function simulate!(state::SimState, params::SimParams, callback::Union{Nothing,Function})
+  iter_no = 0
+  while true
+    if isempty(state.queue)
+      #println("Empty queue after $iter_no events ")
+      break
+    end
+      
+    event = pop!(state.queue)
+      
+    executed::Bool = execute!(state, params, event)
+      
+    if executed
+       should_continue = callback(event, state, params)
+    end  
+    
+    iter_no+=1
+  end
+  nothing
 end
+
+  
+end #module

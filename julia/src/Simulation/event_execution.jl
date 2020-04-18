@@ -1,9 +1,12 @@
 
 #
-# Dispatch to the right event handler
+# Update time & ispatch to the right event handler
 #
 
 function execute!(state::SimState, params::SimParams, event::Event)::Bool 
+  @assert state.time <= time(event)  "time for event $event was smaller than current time $(state.time)"
+  state.time = time(event)
+  
   kind::EventKind = event.event_kind
   
   if     OutsideInfectionEvent==kind;           return execute!(Val(OutsideInfectionEvent), state, params, event) 
@@ -375,7 +378,7 @@ function execute!(::Val{QuarantineEndEvent}, state::SimState, params::SimParams,
     return false
   end
     
-  @assert subject_health in SA[Healthy, Incubating, Recovered] "subject $subject_id must be in hospital hence not quarantined state = $(individual_state(state, subject_id))"
+  @assert subject_health in SA[Healthy, Incubating, Recovered] "subject $subject_id must be in hospital hence not quarantined state = $(individualstate(state, subject_id))"
   setfreedom!(state, subject_id, Free)
     
   return true

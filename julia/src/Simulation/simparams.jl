@@ -1,12 +1,14 @@
 using Random
 using Distributions
 
+include("random_sampling/friendship_sampler.jl")
 
 struct RunParams
   seed::Int
 
   constant_kernel_param::Float64
   household_kernel_param::Float64
+  friendship_kernel_param::Float64
 
   hospital_detections::Bool
 
@@ -20,9 +22,14 @@ struct RunParams
   testing_time::TimeDiff
 end
 
+struct Person
+    age::Int16
+    gender::Bool
+    social_competence::Float64
+end
+
 struct PopulationParams
   household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
-  
 end
 
 struct Progression
@@ -129,11 +136,14 @@ end
 
 struct SimParams 
   household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
+  people::Vector{Person}
     
   progressions::Vector{Progression}
     
   constant_kernel_param::Float64
   household_kernel_param::Float64
+  friendship_kernel_param::Float64
+  friendship_kernel_sampler::FriendshipSampler
 
   hospital_detections::Bool
   mild_detection_prob::Float64
@@ -185,6 +195,7 @@ function make_params(rng::AbstractRNG=MersenneTwister(0);
 
         constant_kernel_param::Float64=1.0,
         household_kernel_param::Float64=1.0,
+        friendship_kernel_param::Float64=1.0,
         
         hospital_detections::Bool=true,
         mild_detection_prob::Float64=0.0,
@@ -205,13 +216,20 @@ function make_params(rng::AbstractRNG=MersenneTwister(0);
   @assert num_individuals == length(progressions)
 
   household_ptrs = collect( zip(groupptrs(individuals_df.household_index)...))
-  
+
+  population::Vector{Person} = [Person(individuals_df.age[idx], individuals_df.gender[idx], individuals_df.social_competence[idx]) for idx in 1:nrow(individuals_df)]
+  friendship_sampler = FriendshipSampler(individuals_df)
+
   params = SimParams(
     household_ptrs,
+    population,
+
     progressions,        
     
     constant_kernel_param,   
     household_kernel_param,
+    friendship_kernel_param,
+    friendship_sampler,
     
     hospital_detections,
     mild_detection_prob,

@@ -8,7 +8,7 @@ function load_individuals(path::AbstractString)::DataFrame
     df = CSV.read(io, copycols=true)  # read CSV as DataFrame
     # create new DataFrame with
     df = DataFrame(
-      age=Int8.(df.age),
+      age=Int16.(df.age),
       gender = df.gender .== 1,
       household_index = Int32.(df.household_index),
       social_competence = Float64.(df.social_competence)

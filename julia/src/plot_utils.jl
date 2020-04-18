@@ -9,7 +9,7 @@ function plot_heatmap(results, title, tracking_probs = 0:0.05:1, Cs=0:0.05:1, lo
      cmap="nipy_spectral")
      clim(vmin=10^2)
   end     
-  colorbar()
+  c = colorbar()
 
   xlabel("f - Stopień redukcji kontaktów")
   

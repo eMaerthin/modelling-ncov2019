@@ -1,30 +1,33 @@
 using Random
 using Distributions
 
+#struct RunParams
+#  seed::Int
+#
+#  constant_kernel_param::Float64
+#  household_kernel_param::Float64
+#
+#  hospital_detections::Bool
+#
+#  backward_tracking_prob::Float32
+#  backward_detection_delay::TimeDiff
+#
+#  forward_tracking_prob::Float32
+#  forward_detection_delay::TimeDiff
+#
+#  quarantine_length::Float32
+#  testing_time::TimeDiff
+#end
+#
+#struct PopulationParams
+#  household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
+#  
+#end
 
-struct RunParams
-  seed::Int
+#
+ 
 
-  constant_kernel_param::Float64
-  household_kernel_param::Float64
-
-  hospital_detections::Bool
-
-  backward_tracking_prob::Float32
-  backward_detection_delay::TimeDiff
-
-  forward_tracking_prob::Float32
-  forward_detection_delay::TimeDiff
-
-  quarantine_length::Float32
-  testing_time::TimeDiff
-end
-
-struct PopulationParams
-  household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
-  
-end
-
+#
 struct Progression
     severity::Severity
     # times given with respect to the infection time
@@ -38,33 +41,7 @@ struct Progression
 end
 Progression() = Progression(Asymptomatic, missing, missing, missing, missing, missing)
 
-
-function make_progression(severity::Severity, t0::Real, t1::Real, t2::Real, tr1::Real, tr2::Real)    
-  incubation_time = TimeDiff(t0)
-  mild_symptoms_time = incubation_time + TimeDiff(t1)
-  severe_symptoms_time = missing 
-  recovery_time = missing
-  death_time = missing
-  if (severity==Severe) || (severity==Critical)
-    severe_symptoms_time = incubation_time + TimeDiff(t2)
-    if severe_symptoms_time <= mild_symptoms_time
-      mild_symptoms_time = missing
-    end
-    recovery_time = severe_symptoms_time + TimeDiff(tr2)
-  else
-    recovery_time = mild_symptoms_time + TimeDiff(tr1)
-  end
-    
-  Progression(
-    severity,
-    incubation_time,
-    mild_symptoms_time,
-    severe_symptoms_time,
-    recovery_time,
-    death_time
-  )
-end
-
+# Asymptotic not allowed as yet (some asserts prevent them)
 const severity_dists = [
   Categorical([0,  0.852,  0.144,  0.004]),
   Categorical([0,  0.848,  0.144,  0.008]),
@@ -140,7 +117,8 @@ end
   )
 end
 
-function resample_progressions!(rng, progressions, ages,#::AbstractArray{T} where T <: Real,       
+function resample_progressions!(rng::AbstractRNG, 
+                                progressions, ages::AbstractArray{T} where T <: Real,       
                                 dist_incubation_time, 
                                 dist_symptom_onset_time, 
                                 dist_hospitalization_time,

@@ -64,7 +64,7 @@ function AliasSampler(weights::Vector{Float64})
 end
 
 
-function sample(alias_sampler::AliasSampler, rng=Random.GLOBAL_RNG)::Int64
+function a_sample(alias_sampler::AliasSampler, rng=Random.GLOBAL_RNG)::Int64
     # Please tell me that the compiler optimizes it into something that works in O(1) and the range doesn't actually get built in memory...
     idx = rand(rng, 1:length(alias_sampler.alias_indices))
     if alias_sampler.nonalias_probs[idx] >= 1.0

@@ -80,7 +80,7 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
     sample(state.rng, 1:length(params.progressions), initial_infections) .|> person_id -> 
         push!(state.queue, Simulation.Event(Val(Simulation.OutsideInfectionEvent), 0.0, person_id))
 
-    @time Simulation.simulate!(
+    Simulation.simulate!(
         state, 
         params, 
         history=history, 
@@ -99,7 +99,7 @@ function merge_history(history::Vector{Simulation.Event}, execution_history::Bit
 end
 
 function state2plot(state::Simulation.SimState)
-    transmissions = vcat(state.infections...)
+    transmissions = vcat(state.forest.infections...)
     sort!(transmissions, lt=(x,y)->x.time<y.time)
     times = getproperty.(transmissions, :time)
     points = 1:length(transmissions)

@@ -5,35 +5,35 @@ include("alias_sampling.jl")
 struct FriendshipSampler
     categories_selectors::Vector{AliasSampler}
     category_samplers::Vector{AliasSampler}
-    categories::Vector{Int64}
+    categories::Vector{Vector{Int64}}
 end
 
-function to_idx(age::Int64, gender::Bool)::Int64
+const max_age = 200
+
+function to_idx(age::Int16, gender::Bool)::Int64
     if gender
-        return age+max_age+1
+        return age+max_age+2
     else
         return age+1
     end
 end
 
-function to_age_gender(idx::Int64)::Tuple{Int64, Bool}
-    if idx <= max_age
+function to_age_gender(idx::Int64)::Tuple{Int16, Bool}
+    if idx <= max_age+1
         return idx-1, false
     else
-        return idx-max_age-1, true
+        return idx-max_age-2, true
     end
 end
 
 
 function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::Float64 = 1.6)
 
-    max_age = 200
+    categories = [Vector{Int64}() for _ in 1:(2*max_age+2)]
 
-    categories = [Vector{Int64}() for _ in 1:(2*max_age)]
-
-    function phi(age::Int64)::Float64
-        fla = Float64(a)
-        if a <= 20
+    function phi(age::Int16)::Float64
+        fla = Float64(age)
+        if age <= 20
             return fla
         end
         return 20.0 + (fla - 20.0)^alpha
@@ -43,19 +43,28 @@ function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::F
         push!(categories[to_idx(population.age[ii], population.gender[ii])], ii)
     end
 
-    H = [(length(categories[to_idx(ii, false)]) + length(categories[to_idx(ii, true)])) / nrow(population) for ii in 1:max_age]
+    H = [Float64(length(categories[to_idx(ii, false)]) + length(categories[to_idx(ii, true)])) / Float64(nrow(population)) for ii::Int16 in 0:max_age]
+    function h(age::Int16)
+        return H[age+1]
+    end
 
-    function g(age1::Int64, age2::Int64)::Float64
-        nom = H[age1] * H[age2] * exp( -0.08 * Float64(age1+age2) )
+    function g(age1::Int16, age2::Int16)::Float64
+        nom = h(age1) * h(age2) * exp( -0.08 * Float64(age1+age2) )
         denom = 1.0 + 0.2 * abs(phi(age1) - phi(age2)) ^ beta
         return nom/denom
     end
 
     categories_selectors = Vector{AliasSampler}()
 
-    for idx in 1:(2*max_age)
+    for idx in 1:length(categories)
         age, gender = to_age_gender(idx)
-        P = [begin age2, gender2 = to_age_gender(idx2); g(age, age2) * (gender == gender2 ? 1.2 : 0.8); end for idx2 in 1:(2*max_age)]
+        P = [
+                begin
+                    age2, gender2 = to_age_gender(idx2)
+                    g(age, age2) * (gender == gender2 ? 1.2 : 0.8)
+                end
+                for idx2 in 1:length(categories)
+            ]
         push!(categories_selectors, AliasSampler(P))
     end
 
@@ -65,7 +74,7 @@ function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::F
 
 end
 
-function sample(fs::FriendshipSampler, age::Int64, gender::Bool, rng=Random.GLOBAL_RNG)
-    category = sample(fs.categories_selectors[to_idx(age, gender)], rng)
-    return fs.categories[category][sample(fs.category_samplers[category], rng)]
+function friend_sample(fs::FriendshipSampler, age::Int64, gender::Bool, rng=Random.GLOBAL_RNG)
+    category = a_sample(fs.categories_selectors[to_idx(age, gender)], rng)
+    return fs.categories[category][a_sample(fs.category_samplers[category], rng)]
 end

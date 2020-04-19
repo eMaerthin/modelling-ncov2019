@@ -21,6 +21,7 @@ include("event.jl")
 include("eventqueue.jl")
 include("infection_forest.jl")
 include("simstate.jl")
+include("progression.jl")
 include("simparams.jl")
 
 include("event_execution.jl")

@@ -2,18 +2,9 @@
 
 # the underlying values are also priorites in case the time is the same
 # therefore the order of definition implies priority
-  BecomeInfectiousEvent 
-  
-  OutsideInfectionEvent 
-  TransmissionEvent 
-  
-  MildSymptomsEvent 
-  SevereSymptomsEvent 
 
-
-  RecoveryEvent
   
-  HomeTreatmentEvent
+  
   
   QuarantinedEvent
   DetectedFromQuarantineEvent  
@@ -31,7 +22,18 @@
   TrackedEvent
   ReleasedEvent
   
+  # the progression events have low priority to let the immediate actions execute
+  BecomeInfectiousEvent 
+  
+  OutsideInfectionEvent 
+  TransmissionEvent 
+  
+  MildSymptomsEvent 
+  HomeTreatmentEvent
+  
+  SevereSymptomsEvent 
   CriticalSymptomsEvent 
+  RecoveryEvent
   DeathEvent
   
   InvalidEvent # should not be executed

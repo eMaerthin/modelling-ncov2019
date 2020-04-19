@@ -28,7 +28,7 @@ using Distributions
 struct SimParams 
   household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
     
-  progressions::Vector{Progression}
+  progressions::Vector{Progression} # not sure if progressions should be there
     
   constant_kernel_param::Float64
   household_kernel_param::Float64

@@ -1,0 +1,79 @@
+{
+  "random_seed": "range(1)",
+  "output_root_dir": "outputs",
+  "experiment_id": "regenerated_grid_SD_Fear_Wroclaw_10_200",
+  "save_input_data": false,
+  "max_time": 200,
+  "log_outputs": true,
+  "log_time_freq": 1,
+  "detection_mild_proba": 0.0,
+  "population_path" : "../data/simulations/mini-population.jld2",
+  "contact_tracking": {
+    "probability" : 0.5,
+	  "delay" : 1.0
+  },
+  "transmission_probabilities": {
+    "household": 1.0,
+    "constant": 1.35
+  },
+  "fear_factors": {
+    "default": {
+      "fear_function": "fear_disabled"
+    },
+    "constant": {
+      "fear_function": "fear_tanh",
+      "scale_factor": 5,
+      "loc_factor": 10,
+      "detected_multiplier": 1,
+      "deaths_multiplier": 0,
+      "limit_value": 0.35
+    }
+  },
+  "initial_conditions": {
+    "selection_algorithm": "random_selection",
+    "cardinalities": {
+      "infectious": 100
+    }
+  },
+  "import_intensity": {
+    "function": "no_import"
+  },
+  "case_severity_distribution": {
+    "asymptomatic": 0.006,
+    "mild": 0.809,
+    "severe": 0.138,
+    "critical": 0.047
+  },
+  "death_probability": {
+    "asymptomatic": 0.0,
+    "mild": 0.0,
+    "severe": 0.0,
+    "critical": 0.49
+  },
+  "epidemic_status": "not_detected",
+  "stop_simulation_threshold": 5000000,
+  "disease_progression": {
+    "default": {
+      "t0": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/incubation_period_distribution.npy",
+        "approximate_distribution": "lognormal"
+      },
+      "t1": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/t1_distribution.npy",
+        "approximate_distribution": "gamma"
+      },
+      "t2": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/t1_t2_distribution.npy",
+        "approximate_distribution": "gamma"
+      },
+      "tdeath": {
+        "distribution": "from_file",
+        "filepath": "$ROOT_DIR/test/models/assets/onset_death_distribution.npy",
+        "approximate_distribution": "lognormal"
+      }
+    }
+  }
+}

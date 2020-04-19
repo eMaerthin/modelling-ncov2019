@@ -1,8 +1,10 @@
 using DataFrames
 
-function simple_run(individuals_df::DataFrame;tracking_prob::Float64, 
+function simple_run(individuals_df::DataFrame;
+        tracking_prob::Float64=0.0, 
         constant_kernel_param::Float64=1.0, 
-        tracking_delay::Float64=0.5,
+        tracking_delay::Float64=1.0,
+        mild_detection_prob=0.0,
         history::Union{Nothing, Vector{Simulation.Event}}=nothing,
         execution_history::Union{Nothing, BitVector}=nothing,
         state_history::Union{Nothing, Vector{Simulation.IndividualState}}=nothing,
@@ -24,7 +26,9 @@ function simple_run(individuals_df::DataFrame;tracking_prob::Float64,
         forward_tracking_prob=tracking_prob,
         forward_detection_delay=tracking_delay/2,
         
-        testing_time=tracking_delay/2
+        testing_time=tracking_delay/2,
+        
+        mild_detection_prob = mild_detection_prob
     );
     state = Simulation.SimState(params.progressions |> length, seed=seed)
     

@@ -49,6 +49,7 @@ end
 progressionof(params::SimParams, person_id::Integer) = params.progressions[person_id]
 severityof(params::SimParams, person_id::Integer) = progressionof(params, person_id).severity
 householdof(params::SimParams, person_id::Integer) = UnitRange(params.household_ptrs[person_id]...)
+num_individuals(params::SimParams) = length(params.household_ptrs)
 
 function load_params(rng=MersenneTwister(0);
         population::Union{AbstractString,DataFrame},

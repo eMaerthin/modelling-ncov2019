@@ -65,7 +65,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
       continue
     end
       
-    infection_time = time(state) + rand(rng, time_dist)
+    infection_time = time(state) + rand(state.rng, time_dist)
     if infection_time > max_time
       continue
     end

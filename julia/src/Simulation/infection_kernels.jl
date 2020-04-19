@@ -39,12 +39,11 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
 end
 
 function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, source_id::Integer, params::SimParams)
-  household_head_ptr, household_tail_ptr = householdof(params,source_id)
+  household = householdof(params,source_id)
   
-  if household_head_ptr == household_tail_ptr
+  if 1==length(household)
     return
   end
-  
   
   progression = progressionof(params, source_id)
     
@@ -58,10 +57,10 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
    
   max_time = time(state) - start_time + end_time 
   
-  mean_infection_time = (household_tail_ptr-household_head_ptr) / params.household_kernel_param 
+  mean_infection_time = (length(household)-1) / params.household_kernel_param 
   time_dist = Exponential(mean_infection_time)
   
-  for subject_id in household_head_ptr : household_tail_ptr
+  for subject_id in household
     if subject_id == source_id || Healthy != health(state, subject_id)
       continue
     end

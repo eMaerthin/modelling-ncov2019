@@ -18,76 +18,57 @@ function parse_commandline()
 return parse_args(s)
 end
 
+function read_params(json, rng::AbstractRNG)
+  constant_kernel_param = json["transmission_probabilities"]["constant"]  |> Float64
+  household_kernel_param = json["transmission_probabilities"]["household"] |> Float64
+  mild_detection_prob = json["detection_mild_proba"]  |> Float64
 
-function read_params(parameters, rng)
-	# SIM_PARAMS from JSON
-
-	#=
-	max_num_infected = 100 # parameters["stop_simulation_threshold"]
-	num_trajectories = 100 # parameters["random_seed"] 
-	num_initial_infected = 100 # parameters["initial_conditions"]["cardinalities"]["infectious"] #100?
-	constant_kernel_param = 1.0 # parameters["transmission_probabilities"]["constant"]
-	household_kernel_param = 0.3 #parameters["transmission_probabilities"]["household"]
-	mild_detection_prob = 0.0 # parameters["detection_mild_proba"]
-	=#
-
-
+  tracking_prob = json["contact_tracking"]["probability"]  |> Float64
+  tracking_delay = json["contact_tracking"]["delay"]  |> Float64
+  population_path = json["population_path"] # <= JSON
 	
-	constant_kernel_param = parameters["transmission_probabilities"]["constant"]  |> Float64
-	household_kernel_param = parameters["transmission_probabilities"]["household"] |> Float64
-	mild_detection_prob = parameters["detection_mild_proba"]  |> Float64
+  individuals_df = load(population_path)["individuals_df"]
 
-
-	# needs to be added to josn 
-	tracking_prob = parameters["contact_tracking"]["probability"]  |> Float64
-	tracking_delay = parameters["contact_tracking"]["delay"]  |> Float64
-	population_path = parameters["population_path"] # <= JSON
-	
-	individuals_df = load(population_path)["individuals_df"]
-
-	Simulation.load_params(
-        rng,
-        population = individuals_df, 
+  Simulation.load_params(
+    rng,
+    population = individuals_df, 
         
-        mild_detection_prob = mild_detection_prob,
+    mild_detection_prob = mild_detection_prob,
         
-        constant_kernel_param = constant_kernel_param,
-        household_kernel_param = household_kernel_param,
+    constant_kernel_param = constant_kernel_param,
+    household_kernel_param = household_kernel_param,
         
-        backward_tracking_prob = tracking_prob,
-        backward_detection_delay = tracking_delay/2,
+    backward_tracking_prob = tracking_prob,
+    backward_detection_delay = tracking_delay/2,
         
-        forward_tracking_prob = tracking_prob,
-        forward_detection_delay = tracking_delay/2,
+    forward_tracking_prob = tracking_prob,
+    forward_detection_delay = tracking_delay/2,
         
-        testing_time = tracking_delay/2
-	)
+    testing_time = tracking_delay/2
+)
 end
 
-
 function main()
-	parsed_args = parse_commandline()
-    # parse the JSON file if provided
-    if parsed_args["JSON"] === nothing
-		println("give me sim_params, option: --JSON path")
-		exit()
-    else
+  parsed_args = parse_commandline()
+  # parse the JSON file if provided
+  if parsed_args["JSON"] === nothing
+    println("give me sim_params, option: --JSON path")
+    exit()
+  else
 		param_dict = JSON.parsefile(parsed_args["JSON"])
 		rng = MersenneTwister()
 		max_num_infected = param_dict["stop_simulation_threshold"]
 		num_trajectories = param_dict["random_seed"] 
-		num_initial_infected = param_dict["initial_conditions"]["cardinalities"]["infectious"]   #100?
+		num_initial_infected = param_dict["initial_conditions"]["cardinalities"]["infectious"]
 		parameters = read_params(param_dict, rng) 
 	end
-	if parsed_args["output_file"] === nothing
 	
+  if parsed_args["output_file"] === nothing
 		output_path = "output.jld2"
 	else
 		output_path = parsed_args["output_file"]
 	end
 
-
-	### let's play ...
 	state = Simulation.SimState(
     		rng,
     		length(parameters.household_ptrs) # number of individuals to allocate for
@@ -130,7 +111,4 @@ function main()
 	end
 end
 
-
-
 main()
-

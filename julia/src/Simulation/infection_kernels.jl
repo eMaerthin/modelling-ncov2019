@@ -39,6 +39,13 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
 end
 
 function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, source_id::Integer, params::SimParams)
+  household_head_ptr, household_tail_ptr = householdof(params,source_id)
+  
+  if household_head_ptr == household_tail_ptr
+    return
+  end
+  
+  
   progression = progressionof(params, source_id)
     
   start_time = progression.incubation_time
@@ -49,82 +56,28 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
               else    error("no recovery nor severe symptoms time defined")
               end
    
-  total_infection_rate = (end_time - start_time) * params.household_kernel_param
-  household_head_ptr, household_tail_ptr = params.household_ptrs[source_id]
+  max_time = time(state) - start_time + end_time 
   
-  if household_head_ptr == household_tail_ptr
-    #println("to się zdarzyło $(params.household_kernel_param)")
-    return
-  end
+  mean_infection_time = (household_tail_ptr-household_head_ptr) / params.household_kernel_param 
+  time_dist = Exponential(mean_infection_time)
   
-#  num_infections = min(
-#    rand(state.rng, 
-#      Poisson(total_infection_rate)), 
-#      household_tail_ptr-household_head_ptr
-#    ) #shouldn't it be a binomial dist?
- 
-  dist =  Poisson(total_infection_rate)
-#  dist |> println
-  num_infections = rand(state.rng, dist)
-
-#  println("total_rate=$total_infection_rate num infections=$num_infections start_time=$start_time end_time=$end_time")
-  if 0 == num_infections
-    return
-  end
-
-  @assert start_time != end_time "pathologicaly short time for infections there shouldn't be any infections but are $num_infections, progression=$progression"
-  time_dist = Uniform(state.time, end_time - start_time + state.time) # in global time reference frame  
-  
-  selected_ids = state.sample_id_buf
-  resize!(selected_ids, num_infections)
-  
-  sample!(state.rng, UnitRange(household_head_ptr, household_tail_ptr-UInt32(1)), selected_ids) # exclude the source itself
-  unique!(selected_ids)
-  
-  infection_times = state.sample_time_buf
-  resize!(infection_times, length(selected_ids))
-  
-  infection_times = rand!(state.rng, time_dist, infection_times)
-
-#  println("selected_ids=$selected_ids, times=$infection_times")
-  
-
-#  for i in 1:num_infections
-  for i in 1:length(selected_ids)  
-    subject_id = selected_ids[i]
-    if subject_id >= source_id
-      subject_id += UInt32(1) # restore the indexing
+  for subject_id in household_head_ptr : household_tail_ptr
+    if subject_id == source_id || Healthy != health(state, subject_id)
+      continue
     end
-    
-    if Healthy == health(state, subject_id)
-      infection_time = infection_times[i]
-      @assert state.time <= infection_time <= (end_time - start_time + state.time)
-      push!(state.queue, Event(Val(TransmissionEvent),
-        infection_time,
-        subject_id,
-        source_id,
-        HouseholdContact)
-      )
+      
+    infection_time = time(state) + rand(rng, time_dist)
+    if infection_time > max_time
+      continue
     end
+      
+    @assert time(state) <= infection_time <= (end_time - start_time + time(state))
+    push!(state.queue, Event(Val(TransmissionEvent),
+      infection_time,
+      subject_id,
+      source_id,
+      HouseholdContact)
+    )
   end
-  
-#  for _ in 1:num_infections
-#    subject_id = sample(state.rng, UnitRange(household_head_ptr, household_tail_ptr-UInt32(1))) # exclude the source itself
-#    if subject_id >= source_id
-#      subject_id += UInt32(1) # restore the indexing
-#    end
-#    
-#    if Healthy == health(state, subject_id)
-#      infection_time::TimePoint = rand(state.rng, time_dist) |> TimePoint
-#      @assert state.time <= infection_time <= (end_time - start_time + state.time)
-#      push!(state.queue, Event(Val(TransmissionEvent),
-#        infection_time,
-#        subject_id,
-#        source_id,
-#        HouseholdContact)
-#      )
-#    end
-#  end
-  
 end
 

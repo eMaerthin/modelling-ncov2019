@@ -54,15 +54,16 @@ function main()
   if parsed_args["JSON"] === nothing
     println("give me sim_params, option: --JSON path")
     exit()
-  else
-    param_dict = JSON.parsefile(parsed_args["JSON"])
-    rng = MersenneTwister()
-    max_num_infected = param_dict["stop_simulation_threshold"]
-	
-    num_trajectories = param_dict["random_seed"] 
-    num_initial_infected = param_dict["initial_conditions"]["cardinalities"]["infectious"]
-    parameters = read_params(param_dict, rng) 
   end
+    
+  param_dict = JSON.parsefile(parsed_args["JSON"])
+  rng = MersenneTwister(11)
+  max_num_infected = param_dict["stop_simulation_threshold"]
+	
+  num_trajectories = param_dict["random_seed"] 
+  num_initial_infected = param_dict["initial_conditions"]["cardinalities"]["infectious"]
+  parameters = read_params(param_dict, rng) 
+    
 	
   if parsed_args["output_file"] === nothing
     output_path = "output.jld2"

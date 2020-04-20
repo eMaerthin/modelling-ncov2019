@@ -7,7 +7,7 @@ struct IndividualState #TODO change to immutable
   health::HealthState
   freedom::FreedomState
   detected::DetectionStatus
-  quarantine_level::Int8 # allow for negative values to detect corruption
+  quarantine_level::SafeUInt8
 end
 
 IndividualState() = IndividualState(

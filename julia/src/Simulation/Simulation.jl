@@ -9,6 +9,7 @@ using FixedPointNumbers
 using LinearAlgebra
 using ProgressMeter
 using Random
+using SaferIntegers
 using Setfield
 using StaticArrays
 

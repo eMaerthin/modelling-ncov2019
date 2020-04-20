@@ -98,7 +98,6 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
     
   sethealth!(state, subject_id, Infectious)
         
-
   progression = params.progressions[subject_id]
  
   severity = progression.severity
@@ -124,7 +123,12 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
   enqueue_transmissions!(state, Val{HouseholdContact}, event.subject_id, params)
   
   detectioncheck!(state, params, subject_id)
-  return true
+  
+  if(rand(state.rng) < params.mild_detection_prob)
+    push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event)+2, subject_id))
+  end
+  
+  return true  
 end
 
 function execute!(::Val{MildSymptomsEvent}, state::SimState, params::SimParams, event::Event)::Bool
@@ -151,11 +155,6 @@ function execute!(::Val{MildSymptomsEvent}, state::SimState, params::SimParams, 
   
   detectioncheck!(state, params, subject_id)
   
-  if(rand(state.rng) >= params.mild_detection_prob)
-    return true
-  end
-   
-  push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event)+2, subject_id)) # immediately
   return true
 end
 

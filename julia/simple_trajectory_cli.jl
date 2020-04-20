@@ -5,6 +5,8 @@ using Random
 using FileIO
 using JLD2
 using DataFrames
+using ProgressMeter
+
 import Simulation
 
 function parse_commandline()
@@ -98,6 +100,7 @@ function main()
     end
 
     for trajectory_id in 1:num_trajectories
+      println(stderr, "iteration ", tracjectory_id)
       empty!(infection_times)
       empty!(detection_times)
 

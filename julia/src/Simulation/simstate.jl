@@ -22,28 +22,14 @@ show(io::IO, s::IndividualState) = print(io, "(",s.health, ", ", s.freedom, ", "
 
 mutable struct SimState
   rng::MersenneTwister
-
   time::TimePoint
-  
   queue::EventQueue
-  
   individuals::Vector{IndividualState}  
-  
   forest::InfectionForest
-  
-  #infections::Vector{Vector{Event}}    
-  #infections::SortedMultiDict{UInt32,Event}
-  
-  #infection_sources::Vector{Tuple{UInt32, ContactKind}}
-  
-    
-  #num_dead::Int
-  #num_affected::Int
-  #num_detected::Int
-    
+      
   # buffers for rand
-  sample_id_buf::Vector{UInt32}
-  sample_time_buf::Vector{TimePoint}
+  #sample_id_buf::Vector{UInt32}
+  #sample_time_buf::Vector{TimePoint}
     
     
   SimState(rng::AbstractRNG, num_individuals::Integer) = num_individuals <= 0 || num_individuals > typemax(UInt32) ? error("number of individuals must be positive and smaller than $(typemax(UInt32))") : 

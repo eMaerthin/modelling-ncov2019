@@ -107,8 +107,13 @@ function main()
       seed = trajectory_id
       Simulation.reset!(state, seed)
       Simulation.initialfeed!(state, num_initial_infected)
-      Simulation.simulate!(state, parameters, callback)
-
+      
+      try 
+        Simulation.simulate!(state, parameters, callback)
+      catch
+        println(stderr, "iteration ", trajectory_id, " failed")
+      end
+      
       trajectory_group = JLD2.Group(file, string(trajectory_id))
       trajectory_group["infection_times"] = infection_times 
       trajectory_group["detection_times"] = detection_times

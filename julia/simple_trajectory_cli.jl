@@ -99,7 +99,6 @@ function main()
     end
 
     for trajectory_id in 1:num_trajectories
-      println(stderr, "iteration ", tracjectory_id)
       empty!(infection_times)
       empty!(detection_times)
 

@@ -28,6 +28,7 @@ function read_params(json, rng::AbstractRNG)
   tracking_prob = json["contact_tracking"]["probability"]  |> Float64
   tracking_delay = json["contact_tracking"]["delay"]  |> Float64
   population_path = json["population_path"] # <= JSON
+  population_path::AbstractString # checks if it was indeed a string
 	
   individuals_df = load(population_path)["individuals_df"]
 
@@ -66,10 +67,8 @@ function main()
   num_initial_infected = param_dict["initial_conditions"]["cardinalities"]["infectious"]
   parameters = read_params(param_dict, rng) 
     
-	
-  if parsed_args["output_file"] === nothing
-    output_path = "output.jld2"
-  else
+  output_path = "output.jld2"
+  if parsed_args["output_file"] !== nothing
     output_path = parsed_args["output_file"]
   end
 

@@ -123,7 +123,11 @@ end
 
 function quarantine_advance!(state::SimState, person_id::Integer, adv_val::Integer) 
   orig = state.individuals[person_id]
-  state.individuals[person_id] = @set orig.quarantine_level = orig.quarantine_level+adv_val
+  if adv_val >= 0 
+    state.individuals[person_id] = @set orig.quarantine_level = orig.quarantine_level+adv_val
+  else
+    state.individuals[person_id] = @set orig.quarantine_level = orig.quarantine_level-(-adv_val)    
+  end  
   nothing
 end
 

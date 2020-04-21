@@ -1,6 +1,11 @@
 using PyPlot
 using FileIO
 
+mystep(r::AbstractRange) = step(r)
+mystep(r::AbstractArray) = r[2] - r[1]
+
+extendrange(r) = range( (first(r)-mystep(r)/2), last(r)+mystep(r)/2, length=length(r)+1)
+
 function plot_heatmap(results, title, tracking_probs = 0:0.05:1, Cs=0:0.05:1, logplot::Bool=true)
   figure(figsize=(10,5))
   reduction = 1 .- Cs / 1.35  |> collect
@@ -22,7 +27,7 @@ function plot_heatmap(results, title, tracking_probs = 0:0.05:1, Cs=0:0.05:1, lo
 
   gca().invert_yaxis()
   gca().invert_xaxis()
-  savefig("tracking_heatmap_$title.png")
+  savefig("tracking_heatmap_$title.png", bbox_inches="tight")
 end
 
 function plot_heatmap_delay_vs_tracking_prob(
@@ -38,19 +43,20 @@ function plot_heatmap_delay_vs_tracking_prob(
   tracking_probs::AbstractVector{T} where T<:Real = data["tracking_probs"]
   c::Real = data["c"]
 
-  pcolor(delays, tracking_probs, map, 
+  pcolor(
+    extendrange(delays), 
+    extendrange(tracking_probs), 
+    map, 
     norm=matplotlib.colors.LogNorm(vmin=minimum(map), vmax=maximum(map)),
-  
-  cmap="nipy_spectral")
+    cmap="nipy_spectral"
+  )
   clim(vmin=10^2)     
 
   colorbar() 
   title("Łączna liczba zarażonych dla redukcji kontaktów o $(100*(1-c/1.35))%")
   xlabel("opóźnienie śledzenia w dniach")
   ylabel("skuteczność wykrywania kontaktów b")
-  xlim(minimum(delays), maximum(delays))
-  ylim(minimum(tracking_probs), maximum(tracking_probs))
-  savefig(image_path)
+  savefig(image_path, bbox_inches="tight")
 end
 
 function plot_heatmap_mild_detection_vs_tracking_prob(
@@ -67,19 +73,22 @@ function plot_heatmap_mild_detection_vs_tracking_prob(
   mild_detection_probs::AbstractVector{T} where T<:Real = data["mild_detection_probs"]
   tracking_probs::AbstractVector{T} where T<:Real = data["tracking_probs"]
 
-  pcolor(mild_detection_probs, tracking_probs, map, 
+  pcolor(
+    extendrange(mild_detection_probs), 
+    extendrange(tracking_probs), 
+    map, 
     norm=matplotlib.colors.LogNorm(vmin=minimum(map), vmax=maximum(map)),
-  
-  cmap="nipy_spectral")
+    cmap="nipy_spectral"
+  )
   clim(vmin=10^2)     
 
   colorbar() 
-  title("Łączna liczba zarażonych \n dla redukcji kontaktów o $(100*(1-c/1.35))% i opóźnienia śledzenia kontaktów o $delay dni")
+  title("Łączna liczba zarażonych \n dla redukcji kontaktów o $(100*(1-c/1.35))% \n i opóźnienia śledzenia kontaktów o $delay dni")
   xlabel("prawdopodobieństwo wykrycia lekkich przypadków")
   ylabel("skuteczność wykrywania kontaktów b")
-  xlim(minimum(mild_detection_probs), maximum(mild_detection_probs))
-  ylim(minimum(tracking_probs), maximum(tracking_probs))
-  savefig(image_path)
+  #xlim(minimum(mild_detection_probs), maximum(mild_detection_probs))
+  #ylim(minimum(tracking_probs), maximum(tracking_probs))
+  savefig(image_path, bbox_inches="tight")
 end
 
 function plot_heatmap_mild_detection_vs_c(
@@ -91,16 +100,22 @@ function plot_heatmap_mild_detection_vs_c(
   map::AbstractArray{T,2} where T<:Real = data["map"]' 
   
   delay::Real = data["delay"]
-  Cs::AbstractVector{T} where T<:Real = data["Cs"]
-  mild_detection_probs::AbstractVector{T} where T<:Real = data["mild_detection_probs"]
+  Cs::AbstractRange{T} where T<:Real = data["Cs"]
+  mild_detection_probs::AbstractRange{T} where T<:Real = data["mild_detection_probs"]
   tracking_prob::Real = data["tracking_prob"]
 
 
   reduction = 1 .- Cs / 1.35  |> collect
-  pcolor(reduction, mild_detection_probs, map, 
+  pcolormesh(
+    extendrange(reduction), 
+    extendrange(mild_detection_probs), 
+#     reduction,
+#     mild_detection_probs,
+    map, 
     norm=matplotlib.colors.LogNorm(vmin=minimum(map), vmax=maximum(map)),
-  
-  cmap="nipy_spectral")
+    cmap="nipy_spectral",
+    shading="gouraud"
+  )
   clim(vmin=10^2)     
 
   colorbar() 
@@ -115,5 +130,5 @@ function plot_heatmap_mild_detection_vs_c(
   ylabel("prawdopodobieństwo wykrycia lekkich przypadków")
   #xlim(minimum(mild_detection_probs), maximum(mild_detection_probs))
   #ylim(minimum(tracking_probs), maximum(tracking_probs))
-  savefig(image_path)
+  savefig(image_path, bbox_inches="tight")
 end

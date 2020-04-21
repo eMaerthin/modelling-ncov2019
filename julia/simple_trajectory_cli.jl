@@ -63,7 +63,7 @@ function main()
   rng = MersenneTwister(11)
   max_num_infected = param_dict["stop_simulation_threshold"]
 	
-  num_trajectories = param_dict["random_seed"] 
+  num_trajectories = param_dict["num_trajectories"] 
   num_initial_infected = param_dict["initial_conditions"]["cardinalities"]["infectious"]
   parameters = read_params(param_dict, rng) 
     

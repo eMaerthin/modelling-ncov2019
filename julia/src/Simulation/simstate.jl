@@ -44,8 +44,8 @@ mutable struct SimState
       InfectionForest(num_individuals),
       
       # just the initial size, will be resized to meet the needs
-      Vector{UInt32}(undef, 100),
-      Vector{TimePoint}(undef, 100) 
+      #Vector{UInt32}(undef, 100),
+      #Vector{TimePoint}(undef, 100) 
     ) 
 end
 

@@ -7,3 +7,9 @@ notebooks/*.ipynb filter=lfs diff=lfs merge=lfs -text
 test/models/assets/dummy_distribution.npy filter=lfs diff=lfs merge=lfs -text
 test/models/assets/dummy_individuals.csv filter=lfs diff=lfs merge=lfs -text
 *.gz filter=lfs diff=lfs merge=lfs -text
+tracking_heatmap_wrocław_hacked.jld2 filter=lfs diff=lfs merge=lfs -text
+params.jld2 filter=lfs diff=lfs merge=lfs -text
+tracking_heatmap_wrocław.jld2 filter=lfs diff=lfs merge=lfs -text
+*.jld2 filter=lfs diff=lfs merge=lfs -text
+*.lfs filter=lfs diff=lfs merge=lfs -text
+*.ipynb filter=lfs diff=lfs merge=lfs -text

@@ -88,6 +88,9 @@ function simulate!(state::SimState, params::SimParams, callback::Union{Nothing,F
       
     if executed
        should_continue = callback(event, state, params)
+       if !should_continue
+         break
+       end
     end  
     
     iter_no+=1

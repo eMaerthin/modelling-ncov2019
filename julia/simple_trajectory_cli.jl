@@ -74,7 +74,7 @@ function main()
 
   state = Simulation.SimState(
     rng,
-    num_individuals(params) # number of individuals to allocate for
+    Simulation.num_individuals(params) # number of individuals to allocate for
   ); 
 
   jldopen(output_path, "w") do file

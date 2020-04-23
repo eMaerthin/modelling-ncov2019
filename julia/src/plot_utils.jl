@@ -6,7 +6,7 @@ mystep(r::AbstractArray) = r[2] - r[1]
 
 extendrange(r) = range( (first(r)-mystep(r)/2), last(r)+mystep(r)/2, length=length(r)+1)
 
-function plot_heatmap(results, tracking_probs = 0:0.05:1, Cs=0:0.05:1; cmin=nothing, cmax=nothing, logscale=true)
+function plot_heatmap(results, tracking_probs = 0:0.05:1, Cs=0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
   figure(figsize=(10,5))
   reduction = 1 .- Cs / 1.35  |> collect  
   
@@ -35,7 +35,9 @@ function plot_heatmap(results, tracking_probs = 0:0.05:1, Cs=0:0.05:1; cmin=noth
       cmap="nipy_spectral")
   end    
    
-  c = colorbar()
+  if addcbar 
+    cbar = colorbar()
+  end
 
   xlabel("f - Stopień redukcji kontaktów")
   
@@ -52,13 +54,20 @@ end
 
 function plot_heatmap_delay_vs_tracking_prob(
     data_path::AbstractString,
-    image_path::AbstractString 
+    image_path::AbstractString;
+    addcbar::Bool=true,
+    relative::Union{Nothing,Real} 
   )
 #  figure(figsize=(10,5))
   
   data = load(data_path)
   
   map::AbstractArray{T,2} where T<:Real = data["map"]' 
+  if relative!==nothing
+    map /= relative
+  end
+  
+  
   delays::AbstractVector{T} where T<:Real = data["delays"]
   tracking_probs::AbstractVector{T} where T<:Real = data["tracking_probs"]
   c::Real = data["c"]
@@ -70,13 +79,15 @@ function plot_heatmap_delay_vs_tracking_prob(
     norm=matplotlib.colors.LogNorm(vmin=minimum(map), vmax=maximum(map)),
     cmap="nipy_spectral"
   )
-  clim(vmin=10^2)     
+  #clim(vmin=10^2)     
 
-  colorbar() 
-  title("Łączna liczba zarażonych dla redukcji kontaktów o $(100*(1-c/1.35))%")
-  xlabel("opóźnienie śledzenia w dniach")
+  if addcbar
+    colorbar() 
+  end
+  #title("Łączna liczba zarażonych dla redukcji kontaktów o $(100*(1-c/1.35))%")
+  xlabel("d - opóźnienie śledzenia w dniach")
   ylabel("b - skuteczność śledzenia kontaktów")
-  savefig(image_path, bbox_inches="tight")
+
 end
 
 function plot_heatmap_mild_detection_vs_tracking_prob(
@@ -156,7 +167,7 @@ function plot_heatmap_mild_detection_vs_tracking_prob(
   #savefig(image_path, bbox_inches="tight")
 end
 
-function plot_heatmap_mild_detection_vs_c(results, mild_detection_probss = 0:0.05:1, Cs=0:0.05:1; cmin=nothing, cmax=nothing, logscale=true)
+function plot_heatmap_mild_detection_vs_c(results, mild_detection_probss = 0:0.05:1, Cs=0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
   figure(figsize=(10,5))
   reduction = 1 .- Cs / 1.35  |> collect
       
@@ -184,9 +195,9 @@ function plot_heatmap_mild_detection_vs_c(results, mild_detection_probss = 0:0.0
       norm=matplotlib.colors.Normalize(vmin=cmin, vmax=cmax),
       cmap="nipy_spectral")
   end    
- 
-  c = colorbar()
-
+  if addcbar
+    c = colorbar()
+  end
   xlabel("f - Stopień redukcji kontaktów")
   
   xticks(

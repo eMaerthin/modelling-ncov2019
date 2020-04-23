@@ -4,67 +4,61 @@ include("Simulation/Simulation.jl")
 
 using Random
 using Profile
-#loads and pre-processes data that is constant during the simulation time
-params = Simulation.load_params(
-    MersenneTwister(3),
-    population_path="../../data/simulations/wroclaw-population-orig.csv.gz", 
-    incubation_time_samples_path="../../test/models/assets/incubation_period_distribution.npy", 
-    t0_to_t1_samples_path="../../test/models/assets/t1_distribution.npy",
-    t0_to_t2_samples_path="../../test/models/assets/t1_t2_distribution.npy",
-    forward_tracking_prob=0.0,
-    backward_tracking_prob=0.0
+using FileIO
+using JLD2
+
+let 
+  individuals_df = load("../../data/simulations/wroclaw-population-orig.jld2")["individuals_df"]
+  #loads and pre-processes data that is constant during the simulation time
+
+  mild_detection_prob = 0.1
+  constant_kernel_param = 1.0
+  household_kernel_param = 0.3
+  tracking_prob = 0.3
+  tracking_delay = 5
+
+  param_rng = MersenneTwister(1)  
+  
+  params = Simulation.load_params(
+    param_rng,
+    population = individuals_df, 
+      
+    mild_detection_prob = mild_detection_prob,
+      
+    constant_kernel_param = constant_kernel_param,
+    household_kernel_param = household_kernel_param,
+      
+    backward_tracking_prob = tracking_prob,
+    backward_detection_delay = tracking_delay/2,
+      
+    forward_tracking_prob = tracking_prob,
+    forward_detection_delay = tracking_delay/2,
+      
+    testing_time = tracking_delay/2
+  )
     
-    );
-    
-state = Simulation.SimState(params.progressions |> length, seed=123)
+  state = Simulation.SimState(Simulation.num_individuals(params), seed=123)
+  sizehint!(state.queue, 10^6)
 
-push!(state.queue, Simulation.Event(Val(Simulation.OutsideInfectionEvent),0.0,1))
+  push!(state.queue, Simulation.Event(Val(Simulation.OutsideInfectionEvent),0.0,1))
 
-
-for iter  in 0:100
-    #println("iteration=$iter")
-    if isempty(state.queue)
-        @info "Empty queue after $iter events"
-        break
+  function run_some(num_iters::Integer)
+    for iter in 1:num_iters
+        if isempty(state.queue)
+            @info "queue empty before real testing starts, after $iter events"
+            break
+        end
+        event = pop!(state.queue)
+        result = Simulation.execute!(state, params, event)
     end
-    #state.individuals[1] |> display
-    #state.individuals[491936] |> display
-    event = pop!(state.queue)
-    state.time = Simulation.time(event)
-    #event |> display
-    result = Simulation.execute!(state, params, event)
-    #result |> println
+  end
 
+  #@code_warntype run_some(10000)
+
+  run_some(10000)
+
+  Profile.clear_malloc_data()
+
+  run_some(10000)
 end
-
-Profile.clear_malloc_data()
-
-@time for iter  in 0:100
-    #println("iteration=$iter")
-    if isempty(state.queue)
-        @info "Empty queue after $iter events"
-        break
-    end
-    #state.individuals[1] |> display
-    #state.individuals[491936] |> display
-
-    event = pop!(state.queue)
-    
-    state.time = Simulation.time(event)
-    
-    result = Simulation.execute!(state, params, event)
-    #result |> println
-
-end
-
-#event = pop!(state.queue)
-#state.time = Simulation.time(event)
-
-#@code_warntype Simulation.execute!(state, params, event)
-
-#println("***")
-#println("LLVM")
-#println("****")
-
-#@code_llvm Simulation.execute!(state, params, event)
 

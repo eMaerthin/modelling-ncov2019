@@ -59,13 +59,13 @@ function main()
     exit()
   end
     
-  param_dict = JSON.parsefile(parsed_args["JSON"])
+  json = JSON.parsefile(parsed_args["JSON"])
   rng = MersenneTwister(11)
-  max_num_infected = param_dict["stop_simulation_threshold"]
+  max_num_infected = json["stop_simulation_threshold"] |> Int
 	
-  num_trajectories = param_dict["num_trajectories"] 
-  num_initial_infected = param_dict["initial_conditions"]["cardinalities"]["infectious"]
-  parameters = read_params(param_dict, rng) 
+  num_trajectories = json["num_trajectories"] |> Int
+  num_initial_infected = json["initial_conditions"]["cardinalities"]["infectious"] |> Int
+  parameters = read_params(json, rng) 
     
   output_path = "output.jld2"
   if parsed_args["output_file"] !== nothing
@@ -74,7 +74,7 @@ function main()
 
   state = Simulation.SimState(
     rng,
-    length(parameters.household_ptrs) # number of individuals to allocate for
+    num_individuals(params) # number of individuals to allocate for
   ); 
 
   jldopen(output_path, "w") do file
@@ -95,13 +95,13 @@ function main()
         push!(infection_times, Simulation.time(event))
       end
 
-      return max_num_infected >= length(infection_times)
+      return max_num_infected > length(infection_times)
     end
 
     for trajectory_id in 1:num_trajectories
       empty!(infection_times)
       empty!(detection_times)
-
+      
       seed = trajectory_id
       Simulation.reset!(state, seed)
       Simulation.initialfeed!(state, num_initial_infected)
@@ -111,6 +111,8 @@ function main()
       catch
         println(stderr, "iteration ", trajectory_id, " failed")
       end
+      
+      GC.gc()
       
       trajectory_group = JLD2.Group(file, string(trajectory_id))
       trajectory_group["infection_times"] = infection_times 

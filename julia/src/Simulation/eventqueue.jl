@@ -2,8 +2,8 @@ using DataStructures
 
 import DataStructures.compare
 
-import Base: push!, pop!, isempty, empty!
-export push!, pop!, isempty!
+import Base: push!, pop!, isempty, empty!, sizehint!
+export push!, pop!, isempty!, empty!, sizehint!
 
 struct Earlier end
 compare(c::Earlier, x::Event, y::Event) = time(x) == time(y) ? kind(x) < kind(y) : time(x) < time(y)
@@ -28,4 +28,5 @@ empty!(queue::EventQueue) = empty!(queue.queue.valtree)
 push!(queue::EventQueue, event::Event; immediate::Bool=false) = push!(queue.queue, event)
 pop!(queue::EventQueue) = pop!(queue.queue)
 isempty(queue::EventQueue) = isempty(queue.queue)
+sizehint!(queue::EventQueue, sz::Integer) = sizehint!(queue.queue, sz)
 

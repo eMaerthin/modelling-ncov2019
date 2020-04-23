@@ -296,7 +296,7 @@ function execute!(::Val{TrackedEvent}, state::SimState, params::SimParams, event
   
   for member in householdof(params, subject(event))
     if Undetected != detected(state, member) && UnderObservation != detected(state, member)
-      @assert detected(state, member) ∈ [TestPending, Detected]
+      @assert detected(state, member) in SA[TestPending, Detected]
       continue
     end
     
@@ -424,7 +424,7 @@ function trackhousehold!(state::SimState, params::SimParams, subject_id::Integer
   nothing
 end
 function backtrack!(state::SimState, params::SimParams, person_id::Integer; track_household_connections::Bool)
-  current_time = state.time
+  current_time = time(state)
   
   event = backwardinfection(state, person_id)
   backward_id = source(event)
@@ -446,13 +446,13 @@ function backtrack!(state::SimState, params::SimParams, person_id::Integer; trac
   if rand(state.rng) >= params.backward_tracking_prob 
     return
   end
-     
+  
   push!(state.queue, Event(Val(TrackedEvent), current_time + params.backward_detection_delay, backward_id, person_id))
   nothing
 end
 
 function forwardtrack!(state::SimState, params::SimParams, person_id::Integer; track_household_connections::Bool)
-  current_time = state.time
+  current_time = time(state)
   # handle all outgoing infections
   for infection in forwardinfections(state, person_id)
     

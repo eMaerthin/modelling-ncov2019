@@ -25,6 +25,7 @@ function reset!(forest::RobinForest)
     fill!(forest.inedges, Event()),
     fill!(forest.outdegrees, 0),
     empty!(forest.outedgedict)
+    fill!(forest.outedgedict.hashes, 0)
     nothing
 end
 

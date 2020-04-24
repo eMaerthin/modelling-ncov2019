@@ -79,8 +79,8 @@ sourcehealth(state::SimState, event::Event)::HealthState = health(state, source(
 sourcefreedom(state::SimState, event::Event)::FreedomState = freedom(state, source(event))
 
 #forwardinfections(state::SimState, person_id::Integer) = inclusive(state.infections, searchequalrange(state.infections, person_id)...) |> values
-forwardinfections(state::SimState, person_id::Integer)::Vector{Event} = forwardinfections(state.forest, person_id)
-backwardinfection(state::SimState, person_id::Integer)::Event = backwardinfection(state.forest, person_id)
+forwardinfections(state::SimState, person_id::Integer) = forwardinfections(state.forest, person_id)
+backwardinfection(state::SimState, person_id::Integer) = backwardinfection(state.forest, person_id)
 
 
 function sethealth!(state::SimState, person_id::Integer, new_health::HealthState)

@@ -20,7 +20,9 @@ include("enums.jl")
 include("event.jl")
 
 include("eventqueue.jl")
-include("infection_forest.jl")
+include("robin_forest.jl")
+const InfectionForest = RobinForest
+#include("infection_forest.jl")
 include("simstate.jl")
 include("progression.jl")
 include("simparams.jl")

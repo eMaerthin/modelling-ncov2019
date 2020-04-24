@@ -3,21 +3,15 @@
 # the underlying values are also priorites in case the time is the same
 # therefore the order of definition implies priority
 
-  
-  
-  
   QuarantinedEvent
   DetectedFromQuarantineEvent  
   HomeTreatmentSuccessEvent
   QuarantineEndEvent
-  
 
   GoHospitalEvent
   
   DetectedOutsideQuarantineEvent
   DetectedFromTrackingEvent
-
-
 
   TrackedEvent
   ReleasedEvent

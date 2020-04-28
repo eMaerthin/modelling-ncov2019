@@ -76,7 +76,7 @@ end
 using FunctionWrappers
 #const Callback = FunctionWrappers.FunctionWrapper{Nothing, Tuple{Event, SimState, SimParams}}
 
-function simulate!(state::SimState, params::SimParams, callback::Union{Nothing,Function})
+function simulate!(state::SimState, params::SimParams, callback)
   iter_no = 0
   while true
     if isempty(state.queue)

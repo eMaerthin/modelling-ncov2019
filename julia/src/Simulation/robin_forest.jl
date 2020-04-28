@@ -25,6 +25,7 @@ function reset!(forest::RobinForest)
     fill!(forest.inedges, Event()),
     fill!(forest.outdegrees, 0),
     empty!(forest.outedgedict)
+    fill!(forest.outedgedict.hashes, 0)
     nothing
 end
 
@@ -44,7 +45,7 @@ function push!(forest::RobinForest, infection::Event)
   source_outdeg = forest.outdegrees[source_id] += 1
   
   key = EdgeDictKey(source_id, source_outdeg)
-  @assert !haskey(forest.outedgedict, key)
+  @assert !haskey(forest.outedgedict, key) "There should be no key $key but it is aready there $(forest.outedgedict[key])"
   forest.outedgedict[key] = subject_id
   
   nothing

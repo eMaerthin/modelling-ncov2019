@@ -39,13 +39,14 @@ function plot_heatmap(results, tracking_probs = 0:0.05:1, Cs=0:0.05:1; cmin=noth
     cbar = colorbar()
   end
 
-  xlabel("f - Stopień redukcji kontaktów")
-  
+  #xlabel("f - Stopień redukcji kontaktów")
+  xlabel("f - contact reduction factor")
   xticks(
     0:0.1:1,
     ["$(100*f)%" for f in 0:0.1:1])
   
-  ylabel("b - skuteczność śledzenia kontaktów")
+  #ylabel("b - skuteczność śledzenia kontaktów")
+  ylabel("b - contact tracking effectiveness")
 
   gca().invert_yaxis()
   gca().invert_xaxis()
@@ -198,13 +199,15 @@ function plot_heatmap_mild_detection_vs_c(results, mild_detection_probss = 0:0.0
   if addcbar
     c = colorbar()
   end
-  xlabel("f - Stopień redukcji kontaktów")
+  #xlabel("f - Stopień redukcji kontaktów")
+  xlabel("f - contact reduction factor")
   
   xticks(
     0:0.1:1,
     ["$(100*f)%" for f in 0:0.1:1])
   
-  ylabel("q - Skuteczność wykrywania lekkich przypadków")
+  #ylabel("q - Skuteczność wykrywania lekkich przypadków")
+  ylabel("q - Mild case detection effectiveness")
 
   gca().invert_yaxis()
   gca().invert_xaxis()

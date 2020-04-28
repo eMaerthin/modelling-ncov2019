@@ -1,18 +1,20 @@
 {
-  "random_seed": "range(3)",
+  "random_seed": "range(1)",
   "output_root_dir": "outputs",
-  "experiment_id": "exponential_import",
+  "experiment_id": "economy-Rq-map-14days-from1000",
+  "experiment_dir": "f'{self._params[EXPERIMENT_ID]}_{self._params[DETECTION_MILD_PROBA]}_{self._params[FEAR_FACTORS][CONSTANT][LIMIT_VALUE]}'",
   "save_input_data": false,
-  "log_outputs": true,
-  "log_time_freq": 10.0,
+  "log_outputs": false,
+  "log_time_freq": 0.5,
+  "detection_mild_proba": 0.0,
   "transmission_probabilities": {
     "sporadic": 0.001,
     "transport": 0.01,
     "friendship": 0,
     "household": 0.3,
     "workplace": 0.1,
-    "constant": 0.06,
-    "constant_age": 10.0
+    "constant": 1.35,
+    "constant_age": 0.0
   },
   "constant_age_setup": {
     "age": [16, 17],
@@ -21,21 +23,23 @@
   "fear_factors": {
     "default": {
       "fear_function": "fear_disabled"
+    },
+    "constant": {
+      "fear_function": "fear_tanh",
+      "scale_factor": 1,
+      "loc_factor": -9999999,
+      "detected_multiplier": 1,
+      "deaths_multiplier": 0,
+      "limit_value": 0.0
+
     }
   },
+  "reuse_expected_case_severities": true,
   "initial_conditions": {
     "selection_algorithm": "random_selection",
     "cardinalities": {
-      "immune":  0.9,
-      "contraction":  10
+      "contraction":  1000
     }
-  },
-  "import_intensity": {
-    "function": "exponential",
-    "multiplier": 1,
-    "rate": 0.14,
-    "cap": 1000,
-    "infectious": 0.1
   },
   "case_severity_distribution": {
     "asymptomatic": 0.006,
@@ -50,7 +54,13 @@
     "critical": 0.49
   },
   "epidemic_status": "not_detected",
-  "stop_simulation_threshold": 1000000,
+  "stop_simulation_criteria": {
+    "days_without_new_detections": 14,
+    "days_with_increasing_active_cases": 50,
+    "time": 600,
+    "prevalence": 150000
+  },
+
   "disease_progression": {
     "default": {
       "t0": {

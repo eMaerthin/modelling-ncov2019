@@ -127,6 +127,12 @@ default_constant_age_setup = None
 
 default_inter_age_contacts = False
 
+default_stop_simulation_criteria = {}
+
+default_experiment_dir = None
+
+default_constant_two_groups = False
+
 defaults = {
     INITIAL_CONDITIONS: default_initial_conditions,
     STOP_SIMULATION_THRESHOLD: default_stop_simulation_threshold,
@@ -173,6 +179,9 @@ defaults = {
     REUSE_TIME_DISTRIBUTION_REALIZATIONS: default_reuse_time_distribution_realizations,
     OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL: default_old_implementation_for_household_kernel,
     CONSTANT_AGE_SETUP: default_constant_age_setup,
+    STOP_SIMULATION_CRITERIA: default_stop_simulation_criteria,
+    EXPERIMENT_DIR: default_experiment_dir,
+    CONSTANT_TWO_GROUPS: default_constant_two_groups,
 }
 
 default_age_induced_fatality_rates = [(0, 20, 0.002), (20, 40, 0.002), (40, 50, 0.004), (50, 60, 0.013),

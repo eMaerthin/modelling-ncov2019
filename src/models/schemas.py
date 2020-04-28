@@ -100,6 +100,21 @@ constant_age_setup_schema = Schema(Or(None, {
     INTER_AGE_CONTACTS: bool,
 }))
 
+allowed_threshold_types = [PREVALENCE, DETECTIONS, DAYS_WITHOUT_NEW_DETECTIONS, TIME, DAYS_WITH_INCREASING_ACTIVE_CASES]
+
+stop_simulation_threshold_type_schema = Schema(Or(*allowed_threshold_types))
+
+stop_simulation_criteria_schema = Schema({
+    Optional(dict_key): And(Or(Use(int), Use(float)), lambda n: n >= 0) for dict_key in allowed_threshold_types
+})
+
+constant_two_groups_schema = Schema(Or(False, {
+    SIZE_OF_FIRST_GROUP: And(Use(float), lambda n: 0 <= n <= 1),
+    REDUCTION_BY_OF_FIRST_GROUP: Use(float, lambda n: 0 <= n <= 1),
+    REDUCTION_BY_OF_SECOND_GROUP: Use(float, lambda n: 0 <= n <= 1),
+    TURN_OFF_CONSTANT_KERNEL: bool
+}))
+
 infection_model_schemas = {
     INITIAL_CONDITIONS: Schema(Or(initial_conditions_schema1, initial_conditions_schema2)),
     STOP_SIMULATION_THRESHOLD: Schema(And(Use(int), lambda n: n > 0)),
@@ -149,7 +164,10 @@ infection_model_schemas = {
     ENABLE_ADDITIONAL_LOGS: Schema(bool),
     REUSE_EXPECTED_CASE_SEVERITIES: Schema(bool),
     REUSE_TIME_DISTRIBUTION_REALIZATIONS: Schema(bool),
-    STOP_SIMULATION_THRESHOLD_TYPE: Schema(Or(PREVALENCE, DETECTIONS)),
+    STOP_SIMULATION_THRESHOLD_TYPE: stop_simulation_threshold_type_schema,
     OLD_IMPLEMENTATION_FOR_HOUSEHOLD_KERNEL: Schema(bool),
     CONSTANT_AGE_SETUP: constant_age_setup_schema,
+    STOP_SIMULATION_CRITERIA: stop_simulation_criteria_schema,
+    EXPERIMENT_DIR: Schema(str),
+    CONSTANT_TWO_GROUPS: constant_two_groups_schema,
 }

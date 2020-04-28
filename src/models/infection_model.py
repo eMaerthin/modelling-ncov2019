@@ -2,11 +2,10 @@
 This is mostly based on references/infection_alg.pdf
 """
 import ast
-from functools import (lru_cache, partial)
+from functools import partial
 import json
 import logging
 import mocos_helper
-#import random
 import time
 from collections import defaultdict
 import pickle
@@ -33,8 +32,28 @@ from queue import (PriorityQueue)
 q = PriorityQueue()
 
 
+def merge_dicts(a, b, path=None, overwrite=True):
+    "merges b into a"
+    if path is None: path = []
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                merge_dicts(a[key], b[key], path + [str(key)])
+            else:
+                if overwrite:
+                    a[key] = b[key]
+                else:
+                    if a[key] == b[key]:
+                        pass # same leaf value
+                    else:
+                        raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
+        else:
+            a[key] = b[key]
+    return a
+
+
 class InfectionModel:
-    def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str = '') -> None:
+    def __init__(self, params_path: str, df_individuals_path: str, df_households_path: str, **overridden_params) -> None:
         self.params_path = params_path
         self.df_individuals_path = df_individuals_path
         self.df_households_path = df_households_path
@@ -44,6 +63,7 @@ class InfectionModel:
             params = json.loads(
                 params_file.read()
             )  # TODO: check whether this should be moved to different place
+        params = merge_dicts(params, overridden_params)# {**params, **overridden_params}
         logger.info('Parsing params...')
         for key, schema in infection_model_schemas.items():
             self._params[key] = schema.validate(params.get(key, defaults[key]))
@@ -65,21 +85,26 @@ class InfectionModel:
         self._households_capacities = None
         self._households_inhabitants = None
         self._init_for_stats = None
-
+        self._condition_triggered = None
         self._affected_people = 0
         self._active_people = 0
         self._quarantined_people = 0
+        self._quarantine_counter = None
         self._detected_people = 0
         self._immune_people = 0
         self._deaths = 0
         self._icu_needed = 0
-
+        self._max_gap_reported = None
         self._disable_friendship_kernel = False
         self._set_up_data_frames()
         self._infection_status = None
         self._detection_status = None
         self._quarantine_status = None
+        self._daily_stats = None
+        self._time_of_last_decrementing_active_cases = None
         self._expected_case_severity = None
+        self._two_groups = None
+        self._individuals_group_dct = None
         if self._params[REUSE_EXPECTED_CASE_SEVERITIES]:
             self._expected_case_severity = self.draw_expected_case_severity()
         self._infections_dict = None
@@ -109,6 +134,7 @@ class InfectionModel:
 
         self.band_time = None
         self._last_affected = None
+        self._time_of_last_detection = None
         self._per_day_increases = {}
 
         self._disable_constant_age_kernel = False
@@ -363,6 +389,17 @@ class InfectionModel:
     def deaths(self):
         return self._deaths
 
+    def draw_two_groups(self):
+        s1 = self._params[CONSTANT_TWO_GROUPS][SIZE_OF_FIRST_GROUP]
+        choice_set = list(self._individuals_indices)
+        cardinality = int(s1 * len(choice_set))
+        if cardinality == 0:
+            group2 = choice_set
+            group1 = []
+        else:
+            group2, group1 = mocos_helper.randomly_split_list(choice_set, howmuch=cardinality)
+        return {0: group1, 1: group2}
+
     def draw_expected_case_severity(self):
         case_severity_dict = self.case_severity_distribution
         keys = list(case_severity_dict.keys())
@@ -498,7 +535,35 @@ class InfectionModel:
 
                 self.append_event(Event(contraction_time, person_idx, TMINUS1, person_id, HOUSEHOLD, self.global_time))
 
+    def add_potential_contractions_from_constant_two_groups(self, person_id):
+        prog_times = self._progression_times_dict[person_id]
+        start = prog_times[T0]
+        end = prog_times[T1]
+        if end is None:
+            end = prog_times[T2]
+
+        w1 = 1 - self._params[CONSTANT_TWO_GROUPS][REDUCTION_BY_OF_FIRST_GROUP]
+        w2 = 1 - self._params[CONSTANT_TWO_GROUPS][REDUCTION_BY_OF_SECOND_GROUP]
+
+        total_infection_rate = (end - start) * self.gamma('constant')
+        infected = mocos_helper.poisson(total_infection_rate)
+        if infected == 0:
+            return
+        for idx, count in mocos_helper.sample_with_replacement([w1, w2], infected):
+            if count > 0:
+                selected_rows = mocos_helper.nonreplace_sample_few(self._two_groups[idx],
+                                                                   count, person_id)
+                for person_idx in selected_rows:
+                    if self.get_infection_status(person_idx) == InfectionStatus.Healthy:
+                        contraction_time = mocos_helper.uniform(low=start, high=end)
+                        self.append_event(
+                            Event(contraction_time, person_idx, TMINUS1, person_id, CONSTANT_TWO_GROUPS, self.global_time))
+
     def add_potential_contractions_from_constant_kernel(self, person_id):
+        if self._params[CONSTANT_TWO_GROUPS]:
+            self.add_potential_contractions_from_constant_two_groups(person_id)
+            if self._params[CONSTANT_TWO_GROUPS][TURN_OFF_CONSTANT_KERNEL]:
+                return
         """ Constant kernel draws a number of infections based on base gamma and enqueue randomly selected events """
         prog_times = self._progression_times_dict[person_id]
         start = prog_times[T0]
@@ -710,6 +775,15 @@ class InfectionModel:
                           f'{elem.get(KERNEL, None)}\n'
                     f.write(str)
 
+    def save_daily_stats(self, path):
+        with open(path, "w") as f:
+            f.write(f'{TIME},{AFFECTED},{DETECTED},{QUARANTINED},{PER_DAY_INCREASE},{ACTIVE_PEOPLE},'
+                    f'{DEATHS},{DAYS_WITH_INCREASING_ACTIVE_CASES},{MEMORY_USE}\n')
+            for elem in self._daily_stats:
+                str = f'{elem[TIME]},{elem[AFFECTED]},{elem[DETECTED]},{elem[QUARANTINED]},{elem[PER_DAY_INCREASE]},'\
+                      f'{elem[ACTIVE_PEOPLE]},{elem[DEATHS]},{elem[DAYS_WITH_INCREASING_ACTIVE_CASES]},{elem[MEMORY_USE]}\n'
+                f.write(str)
+
     def prevalance_at(self, time):
         return len([1 for elem in self._infections_dict.values() if elem.get(CONTRACTION_TIME, np.inf) <= time])
 
@@ -756,8 +830,11 @@ class InfectionModel:
         underscore_if_prefix = '_' if len(prefix) > 0 else ''
         json_name = os.path.splitext(os.path.basename(self.params_path))[0]
         run_id = f'{prefix}{underscore_if_prefix}{json_name}_{int(time.monotonic() * 1e9)}_{self._params[RANDOM_SEED]}'
+        experiment_dir = self._params[EXPERIMENT_ID]
+        if self._params[EXPERIMENT_DIR]:
+            experiment_dir = eval(self._params[EXPERIMENT_DIR])
         simulation_output_dir = os.path.join(self._params[OUTPUT_ROOT_DIR],
-                                             self._params[EXPERIMENT_ID],
+                                             experiment_dir,
                                              run_id)
         os.makedirs(simulation_output_dir)
         return simulation_output_dir
@@ -815,7 +892,7 @@ class InfectionModel:
                     self._max_time_offset = self._global_time
                     self._init_for_stats = self._active_people
 
-    def quick_return_condition(self, initiated_through):
+    def quick_return_condition(self, initiated_by, initiated_through):
         """ Checks if event of type 'initiated_through' should be abandoned given current situation """
         if initiated_through == HOUSEHOLD:
             return False
@@ -829,6 +906,16 @@ class InfectionModel:
                         return True
                     else:
                         return False
+
+        if initiated_through == CONSTANT_TWO_GROUPS:
+
+            threshold = 1 - self._params[CONSTANT_TWO_GROUPS][REDUCTION_BY_OF_SECOND_GROUP]
+            if self._individuals_group_dct[initiated_by] == 0:
+                threshold = 1 - self._params[CONSTANT_TWO_GROUPS][REDUCTION_BY_OF_FIRST_GROUP]
+            if r > threshold:
+                return True
+            else:
+                return False
 
         if r > self.fear(initiated_through):
             return True
@@ -860,28 +947,36 @@ class InfectionModel:
     def process_event(self, event) -> bool:
         type_ = getattr(event, TYPE)
         time = getattr(event, TIME)
-        if int(time / self._params[LOG_TIME_FREQ]) != int(self._global_time / self._params[LOG_TIME_FREQ]):
-            memory_use = ps.memory_info().rss / 1024 / 1024
-            fearC = self.fear(CONSTANT)
-            fearH = self.fear(HOUSEHOLD)
-            per_day_increase = 0
-            if self._last_affected:
-                per_day_increase = (self.affected_people - self._last_affected)/self._last_affected*100
-            self._last_affected = self.affected_people
-            self._per_day_increases[int(self._global_time)] = per_day_increase
-            logger.info(f'Time: {time:.2f}'
-                         f'\tAffected: {self.affected_people}'
-                         f'\tDetected: {self.detected_people}'
-                         f'\tQuarantined: {self.quarantined_people}'
-                         f'\tPer-day-increase: {per_day_increase:.2f} %'
-                         f'\tActive: {self.active_people}'
-                         f'\tDeaths: {self.deaths}'
-                         f'\tFearC: {fearC}'
-                         f'\tFearH: {fearH}'
-                         f'\tPhysical memory use: {memory_use:.2f} MB')
         self._global_time = time
+
         if self._global_time > self._max_time + self._max_time_offset:
             return False
+        if type_ == DAILY_STATS:
+            daily_stats = {}
+            per_day_increase = 0.0
+            days_with_increasing_active_cases = 0
+            if len(self._daily_stats) > 0:
+                if self._daily_stats[-1][ACTIVE_PEOPLE] < self.active_people:
+                    days_with_increasing_active_cases = self._daily_stats[-1][DAYS_WITH_INCREASING_ACTIVE_CASES] + 1
+                per_day_increase = (self.affected_people - self._daily_stats[-1][AFFECTED]) / self._daily_stats[-1][
+                    AFFECTED] * 100
+            daily_stats[AFFECTED] = self.affected_people
+            daily_stats[DETECTED] = self.detected_people
+            daily_stats[QUARANTINED] = self.quarantined_people
+            daily_stats[PER_DAY_INCREASE] = per_day_increase
+            daily_stats[ACTIVE_PEOPLE] = self.active_people
+            daily_stats[DEATHS] = self.deaths
+            daily_stats[DAYS_WITH_INCREASING_ACTIVE_CASES] = days_with_increasing_active_cases
+            memory_use = ps.memory_info().rss / 1024 / 1024
+            daily_stats[MEMORY_USE] = memory_use
+            daily_stats[TIME] = self._global_time
+            self._daily_stats.append(daily_stats)
+            logging.debug(f't={self._global_time}, daily_stats: {daily_stats}')
+            if self.active_people > 0:
+                self.append_event(
+                    Event(self._global_time + 1.0, 999999999, DAILY_STATS, None, DAILY_STATS, self._global_time))
+            return True  # no need to wander further - it is just DAILY_STATS event
+
         person_id = getattr(event, PERSON_INDEX)
         initiated_by = getattr(event, INITIATED_BY)
         initiated_through = getattr(event, INITIATED_THROUGH)
@@ -894,6 +989,7 @@ class InfectionModel:
                     self.add_new_infection(person_id, InfectionStatus.Contraction.value,
                                            initiated_by, initiated_through)
                 elif type_ == T0:
+                    self._active_people += 1
                     self.add_new_infection(person_id, InfectionStatus.Infectious.value,
                                            initiated_by, initiated_through)
         elif type_ == TMINUS1:
@@ -903,7 +999,7 @@ class InfectionModel:
             except KeyError:
                 logging.error(f'infection status should not be blank for infection! key: {initiated_by}')
             if initiated_inf_status in active_states:
-                if self.quick_return_condition(initiated_through):
+                if self.quick_return_condition(initiated_by, initiated_through):
                     return True
 
                 current_status = self.get_infection_status(person_id)
@@ -946,6 +1042,7 @@ class InfectionModel:
                     if self._progression_times_dict[person_id][T2] < self.global_time:
                         self._icu_needed -= 1
                 self._active_people -= 1
+                self._time_of_last_decrementing_active_cases = self._global_time
                 self._infection_status[person_id] = InfectionStatus.Death.value
 
         elif type_ == TRECOVERY: # TRECOVERY is exclusive with regards to TDEATH (when this comment was added)
@@ -953,8 +1050,9 @@ class InfectionModel:
                 InfectionStatus.Recovered,
                 InfectionStatus.Death
             ]:
+                self._active_people -= 1
+                self._time_of_last_decrementing_active_cases = self._global_time
                 if initiated_through != INITIAL_CONDITIONS:
-                    self._active_people -= 1
                     if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
                         if self._progression_times_dict[person_id][T2] < self.global_time:
                             self._icu_needed -= 1
@@ -968,6 +1066,7 @@ class InfectionModel:
                 if self.get_detection_status_(person_id) == DetectionStatus.NotDetected:
                     self._detection_status[person_id] = DetectionStatus.Detected.value
                     self._detected_people += 1
+                    self._time_of_last_detection = self._global_time
                     self.update_max_time_offset()
                     household_id = self._individuals_household_id[person_id]
                     for inhabitant in self._households_inhabitants[household_id]:
@@ -995,22 +1094,44 @@ class InfectionModel:
 
     def run_simulation(self):
         def _inner_loop(iter):
-            threshold_type = self._params[STOP_SIMULATION_THRESHOLD_TYPE]
+            criteria_defined = len(self._params[STOP_SIMULATION_CRITERIA]) > 0
+            if not criteria_defined:
+                threshold_type = self._params[STOP_SIMULATION_THRESHOLD_TYPE]
+                self._params[STOP_SIMULATION_CRITERIA][threshold_type] = self.stop_simulation_threshold
             value_to_be_checked = None
             start = time.time()
             times_mean = 0.0
-            i = 0
+            events_counter = 0
+
             while not q.empty():
                 event_start = time.time()
-                if threshold_type == PREVALENCE:
-                    value_to_be_checked = self.affected_people
-                elif threshold_type == DETECTIONS:
-                    value_to_be_checked = self.detected_people
-                if value_to_be_checked is None:
-                    logging.error(f"we have an error here")
-                if value_to_be_checked >= self.stop_simulation_threshold:
-                    logging.info(
-                        f"The outbreak reached a high number {self.stop_simulation_threshold} ({threshold_type})")
+                break_condition = False
+                for threshold_type, threshold in self._params[STOP_SIMULATION_CRITERIA].items():
+                    if threshold_type == PREVALENCE:
+                        value_to_be_checked = self.affected_people
+                    elif threshold_type == DETECTIONS:
+                        value_to_be_checked = self.detected_people
+                    elif threshold_type == TIME:
+                        value_to_be_checked = self._global_time
+                    elif threshold_type == DAYS_WITH_INCREASING_ACTIVE_CASES:
+                        value_to_be_checked = 0
+                        if len(self._daily_stats) > 0:
+                            value_to_be_checked = self._daily_stats[-1][DAYS_WITH_INCREASING_ACTIVE_CASES]
+                    elif threshold_type == DAYS_WITHOUT_NEW_DETECTIONS:
+                        value_to_be_checked = 0
+                        if self._detected_people > 10:
+                            value_to_be_checked = self._global_time - self._time_of_last_detection
+                            if value_to_be_checked > self._max_gap_reported:
+                                self._max_gap_reported = value_to_be_checked
+                    if value_to_be_checked is None:
+                        logging.error(f"we have an error here")
+                    if value_to_be_checked >= threshold:
+                        self._condition_triggered = threshold_type
+                        logging.info(
+                            f"The outbreak reached a high number {threshold} ({threshold_type})")
+                        break_condition = True
+                        break
+                if break_condition:
                     break
                 event = q.get()
                 if not self.process_event(event):
@@ -1020,8 +1141,8 @@ class InfectionModel:
                 q.task_done()
                 event_end = time.time()
                 elapsed = event_end - event_start
-                times_mean = ( times_mean * i + elapsed ) / (i + 1)
-                i += 1
+                times_mean = (times_mean * events_counter + elapsed) / (events_counter + 1)
+                events_counter += 1
 
             end = time.time()
             print(f'Sim runtime {end - start}, event proc. avg time: {times_mean}')
@@ -1030,12 +1151,16 @@ class InfectionModel:
                 q.get_nowait()
                 q.task_done()
             simulation_output_dir = self._save_dir()
-            self.save_progression_times(os.path.join(simulation_output_dir, 'output_df_progression_times.csv'))
-            self.save_potential_contractions(os.path.join(simulation_output_dir, 'output_df_potential_contractions.csv'))
             if self._params[LOG_OUTPUTS]:
                 logger.info('Log outputs')
-                self.log_outputs(simulation_output_dir)
 
+                self.save_progression_times(os.path.join(simulation_output_dir, 'output_df_progression_times.csv'))
+                self.save_potential_contractions(
+                    os.path.join(simulation_output_dir, 'output_df_potential_contractions.csv'))
+
+                self.log_outputs(simulation_output_dir)
+            else:
+                self.save_daily_stats(os.path.join(simulation_output_dir, 'daily_stats.csv'))
             if self._icu_needed >= self._params[ICU_AVAILABILITY]:
                 return True
             if value_to_be_checked >= self.stop_simulation_threshold:
@@ -1050,7 +1175,7 @@ class InfectionModel:
         runs = 0
         output_log = 'Last_processed_time;Total_#Affected;Total_#Detected;Total_#Deceased;Total_#Quarantined;'\
                      'c;c_norm;Init_#people;Band_hit_time;Subcritical;runs;fear;detection_rate;'\
-                     'incidents_per_last_day;over_icu;hospitalized;zero_time_offset;total_#immune'
+                     'incidents_per_last_day;over_icu;hospitalized;zero_time_offset;total_#immune;max_gap_reported;active_at_end;condition_triggered'
         if self._params[ENABLE_ADDITIONAL_LOGS]:
             output_log += ';Prevalence_30days;Prevalence_60days;Prevalence_90days;Prevalence_120days;'\
                           'Prevalence_150days;Prevalence_180days;Prevalence_360days;'\
@@ -1066,6 +1191,7 @@ class InfectionModel:
             logger.info('Filling queue based on auxiliary functions...')
             self._fill_queue_based_on_auxiliary_functions()
             logger.info('Initialization step is done!')
+            self.append_event(Event(0.0, 999999999, DAILY_STATS, None, DAILY_STATS, self._global_time))
             outbreak = _inner_loop(i + 1)
             last_processed_time = self._global_time
 
@@ -1086,9 +1212,13 @@ class InfectionModel:
             hospitalized = self._icu_needed
             zero_time_offset = self._max_time_offset
             immune = self._immune_people
+            max_gap = self._max_gap_reported
+            active_at_end = self._active_people
+            condition_triggered = self._condition_triggered
             output_add = f'{last_processed_time };{affected};{detected};{deceased};{quarantined};{c};{c_norm};'\
                          f'{self._init_for_stats};{bandtime};{subcritical};{runs};{fear_};{detection_rate};'\
-                         f'{incidents_per_last_day};{outbreak};{hospitalized};{zero_time_offset};{immune}'
+                         f'{incidents_per_last_day};{outbreak};{hospitalized};{zero_time_offset};{immune};'\
+                         f'{max_gap};{active_at_end};{condition_triggered}'
 
             if self._params[ENABLE_ADDITIONAL_LOGS]:
                 prev30 = self.prevalance_at(30)
@@ -1133,6 +1263,8 @@ class InfectionModel:
         self._detected_people = 0
         self._quarantined_people = 0
         self._immune_people = 0
+        self._time_of_last_detection = None
+        self._max_gap_reported = 0
         self._deaths = 0
         self._icu_needed = 0
         self._max_time_offset = 0
@@ -1143,17 +1275,27 @@ class InfectionModel:
         self._infections_dict = {}
         self._progression_times_dict = {}
         self._per_day_increases = {}
+        self._condition_triggered = None
+        self._time_of_last_decrementing_active_cases = 0.0
+        self._quarantine_counter = defaultdict(int)
 
         self._global_time = self._params[START_TIME]
         self._max_time = self._params[MAX_TIME]
 
         if not self._params[REUSE_EXPECTED_CASE_SEVERITIES]:
             self._expected_case_severity = self.draw_expected_case_severity()
-
+        if self._params[CONSTANT_TWO_GROUPS]:
+            logger.info('Drawing two groups...')
+            self._individuals_group_dct = defaultdict(int)
+            self._two_groups = self.draw_two_groups()
+            for i in self._two_groups[1]:
+                self._individuals_group_dct[i] = 1
+            logger.info('Drawing two groups done!')
         self._last_affected = None
         self.band_time = None
         self._quarantine_status = {}
         self._detection_status = {}
+        self._daily_stats = []
         if self._params[ENABLE_VISUALIZATION]:
             self._vis = Visualize(self._params, self.df_individuals,
                                   self._expected_case_severity, logger)
@@ -1164,12 +1306,45 @@ logger = logging.getLogger(__name__)
 @click.command()
 @click.option('--params-path', type=click.Path(exists=True))
 @click.option('--df-individuals-path', type=click.Path(exists=True))
-@click.option('--df-households-path', type=click.Path())
+@click.option('--df-households-path', type=click.Path(), default='')
+@click.option('--detection-mild-proba', type=float, default=-1.0)
+@click.option('--fear-factors-constant-limit-value', type=float, default=-1.0)
+@click.option('--switch-t', type=float, default=-1.0)
+@click.option('--new-r', type=float, default=-1.0)
+@click.option('--size-of-first-group', type=float, default=-1.0)
+@click.option('--reduction-by-of-first-group', type=float, default=-1.0)
+@click.option('--reduction-by-of-second-group', type=float, default=-1.0)
+@click.option('--turn-off-constant-kernel', type=bool, default=True)
 @click.argument('run-simulation') #ignored
-def runner(params_path, df_individuals_path, run_simulation, df_households_path=''):
+def runner(params_path, df_individuals_path, run_simulation, df_households_path,
+           detection_mild_proba,
+           fear_factors_constant_limit_value,
+           switch_t, new_r,
+           size_of_first_group, reduction_by_of_first_group, reduction_by_of_second_group, turn_off_constant_kernel):
+    overridden_params = {}
+    if size_of_first_group >= 0.0 and reduction_by_of_first_group >= 0.0 and reduction_by_of_second_group >= 0.0:
+        overridden_params[CONSTANT_TWO_GROUPS] = {
+            SIZE_OF_FIRST_GROUP: size_of_first_group,
+            REDUCTION_BY_OF_FIRST_GROUP: reduction_by_of_first_group,
+            REDUCTION_BY_OF_SECOND_GROUP: reduction_by_of_second_group,
+            TURN_OFF_CONSTANT_KERNEL: turn_off_constant_kernel
+        }
+    print(overridden_params)
+    if switch_t >= 0.0 and new_r >= 0.0:
+        overridden_params[R_OUT_SCHEDULE] = [{
+            KERNEL: CONSTANT,
+            MIN_TIME: switch_t,
+            MAX_TIME: 99999999,
+            OVERRIDE_R_FRACTION: new_r
+        }]
+    if detection_mild_proba >= 0.0:
+        overridden_params[DETECTION_MILD_PROBA] = detection_mild_proba
+    if fear_factors_constant_limit_value >= 0.0:
+        overridden_params[FEAR_FACTORS] = {CONSTANT: {LIMIT_VALUE: fear_factors_constant_limit_value}}
     im = InfectionModel(params_path=params_path,
                         df_individuals_path=df_individuals_path,
-                        df_households_path=df_households_path or '')
+                        df_households_path=df_households_path,
+                        **overridden_params)
     im.run_simulation()
 
 

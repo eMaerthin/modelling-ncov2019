@@ -250,7 +250,7 @@ function execute!(::Val{GoHospitalEvent}, state::SimState, params::SimParams, ev
 end
 
 function execute!(::Val{ReleasedEvent}, state::SimState, params::SimParams, event::Event)::Bool
-  @assert Recovered == subjecthealth(state, event)
+  @assert subjecthealth(state, event) in SA[Dead, Recovered]
   setfreedom!(state, subject(event), Released)
   return true
 end

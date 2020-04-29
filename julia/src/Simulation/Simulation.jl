@@ -13,6 +13,8 @@ using SaferIntegers
 using Setfield
 using StaticArrays
 
+import Base.show
+
 const TimePoint = Fixed{Int32, 16}
 const TimeDiff = Fixed{Int32, 16}
 
@@ -22,7 +24,6 @@ include("event.jl")
 include("eventqueue.jl")
 include("robin_forest.jl")
 const InfectionForest = RobinForest
-#include("infection_forest.jl")
 include("simstate.jl")
 include("progression.jl")
 include("simparams.jl")
@@ -31,13 +32,10 @@ include("event_execution.jl")
 include("infection_kernels.jl")
 
 include("utils.jl")
-include("data_loading.jl")
-
-#export load_params
-#export make_params
-#export simulate!
 
 
+
+export simulate!
 
 function simulate!(state::SimState, 
                    params::SimParams; 
@@ -48,7 +46,6 @@ function simulate!(state::SimState,
   iter_no = 0
   while true
     if isempty(state.queue)
-      #println("Empty queue after $iter_no events ")
       break
     end
       
@@ -72,15 +69,11 @@ function simulate!(state::SimState,
   end
   nothing
 end
-  
-using FunctionWrappers
-#const Callback = FunctionWrappers.FunctionWrapper{Nothing, Tuple{Event, SimState, SimParams}}
 
-function simulate!(state::SimState, params::SimParams, callback::Union{Nothing,Function})
+function simulate!(state::SimState, params::SimParams, callback)
   iter_no = 0
   while true
     if isempty(state.queue)
-      #println("Empty queue after $iter_no events ")
       break
     end
       

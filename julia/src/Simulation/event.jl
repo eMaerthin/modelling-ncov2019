@@ -58,8 +58,6 @@ source(event::Event) = event.source_id
 kind(event::Event) = event.event_kind
 contactkind(event::Event) = event.contact_kind
 
-import Base.show
-
 function show(io::IO, event::Event)
   print(io, time(event), ":", kind(event), " ", subject(event))
   if TransmissionEvent == kind(event) || OutsideContact == kind(event)

@@ -26,11 +26,7 @@ mutable struct SimState
   queue::EventQueue
   individuals::Vector{IndividualState}  
   forest::InfectionForest
-      
-  # buffers for rand
-  #sample_id_buf::Vector{UInt32}
-  #sample_time_buf::Vector{TimePoint}
-    
+     
     
   SimState(rng::AbstractRNG, num_individuals::Integer) = num_individuals <= 0 || num_individuals > typemax(UInt32) ? error("number of individuals must be positive and smaller than $(typemax(UInt32))") : 
     new(
@@ -46,6 +42,10 @@ mutable struct SimState
 end
 
 SimState(num_individuals::Integer; seed::Integer=0) = SimState(MersenneTwister(seed), num_individuals)
+
+function show(io::IO, state::SimState)
+  print(io, "Simulation state for ", length(state.individuals), " individuals")
+end
 
 function reset!(state::SimState, rng::AbstractRNG)
   if isa(rng, AbstractRNG)

@@ -6,4 +6,4 @@
 
 @enum DetectionStatus::UInt8 Undetected UnderObservation TestPending Detected #2 bits
 
-@enum ContactKind::UInt8 NoContact=0 HouseholdContact FriendshipContact SporadicContact ConstantKernelContact OutsideContact # bits
+@enum ContactKind::UInt8 NoContact=0 HouseholdContact HospitalContact FriendshipContact SporadicContact ConstantKernelContact OutsideContact # 3 bits

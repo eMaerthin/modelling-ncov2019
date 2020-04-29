@@ -66,7 +66,7 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
   source_freedom = sourcefreedom(state, event)  
 
   @assert subject_freedom ∉ SA[HomeTreatment, Hospitalized] "a healthy subject should not be in HomeTreatment or Hospital"
-  @assert source_freedom ∉ SA[Hospitalized, Released]
+  @assert contactkind(event) == HospitalContact || source_freedom ∉ SA[Hospitalized, Released]
 
   # household contact conditions  
   # if it is an infection inside household and either source or subject are closed in home the event can not happen
@@ -74,7 +74,7 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
     return false
   end
   
-  @assert (contactkind(event) == HouseholdContact) || (!isquarantined(state, source(event)) && !isquarantined(state, subject(event))) "the event $event should not be executed because subject state is $(state.individuals[subject(event)]) and source state is $(state.individuals[source(event)])"
+  @assert contactkind(event) == HospitalContact || (contactkind(event) == HouseholdContact) || (!isquarantined(state, source(event)) && !isquarantined(state, subject(event))) "the event $event should not be executed because subject state is $(state.individuals[subject(event)]) and source state is $(state.individuals[source(event)])"
     
   setsubjecthealth!(state, event, Incubating)
       
@@ -121,10 +121,15 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
 
   enqueue_transmissions!(state, Val{ConstantKernelContact}, event.subject_id, params)
   enqueue_transmissions!(state, Val{HouseholdContact}, event.subject_id, params)
+  # hospital transmissions are enqueued in GoHospitalEvent
+
   
   detectioncheck!(state, params, subject_id)
-  
-  if(rand(state.rng) < params.mild_detection_prob)
+
+  if ishealthcare(params, subject_id) && rand(state.rng) < params.hospital_kernel_params.heathcare_detection_prob
+    delay = params.hostpital_kernel_params.healthcare_detection_prob
+    push!(state.queue, Event(Val(DetectionOutsideQuarantineEvent), time(event)+delay, subject_id))  
+  elseif(rand(state.rng) < params.mild_detection_prob)
     push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event)+2, subject_id))
   end
   
@@ -235,6 +240,8 @@ function execute!(::Val{GoHospitalEvent}, state::SimState, params::SimParams, ev
     quarantine_cancel!(state, subject_id)
   end
   setfreedom!(state, subject_id, Hospitalized)
+  
+  enqueue_transmissions!(state, Val{HospitalContact}, event.subject_id, params)
   
   # all hospitalized cases are detected
   if !params.hospital_detections

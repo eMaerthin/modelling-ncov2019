@@ -33,6 +33,7 @@ include("infection_kernels.jl")
 
 include("utils.jl")
 
+export simulate!
 
 
 export simulate!

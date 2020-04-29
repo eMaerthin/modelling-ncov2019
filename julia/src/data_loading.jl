@@ -1,4 +1,5 @@
 using CSV
+using DataFrames
 using GZip
 using Distributions
 using NPZ
@@ -10,7 +11,8 @@ function load_individuals(path::AbstractString)::DataFrame
     df = DataFrame(
       age=Int8.(df.age),
       gender = df.gender .== 1,
-      household_index = Int32.(df.household_index)
+      household_index = Int32.(df.household_index),
+      ishealthcare = df.ishealthcare .== 1
     )
     sort!(df, :household_index)
   end

@@ -7,8 +7,18 @@ using Profile
 using FileIO
 using JLD2
 
+using Distributions
+using DataFrames
+
+
 let 
   individuals_df = load("../../data/simulations/wroclaw-population-orig.jld2")["individuals_df"]
+
+  if(!(:social_competence in names(individuals_df)))
+    #Produce some test data for friendship kernel
+    individuals_df.social_competence = [Float32(x) for x in rand(Beta(3.0, 3.0), nrow(individuals_df))]
+  end
+
   #loads and pre-processes data that is constant during the simulation time
 
   mild_detection_prob = 0.1

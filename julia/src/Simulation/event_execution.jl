@@ -121,6 +121,7 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
 
   enqueue_transmissions!(state, Val{ConstantKernelContact}, event.subject_id, params)
   enqueue_transmissions!(state, Val{HouseholdContact}, event.subject_id, params)
+  enqueue_transmissions!(state, Val{FriendshipContact}, event.subject_id, params)
   # hospital transmissions are enqueued in GoHospitalEvent
 
   

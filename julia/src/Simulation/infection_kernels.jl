@@ -112,3 +112,40 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HospitalContact}}, s
     end
   end
 end
+
+function enqueue_transmissions!(state::SimState, ::Type{Val{FriendshipContact}}, source_id::Integer, params::SimParams)
+  progression = progressionof(params, source_id)
+
+  start_time = progression.incubation_time
+
+  end_time =  if      !ismissing(progression.mild_symptoms_time);   progression.mild_symptoms_time
+              elseif  !ismissing(progression.severe_symptoms_time); progression.severe_symptoms_time
+              elseif  !ismissing(progression.recovery_time);        progression.recovery_time
+              else    error("no recovery nor symptoms time defined")
+              end
+
+  source_person = params.people[source_id]::Person
+
+  total_infection_rate = (end_time - start_time) * params.friendship_kernel_param * source_person.social_competence
+
+  num_infections = rand(state.rng, Poisson(total_infection_rate))
+
+  if num_infections == 0
+    return
+  end
+  @assert start_time != end_time "pathologicaly short time for infections there shouldn't be any infections but are $num_infections, progression=$progression"
+
+  time_dist = Uniform(state.time, end_time - start_time + state.time) # in global time reference frame
+
+  num_individuals = size(params.progressions, 1)
+
+  for _ in 1:num_infections
+    subject_id = friend_sample(params.friendship_kernel_sampler, source_person.age, source_person.gender, state.rng)
+
+    if Healthy == health(state, subject_id)
+      infection_time::TimePoint = rand(state.rng, time_dist) |> TimePoint
+      @assert state.time <= infection_time <= (end_time-start_time + state.time)
+      push!(state.queue, Event(Val(TransmissionEvent), infection_time, subject_id, source_id, ConstantKernelContact))
+    end
+  end
+end

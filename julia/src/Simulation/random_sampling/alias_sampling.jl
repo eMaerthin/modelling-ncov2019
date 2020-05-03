@@ -1,13 +1,13 @@
 using Random
 
-struct AliasSampler
+struct AliasSampler{ProbabilityParamType <: Real}
     # Some alias_indices will be left uninitialized after the
     # constructor finishes. This is not a bug!
     alias_indices::Vector{Int64}
-    nonalias_probs::Vector{Float32}
+    nonalias_probs::Vector{ProbabilityParamType}
 end
 
-function AliasSampler(weights::Vector{Float32})
+function AliasSampler(weights::Vector{ProbabilityParamType}) where {ProbabilityParamType <: Real}
     n = length(weights)
     s = sum(weights)
     scf = n/s
@@ -29,7 +29,7 @@ function AliasSampler(weights::Vector{Float32})
     end
 
     aliases = Vector{Int64}(undef, n)
-    nonalias_probs = Vector{Float32}(undef, n)
+    nonalias_probs = Vector{ProbabilityParamType}(undef, n)
 
     while larges_idx > 0 && smalls_idx > 0
         sm_p_idx = smalls[smalls_idx]

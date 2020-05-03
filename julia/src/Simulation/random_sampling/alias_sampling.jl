@@ -11,7 +11,7 @@ function AliasSampler(weights::Vector{ProbabilityParamType}) where {ProbabilityP
     n = length(weights)
     s = sum(weights)
     scf = n/s
-    sc_probabilities = map(x -> x*scf, weights)
+    sc_probabilities = weights*scf
 
     smalls = Vector{Int64}(undef, n)
     smalls_idx = 0

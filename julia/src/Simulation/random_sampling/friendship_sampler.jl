@@ -49,7 +49,7 @@ function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::F
         push!(categories[to_idx(population.age[ii], population.gender[ii])], ii)
     end
 
-    H = [Float32(length(categories[to_idx(ii, false)]) + length(categories[to_idx(ii, true)])) / Float32(nrow(population)) for ii::Int8 in 0:max_age]
+    H = [Float32((length(categories[to_idx(ii, false)]) + length(categories[to_idx(ii, true)])) / nrow(population)) for ii::Int8 in 0:max_age]
     categories_selectors = Vector{AliasSampler}()
 
     for idx in 1:length(categories)

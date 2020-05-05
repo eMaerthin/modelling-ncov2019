@@ -56,7 +56,7 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
   end
   
   source_health = sourcehealth(state, event)
-  @assert source_health ∉ SA[Healthy, Incubating, SevereSymptoms, CriticalSymptoms, Dead, Recovered] "infection time exceeds infectability time frame, source is now in state $source_health, the event is $event source progressions are $(progressionof(params, source(event)))"
+  @assert contactkind(event)==HospitalContact || source_health ∉ SA[Healthy, Incubating, SevereSymptoms, CriticalSymptoms, Dead, Recovered] "infection time exceeds infectability time frame, source is now in state $source_health, the event is $event source progressions are $(progressionof(params, source(event)))"
     
   # the transmission events are queued in advace, therefore it might be the case that it can not be realized
   # for the transmission to happen both source and subject must be free or both must be staying at home in case
@@ -126,9 +126,9 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
   
   detectioncheck!(state, params, subject_id)
 
-  if ishealthcare(params, subject_id) && rand(state.rng) < params.hospital_kernel_params.heathcare_detection_prob
-    delay = params.hostpital_kernel_params.healthcare_detection_prob
-    push!(state.queue, Event(Val(DetectionOutsideQuarantineEvent), time(event)+delay, subject_id))  
+  if ishealthcare(params, subject_id) && rand(state.rng) < params.hospital_kernel_params.healthcare_detection_prob
+    delay = params.hospital_kernel_params.healthcare_detection_delay
+    push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event)+delay, subject_id))  
   elseif(rand(state.rng) < params.mild_detection_prob)
     push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event)+2, subject_id))
   end

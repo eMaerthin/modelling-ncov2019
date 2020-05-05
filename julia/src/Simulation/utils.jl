@@ -18,11 +18,17 @@ function countuniquesorted(arr::AbstractVector{T}) where T
     return vals,counts
 end
 
-function groupptrs(arr::AbstractArray{T} where T<:Real)
-  N = length(arr)
+function groupptrs!(
+  headptrs::AbstractVector{Ti}, 
+  tailptrs::AbstractVector{Ti},
+  arr::AbstractVector{T} where T<:Real, 
+  ) where {Ti<:Integer}
 
-  headptrs = zeros(Int32,N)
-  tailptrs = zeros(Int32,N)
+  N = length(arr)
+  @assert N == length(headptrs) == length(tailptrs)
+  
+  fill!(headptrs, 0)
+  fill!(tailptrs, 0)
     
   headptr = 1
   flag = arr[1]
@@ -47,10 +53,10 @@ function groupptrs(arr::AbstractArray{T} where T<:Real)
       tailptr = i
     end 
     tailptrs[i] = tailptr
-    
   end
-    
-    
-    
+     
   headptrs, tailptrs
 end
+
+groupptrs(arr::AbstractVector{T} where T<:Real) =
+  groupptrs!(zeros(Int32, length(arr)), zeros(Int32, length(arr)), arr)

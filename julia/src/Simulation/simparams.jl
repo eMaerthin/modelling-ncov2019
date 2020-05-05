@@ -92,33 +92,52 @@ function load_params(rng=MersenneTwister(0);
   make_params(rng, individuals_df=individuals_df, progressions=progressions; kwargs...)
 end
 
+function make_household_ptrs!(
+  ptrs::AbstractVector{Tuple{Ti,Ti}},
+  household_indices::AbstractVector{T} where T<:Integer
+  ) where Ti<:Integer
 
-make_household_ptrs(household_indices) = collect( zip(groupptrs(household_indices)...))
+  @assert length(ptrs) == length(household_indices)  
 
-function make_params(rng::AbstractRNG=MersenneTwister(0);
-        individuals_df::DataFrame,
-        progressions::AbstractArray{Progression},
+  ptrarr = reshape(reinterpret(Ti, ptrs), 2, :) # tuples as 2-by-N array
+  headptrs = view(ptrarr, 1, :)
+  tailptrs = view(ptrarr, 2, :)
+  
+  groupptrs!(headptrs, tailptrs, household_indices)
+  ptrs
+end
+
+make_household_ptrs(household_indices::AbstractVector{T} where T<:Real) = 
+  make_household_ptrs!(Vector{Tuple{Int32, Int32}}(undef, length(household_indices)), household_indices) 
+
+#make_household_ptrs(household_indices) = collect( zip(groupptrs(household_indices)...))
+
+
+function make_params(
+  rng::AbstractRNG=MersenneTwister(0);
+  individuals_df::DataFrame,
+  progressions::AbstractArray{Progression},
         
-        ishealthcare::Union{Nothing, BitVector}=nothing,
-        hospital_kernel_param::Float64=0.0,
-        healthcare_detection_prob::Float64=0.8,
-        healthcare_detection_delay::Float64=1.0,
-        
-        constant_kernel_param::Float64=1.0,
-        household_kernel_param::Float64=1.0,
-        
-        hospital_detections::Bool=true,
-        mild_detection_prob::Float64=0.0,
-        
-        backward_tracking_prob::Float64=1.0,
-        backward_detection_delay::Float64=1.0,
-        
-        forward_tracking_prob::Float64=1.0,
-        forward_detection_delay::Float64=1.0,
-        
-        quarantine_length::Float64=14.0,
-        testing_time::Float64=1.0
-        )
+  hospital_kernel_param::Float64=0.0,
+  healthcare_detection_prob::Float64=0.8,
+  healthcare_detection_delay::Float64=1.0,
+  
+  constant_kernel_param::Float64=1.0,
+  household_kernel_param::Float64=1.0,
+  
+  hospital_detections::Bool=true,
+  mild_detection_prob::Float64=0.0,
+  
+  backward_tracking_prob::Float64=1.0,
+  backward_detection_delay::Float64=1.0,
+  
+  forward_tracking_prob::Float64=1.0,
+  forward_detection_delay::Float64=1.0,
+  
+  quarantine_length::Float64=14.0,
+  testing_time::Float64=1.0
+)
+
   sort!(individuals_df, :household_index)
 
   num_individuals = individuals_df |> nrow
@@ -128,14 +147,14 @@ function make_params(rng::AbstractRNG=MersenneTwister(0);
   household_ptrs = make_household_ptrs(individuals_df.household_index)
   
   
-  hospital_kernel_params =  if(ishealthcare==nothing || hospital_kernel_param==0.0); nothing
+  hospital_kernel_params =  if 0 == hospital_kernel_param; nothing
                             elseif 0.0 < hospital_kernel_param; 
                               HospitalInfectionParams(
-                                ishealthcare,
+                                individuals_df.ishealthcare,
                                 (UInt32(1):UInt32(num_individuals))[individuals_df.ishealthcare],
                                 hospital_kernel_param,
                                 healthcare_detection_prob,
-                                healthcate_detection_delay
+                                healthcare_detection_delay
                               )
                             else error("hospital_kernel_param must be postive, got $hospital_kernel_param")
                             end

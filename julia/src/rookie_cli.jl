@@ -42,7 +42,7 @@ function read_params(json, rng::AbstractRNG)
         
     constant_kernel_param = constant_kernel_param,
     household_kernel_param = household_kernel_param,
-    hospital_kernel_param = 
+    hospital_kernel_param = hospital_kernel_param,
         
     backward_tracking_prob = tracking_prob,
     backward_detection_delay = tracking_delay/2,
@@ -170,11 +170,13 @@ function main()
     Simulation.initialfeed!(state, num_initial_infected)
 
     callback = DetectionCallback(Simulation.num_individuals(params), max_num_infected) #TODO reset!(cb)
-    try
+    #try
       Simulation.simulate!(state, params, callback)
-    catch e
-      println(stderr, "iteration ", trajectory_id, " failed")
-    end
+    #catch err
+    #  println(stderr, "iteration ", trajectory_id, " failed")
+    #println("ERROR: ", err.msg)
+    #           stacktrace(catch_backtrace())
+    #end
     
     GC.gc()
     

@@ -80,6 +80,24 @@ function load_params(rng=MersenneTwister(0);
   make_params(rng, individuals_df=individuals_df, progressions=progressions; kwargs...)
 end
 
+function make_household_ptrs!(
+  ptrs::AbstractVector{Tuple{Ti,Ti}},
+  household_indices::AbstractVector{T} where T<:Integer
+  ) where Ti<:Integer
+
+  @assert length(ptrs) == length(household_indices)  
+
+  ptrarr = reshape(reinterpret(Ti, ptrs), 2, :) # tuples as 2-by-N array
+  headptrs = view(ptrarr, 1, :)
+  tailptrs = view(ptrarr, 2, :)
+  
+  groupptrs!(headptrs, tailptrs, household_indices)
+  ptrs
+end
+
+make_household_ptrs(household_indices::AbstractVector{T} where T<:Real) = 
+  make_household_ptrs!(Vector{Tuple{Int32, Int32}}(undef, length(household_indices)), household_indices) 
+
 #make_household_ptrs(household_indices) = collect( zip(groupptrs(household_indices)...))
 
 
@@ -106,11 +124,12 @@ function make_params(
   forward_detection_delay::Float64=1.0,
   
   quarantine_length::Float64=14.0,
-  testing_time::Float64=1.0,
+  testing_time::Float64=1.0
 
   phone_tracking_usage::Real=0.0,
   phone_detection_delay::Real=0.25
 )
+
   sort!(individuals_df, :household_index)
 
   num_individuals = individuals_df |> nrow

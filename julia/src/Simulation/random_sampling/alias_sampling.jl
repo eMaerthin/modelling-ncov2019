@@ -1,21 +1,24 @@
 using Random
 
-struct AliasSampler{ProbabilityParamType <: Real}
+struct AliasSampler{IndexType <: Int, ProbabilityParamType <: Real}
     # Some alias_indices will be left uninitialized after the
     # constructor finishes. This is not a bug!
-    alias_indices::Vector{Int64}
+    alias_indices::Vector{IndexType}
     nonalias_probs::Vector{ProbabilityParamType}
 end
 
-function AliasSampler(weights::Vector{ProbabilityParamType}) where {ProbabilityParamType <: Real}
+function AliasSampler{IndexType, ProbabilityParamType}(
+                weights::Vector{ProbabilityParamType}
+            ) where{IndexType <: Int, ProbabilityParamType <: Real}
+
     n = length(weights)
     s = sum(weights)
     scf = n/s
     sc_probabilities = (weights*scf)::Vector{ProbabilityParamType}
 
-    smalls = Vector{Int64}(undef, n)
+    smalls = Vector{IndexType}(undef, n)
     smalls_idx = 0
-    larges = Vector{Int64}(undef, n)
+    larges = Vector{IndexType}(undef, n)
     larges_idx = 0
 
     for idx in 1:n
@@ -28,7 +31,7 @@ function AliasSampler(weights::Vector{ProbabilityParamType}) where {ProbabilityP
         end
     end
 
-    aliases = Vector{Int64}(undef, n)
+    aliases = Vector{IndexType}(undef, n)
 
     while larges_idx > 0 && smalls_idx > 0
         sm_p_idx = smalls[smalls_idx]
@@ -62,8 +65,8 @@ function AliasSampler(weights::Vector{ProbabilityParamType}) where {ProbabilityP
 end
 
 
-function a_sample(alias_sampler::AliasSampler, rng=Random.GLOBAL_RNG)::Int64
-    # Please tell me that the compiler optimizes it into something that works in O(1) and the range doesn't actually get built in memory...
+function a_sample(alias_sampler::AliasSampler, rng=Random.GLOBAL_RNG)
+
     idx = rand(rng, 1:length(alias_sampler.alias_indices))
     if alias_sampler.nonalias_probs[idx] >= 1.0
         return idx

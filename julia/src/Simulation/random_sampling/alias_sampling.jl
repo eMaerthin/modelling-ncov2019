@@ -1,6 +1,6 @@
 using Random
 
-struct AliasSampler{IndexType <: Int, ProbabilityParamType <: Real}
+struct AliasSampler{IndexType <: Integer, ProbabilityParamType <: Real}
     # Some alias_indices will be left uninitialized after the
     # constructor finishes. This is not a bug!
     alias_indices::Vector{IndexType}
@@ -9,7 +9,7 @@ end
 
 function AliasSampler{IndexType, ProbabilityParamType}(
                 weights::Vector{ProbabilityParamType}
-            ) where{IndexType <: Int, ProbabilityParamType <: Real}
+            ) where{IndexType <: Integer, ProbabilityParamType <: Real}
 
     n = length(weights)
     s = sum(weights)
@@ -68,7 +68,7 @@ end
 function a_sample(
                         alias_sampler::AliasSampler{IndexType, ProbabilityParamType},
                         rng=Random.GLOBAL_RNG
-                 )::IndexType where{IndexType <: Int, ProbabilityParamType <: Real}
+                 )::IndexType where{IndexType <: Integer, ProbabilityParamType <: Real}
 
     idx = rand(rng, 1:length(alias_sampler.alias_indices))
     if alias_sampler.nonalias_probs[idx] >= 1.0

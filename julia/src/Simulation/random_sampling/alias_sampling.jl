@@ -65,7 +65,10 @@ function AliasSampler{IndexType, ProbabilityParamType}(
 end
 
 
-function a_sample(alias_sampler::AliasSampler, rng=Random.GLOBAL_RNG)
+function a_sample(
+                        alias_sampler::AliasSampler{IndexType, ProbabilityParamType},
+                        rng=Random.GLOBAL_RNG
+                 )::IndexType where{IndexType <: Int, ProbabilityParamType <: Real}
 
     idx = rand(rng, 1:length(alias_sampler.alias_indices))
     if alias_sampler.nonalias_probs[idx] >= 1.0

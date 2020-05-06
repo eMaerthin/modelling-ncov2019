@@ -49,10 +49,14 @@ function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::F
         push!(categories[to_idx(population.age[ii], population.gender[ii])], ii)
     end
 
-    H = [Float32((length(categories[to_idx(ii, false)]) + length(categories[to_idx(ii, true)])) / nrow(population)) for ii::Int8 in 0:max_age]
+    H = Vector{Float32}(undef, max_age+1)
+    for ii::Int8 in 0:max_age
+        H[ii+1] = Float32((length(categories[to_idx(ii, false)]) + length(categories[to_idx(ii, true)])) / nrow(population))
+    end
+
     categories_selectors = Vector{AliasSampler}(undef, length(categories))
 
-    for idx in 1:length(categories)
+    for idx::Int32 in 1:length(categories)
         age, gender = to_age_gender(idx)
         P = Vector{Float32}(undef, length(categories))
         for idx2 in 1:length(categories)
@@ -62,7 +66,15 @@ function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::F
         categories_selectors[idx] = AliasSampler(P)
     end
 
-    category_samplers = [AliasSampler([population.social_competence[person_id]::Float32 for person_id in category]) for category in categories]
+    category_samplers = Vector{AliasSampler}(undef, length(categories))
+    for cat_idx in 1:length(categories)
+        category = categories[cat_idx]
+        alias_sampler_par = Vector{Float32}(undef, length(category))
+        for pers_idx in 1:length(category)
+            person_id = category[pers_idx]
+            category_samplers[cat_idx][pers_idx] = population.social_competence[person_id]::Float32
+        end
+    end
 
     return FriendshipSampler(categories_selectors, category_samplers, categories)
 

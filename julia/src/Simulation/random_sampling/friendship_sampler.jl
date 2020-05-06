@@ -3,22 +3,22 @@ using DataFrames
 include("alias_sampling.jl")
 
 struct FriendshipSampler
-    categories_selectors::Vector{AliasSampler}
-    category_samplers::Vector{AliasSampler}
-    categories::Vector{Vector{Int64}}
+    categories_selectors::Vector{AliasSampler{Int32, Float32}}
+    category_samplers::Vector{AliasSampler{Int32, Float32}}
+    categories::Vector{Vector{Int32}}
 end
 
-const max_age = 120::Int64
+const max_age = 120::Int32
 
-@inline function to_idx(age::Int8, gender::Bool)::Int64
+@inline function to_idx(age::Int8, gender::Bool)::Int32
     if gender
-        return Int64(age)+max_age+2
+        return Int32(age)+max_age+2
     else
-        return Int64(age)+1
+        return Int32(age)+1
     end
 end
 
-@inline function to_age_gender(idx::Int64)::Tuple{Int8, Bool}
+@inline function to_age_gender(idx::Int32)::Tuple{Int8, Bool}
     if idx <= max_age+1
         return Int8(idx-1), false
     else
@@ -43,7 +43,7 @@ end
 
 
 function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::Float64 = 1.6)::FriendshipSampler
-    categories = [Vector{Int64}() for _ in 1:(2*max_age+2)]
+    categories = [Vector{Int32}() for _ in 1:(2*max_age+2)]
 
     for ii in 1:nrow(population)
         push!(categories[to_idx(population.age[ii], population.gender[ii])], ii)

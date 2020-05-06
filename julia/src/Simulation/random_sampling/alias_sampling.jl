@@ -11,7 +11,7 @@ function AliasSampler(weights::Vector{ProbabilityParamType}) where {ProbabilityP
     n = length(weights)
     s = sum(weights)
     scf = n/s
-    sc_probabilities = weights*scf
+    sc_probabilities = (weights*scf)::Vector{ProbabilityParamType}
 
     smalls = Vector{Int64}(undef, n)
     smalls_idx = 0
@@ -29,12 +29,10 @@ function AliasSampler(weights::Vector{ProbabilityParamType}) where {ProbabilityP
     end
 
     aliases = Vector{Int64}(undef, n)
-    nonalias_probs = Vector{ProbabilityParamType}(undef, n)
 
     while larges_idx > 0 && smalls_idx > 0
         sm_p_idx = smalls[smalls_idx]
         lg_p_idx = larges[larges_idx]
-        nonalias_probs[sm_p_idx] = sc_probabilities[sm_p_idx]
         aliases[sm_p_idx] = lg_p_idx
 
         # This is slightly better numerically than the more obvious: sc_probabilities[lg_p_idx] += sc_probabilities[sm_p_idx] - 1.0
@@ -50,16 +48,16 @@ function AliasSampler(weights::Vector{ProbabilityParamType}) where {ProbabilityP
     end
 
     while larges_idx > 0
-        nonalias_probs[larges[larges_idx]] = 2.0
+        sc_probabilities[larges[larges_idx]] = 2.0
         larges_idx -= 1
     end
 
     while smalls_idx > 0
-        nonalias_probs[smalls[smalls_idx]] = 2.0
+        sc_probabilities[smalls[smalls_idx]] = 2.0
         smalls_idx -= 1
     end
 
-    return AliasSampler(aliases, nonalias_probs)
+    return AliasSampler(aliases, sc_probabilities)
     
 end
 

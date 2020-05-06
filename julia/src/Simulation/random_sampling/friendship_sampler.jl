@@ -8,7 +8,7 @@ struct FriendshipSampler
     categories::Vector{Vector{Int32}}
 end
 
-const max_age = 120::Int32
+const max_age = Int32(120)
 
 @inline function to_idx(age::Int8, gender::Bool)::Int32
     if gender

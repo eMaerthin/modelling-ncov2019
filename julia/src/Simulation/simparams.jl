@@ -1,32 +1,30 @@
 using Random
 using Distributions
+
+const Age=UInt8
+const PersonIdx=UInt32
+
 include("params/households.jl")
+include("params/friendship.jl")
 include("params/progression.jl")
 include("params/hospital.jl")
 include("params/phonetracking.jl")
 
-include("random_sampling/friendship_sampler.jl")
-
-struct Person
-  age::Int8
-  gender::Bool
-  social_competence::Float32
-end
 struct SimParams 
-  household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
+  household_ptrs::Vector{Tuple{PersonIdx,PersonIdx}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
 
-  people::Vector{Person}
+  ages::Vector{Age}
+  genders::BitVector
 
   progressions::Vector{Progression} # not sure if progressions should be there
     
   hospital_kernel_params::Union{Nothing, HospitalInfectionParams}  # nothing if hospital kernel not active  
-    
+
   constant_kernel_param::Float64
   household_kernel_param::Float64
-  friendship_kernel_param::Float64
 
-  friendship_kernel_sampler::FriendshipSampler
-
+  friendship_kernel_params::Union{Nothing, FriendshipKernelParams}
+  
   hospital_detections::Bool
   mild_detection_prob::Float64
 
@@ -80,9 +78,6 @@ function load_params(rng=MersenneTwister(0);
   make_params(rng, individuals_df=individuals_df, progressions=progressions; kwargs...)
 end
 
-#make_household_ptrs(household_indices) = collect( zip(groupptrs(household_indices)...))
-
-
 function make_params(
   rng::AbstractRNG=MersenneTwister(0);
   individuals_df::DataFrame,
@@ -94,7 +89,7 @@ function make_params(
   
   constant_kernel_param::Float64=1.0,
   household_kernel_param::Float64=1.0,
-        friendship_kernel_param::Float64=1.0,
+  friendship_kernel_param::Float64=0.0,
   
   hospital_detections::Bool=true,
   mild_detection_prob::Float64=0.0,
@@ -121,8 +116,17 @@ function make_params(
 
   household_ptrs = make_household_ptrs(individuals_df.household_index)
 
-  population::Vector{Person} = [Person(individuals_df.age[idx], individuals_df.gender[idx], individuals_df.social_competence[idx]) for idx in 1:nrow(individuals_df)]
-  friendship_sampler = FriendshipSampler(individuals_df)
+  #population::Vector{Person} = [Person(individuals_df.age[idx], individuals_df.gender[idx], individuals_df.social_competence[idx]) for idx in 1:nrow(individuals_df)]
+  
+  friendship_kernel_params =  if 0 == friendship_kernel_param; nothing
+                        elseif 0.0 < friendship_kernel_param 
+                          FriendshipKernelParams(
+                            friendship_kernel_param,
+                            individuals_df.age,
+                            individuals_df.gender,
+                            individuals_df.social_competence)
+                        else error("bad condition for friendship kernel")
+                        end
 
   hospital_kernel_params =  if 0 == hospital_kernel_param; nothing
                             elseif 0.0 < hospital_kernel_param; 
@@ -135,6 +139,7 @@ function make_params(
                               )
                             else error("hospital_kernel_param must be postive or 0, got $hospital_kernel_param")
                             end
+
   phone_tracking_params = if 0 == phone_tracking_usage; nothing
                       elseif 0.0 < phone_tracking_usage <= 1.0
                         PhoneTrackingParams(rng, num_individuals, phone_tracking_usage)
@@ -147,10 +152,11 @@ function make_params(
                       end
   
 
-
   params = SimParams(
     household_ptrs,
-    population,
+    individuals_df.age,
+    individuals_df.gender,
+
     progressions,
     
     hospital_kernel_params,
@@ -158,7 +164,7 @@ function make_params(
     constant_kernel_param,   
     household_kernel_param,
     friendship_kernel_param,
-    friendship_sampler,
+    friendship_kernel_params,
     
     hospital_detections,
     mild_detection_prob,

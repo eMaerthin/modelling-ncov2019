@@ -1,6 +1,6 @@
 struct HospitalInfectionParams
     ishealthcare::BitVector
-    hospital_staff_ids::Vector{UInt32}
+    hospital_staff_ids::Vector{PersonIdx}
     kernel_constant::Float64
     
     healthcare_detection_prob::Float64

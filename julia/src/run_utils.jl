@@ -1,4 +1,6 @@
 using DataFrames
+using Distributions
+using Random
 
 function simple_run(individuals_df::DataFrame;
         tracking_prob::Float64=0.0, 
@@ -48,10 +50,17 @@ end
 
 
 function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
-        tracking_prob::Float64, 
+        tracking_prob::Float64=0.0, 
         constant_kernel_param::Float64=1.0, 
-        tracking_delay::Float64=0.5,
+
+        tracking_delay::Float64=2.5,
+        forward_detection_delay::Union{Nothing,Float64}=nothing,
+        backward_detection_delay::Union{Nothing, Float64}=nothing,
+        testing_time::Union{Nothing, Float64}=nothing,
+
         mild_detection_prob=0.0,
+        phone_tracking_usage=0.0,
+        hospital_kernel_param::Float64=0.0,
         history::Union{Nothing, Vector{Simulation.Event}}=nothing,
         execution_history::Union{Nothing, BitVector}=nothing,
         state_history::Union{Nothing, Vector{Simulation.IndividualState}}=nothing,
@@ -63,6 +72,8 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
     
     state.rng = MersenneTwister(seed)
     
+    
+
     params = Simulation.load_params(
         state.rng,
         population=individuals_df, 
@@ -71,19 +82,20 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
         
         constant_kernel_param=constant_kernel_param,
         household_kernel_param=1.0,
+        hospital_kernel_param=hospital_kernel_param,
         
         backward_tracking_prob=tracking_prob,
-        backward_detection_delay=tracking_delay/2,
+        backward_detection_delay= nothing==backward_detection_delay ? tracking_delay/2 : backward_detection_delay,
         
         forward_tracking_prob=tracking_prob,
-        forward_detection_delay=tracking_delay/2,
+        forward_detection_delay= nothing==forward_detection_delay ? tracking_delay/2 : forward_detection_delay,
         
-        testing_time=tracking_delay/2
+        testing_time= nothing==testing_time ? tracking_delay/2 : testing_time,
+        phone_tracking_usage=phone_tracking_usage
     );
     
-    sample(state.rng, 1:length(params.progressions), initial_infections) .|> person_id -> 
-        push!(state.queue, Simulation.Event(Val(Simulation.OutsideInfectionEvent), 0.0, person_id))
-
+    Simulation.initialfeed!(state, initial_infections)
+ 
     Simulation.simulate!(
         state, 
         params, 

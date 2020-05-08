@@ -94,15 +94,15 @@ end
   )
 end
 
-function resample_progressions!(rng::AbstractRNG, 
-                                progressions, ages::AbstractArray{T} where T <: Real,       
-                                dist_incubation_time, 
-                                dist_symptom_onset_time, 
-                                dist_hospitalization_time,
-                                dist_mild_recovery_time,
-                                dist_severe_recovery_time,
-                                dist_death_time
-                                )
+function resample!(
+  rng::AbstractRNG, 
+  progressions, ages::AbstractArray{T} where T <: Real,       
+  dist_incubation_time, 
+  dist_symptom_onset_time, 
+  dist_hospitalization_time,
+  dist_mild_recovery_time,
+  dist_severe_recovery_time,
+  dist_death_time)
 
   for i in 1:length(ages)
     progressions[i] = Simulation.sample_progression(rng, ages[i],         

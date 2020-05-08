@@ -132,7 +132,6 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
   elseif(rand(state.rng) < params.mild_detection_prob)
     push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event)+2, subject_id))
   end
-  
   return true  
 end
 
@@ -430,6 +429,8 @@ function trackhousehold!(state::SimState, params::SimParams, subject_id::Integer
   end
   nothing
 end
+
+
 function backtrack!(state::SimState, params::SimParams, person_id::Integer; track_household_connections::Bool)
   current_time = time(state)
   
@@ -450,16 +451,20 @@ function backtrack!(state::SimState, params::SimParams, person_id::Integer; trac
     return
   end
      
-  if rand(state.rng) >= params.backward_tracking_prob 
-    return
+
+  if uses_phone_tracking(params, person_id) && 
+      uses_phone_tracking(params, backward_id) && 
+      rand(state.rng) < params.phone_tracking_params.detection_prob
+    push!(state.queue, Event(Val(TrackedEvent), current_time + params.phone_tracking_params.detection_delay, backward_id, person_id))
+  elseif rand(state.rng) < params.backward_tracking_prob 
+    push!(state.queue, Event(Val(TrackedEvent), current_time + params.backward_detection_delay, backward_id, person_id))
   end
-  
-  push!(state.queue, Event(Val(TrackedEvent), current_time + params.backward_detection_delay, backward_id, person_id))
   nothing
 end
 
 function forwardtrack!(state::SimState, params::SimParams, person_id::Integer; track_household_connections::Bool)
   current_time = time(state)
+
   # handle all outgoing infections
   for infection in forwardinfections(state, person_id)
     
@@ -488,13 +493,15 @@ function forwardtrack!(state::SimState, params::SimParams, person_id::Integer; t
 #    @assert health_state ∉ SA[SevereSymptoms, CriticalSymptoms, Dead] "the forward $forward_id should have already been detected at the hospital but his health is $health_state"
     freedom_state = freedom(state, forward_id)
 #    @assert freedom_state ∉ SA[Hospitalized, Released] "the forward $forward_id should have already been detected at the hospital but he is $freedom_state"
-    
-    # the probability that the contact is NOT tracked
-    if rand(state.rng) >= params.forward_tracking_prob 
-      continue
+
+    if uses_phone_tracking(params, person_id) && 
+        uses_phone_tracking(params, forward_id) && 
+        rand(state.rng) < params.phone_tracking_params.detection_prob
+      push!(state.queue, Event(Val(TrackedEvent), current_time + params.phone_tracking_params.detection_delay, forward_id, person_id))
+    elseif rand(state.rng) < params.forward_tracking_prob 
+      push!(state.queue, Event(Val(TrackedEvent), current_time + params.forward_detection_delay, forward_id, person_id))
     end
-    # if it is found
-    push!(state.queue, Event(Val(TrackedEvent), current_time + params.forward_detection_delay, forward_id, person_id))
+
   end
   nothing
 end

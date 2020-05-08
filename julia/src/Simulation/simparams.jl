@@ -1,5 +1,9 @@
 using Random
 using Distributions
+include("params/households.jl")
+include("params/progression.jl")
+include("params/hospital.jl")
+include("params/phonetracking.jl")
 
 #struct RunParams
 #  seed::Int
@@ -23,15 +27,6 @@ using Distributions
 #  household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
 #  
 #end
-struct HospitalInfectionParams
-  ishealthcare::BitVector
-  hospital_staff_ids::Vector{UInt32}
-  kernel_constant::Float64
-  
-  healthcare_detection_prob::Float64
-  healthcare_detection_delay::Float64
-end
-
 
 struct SimParams 
   household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
@@ -54,14 +49,18 @@ struct SimParams
   
   quarantine_length::Float32
   testing_time::TimeDiff
+
+  phone_tracking_params::Union{Nothing, PhoneTrackingParams}
 end
 
+num_individuals(params::SimParams) = length(params.household_ptrs)
 progressionof(params::SimParams, person_id::Integer) = params.progressions[person_id]
 severityof(params::SimParams, person_id::Integer) = progressionof(params, person_id).severity
 householdof(params::SimParams, person_id::Integer) = UnitRange(params.household_ptrs[person_id]...)
-ishealthcare(params::SimParams, person_id::Integer)::Bool = nothing == params.hospital_kernel_params ? false : params.hospital_kernel_params.ishealthcare[person_id]
-num_individuals(params::SimParams) = length(params.household_ptrs)
-
+ishealthcare(params::SimParams, person_id::Integer) = 
+  nothing!=params.hospital_kernel_params && ishealthcare(params.hospital_kernel_params, person_id)
+uses_phone_tracking(params::SimParams, person_id::Integer) =
+  nothing!=params.phone_tracking_params && uses_phone_tracking(params.phone_tracking_params, person_id)
 
 function load_params(rng=MersenneTwister(0);
         population::Union{AbstractString,DataFrame},
@@ -80,7 +79,7 @@ function load_params(rng=MersenneTwister(0);
   dist_death_time = LogNormal(2.610727719719777, 0.44476420066780653)
   
   progressions = Vector{Simulation.Progression}(undef, num_individuals);
-  resample_progressions!(rng, progressions, individuals_df.age,
+  resample!(rng, progressions, individuals_df.age,
     dist_incubation_time, 
     dist_symptom_onset_time, 
     dist_hospitalization_time,
@@ -91,24 +90,6 @@ function load_params(rng=MersenneTwister(0);
   
   make_params(rng, individuals_df=individuals_df, progressions=progressions; kwargs...)
 end
-
-function make_household_ptrs!(
-  ptrs::AbstractVector{Tuple{Ti,Ti}},
-  household_indices::AbstractVector{T} where T<:Integer
-  ) where Ti<:Integer
-
-  @assert length(ptrs) == length(household_indices)  
-
-  ptrarr = reshape(reinterpret(Ti, ptrs), 2, :) # tuples as 2-by-N array
-  headptrs = view(ptrarr, 1, :)
-  tailptrs = view(ptrarr, 2, :)
-  
-  groupptrs!(headptrs, tailptrs, household_indices)
-  ptrs
-end
-
-make_household_ptrs(household_indices::AbstractVector{T} where T<:Real) = 
-  make_household_ptrs!(Vector{Tuple{Int32, Int32}}(undef, length(household_indices)), household_indices) 
 
 #make_household_ptrs(household_indices) = collect( zip(groupptrs(household_indices)...))
 
@@ -135,9 +116,10 @@ function make_params(
   forward_detection_delay::Float64=1.0,
   
   quarantine_length::Float64=14.0,
-  testing_time::Float64=1.0
-)
+  testing_time::Float64=1.0,
 
+  phone_tracking_usage=0.0
+)
   sort!(individuals_df, :household_index)
 
   num_individuals = individuals_df |> nrow
@@ -156,9 +138,15 @@ function make_params(
                                 healthcare_detection_prob,
                                 healthcare_detection_delay
                               )
-                            else error("hospital_kernel_param must be postive, got $hospital_kernel_param")
+                            else error("hospital_kernel_param must be postive or 0, got $hospital_kernel_param")
                             end
+  phone_tracking_params = if 0 == phone_tracking_usage; nothing
+                      elseif 0.0 < phone_tracking_usage <= 1.0
+                        PhoneTrackingParams(rng, num_individuals, phone_tracking_usage)
+                      else error("tracking_app_usage must be nonnegative, got $phone_tracking_usage")
+                      end
   
+
   params = SimParams(
     household_ptrs,
     progressions,
@@ -178,7 +166,9 @@ function make_params(
     forward_detection_delay,
     
     quarantine_length, # quarantine length
-    testing_time # testing time
+    testing_time, # testing time
+
+    phone_tracking_params
   )
   params
 end

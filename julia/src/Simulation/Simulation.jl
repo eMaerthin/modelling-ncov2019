@@ -25,7 +25,7 @@ include("eventqueue.jl")
 include("robin_forest.jl")
 const InfectionForest = RobinForest
 include("simstate.jl")
-include("progression.jl")
+
 include("simparams.jl")
 
 include("event_execution.jl")
@@ -34,9 +34,7 @@ include("infection_kernels.jl")
 include("utils.jl")
 
 export simulate!
-
-
-export simulate!
+export Event
 
 function simulate!(state::SimState, 
                    params::SimParams; 

@@ -29,6 +29,8 @@ function read_params(json, rng::AbstractRNG)
 
   tracking_prob = json["contact_tracking"]["probability"]  |> Float64
   tracking_delay = json["contact_tracking"]["delay"]  |> Float64
+  phone_tracking_usage = json["phone_tracking"]["usage"] |> Float64
+
   population_path = json["population_path"] # <= JSON
   population_path::AbstractString # checks if it was indeed a string
 	
@@ -50,7 +52,9 @@ function read_params(json, rng::AbstractRNG)
     forward_tracking_prob = tracking_prob,
     forward_detection_delay = tracking_delay/2,
         
-    testing_time = tracking_delay/2
+    testing_time = tracking_delay/2,
+
+    phone_tracking_usage = phone_tracking_usage
 )
 end
 const OptTimePoint = Union{Missing, Simulation.TimePoint}
@@ -170,13 +174,12 @@ function main()
     Simulation.initialfeed!(state, num_initial_infected)
 
     callback = DetectionCallback(Simulation.num_individuals(params), max_num_infected) #TODO reset!(cb)
-    #try
+    try
       Simulation.simulate!(state, params, callback)
-    #catch err
-    #  println(stderr, "iteration ", trajectory_id, " failed")
-    #println("ERROR: ", err.msg)
-    #           stacktrace(catch_backtrace())
-    #end
+    catch err
+      println(stderr, "iteration ", trajectory_id, " failed: ", err)
+      foreach( println, stacktrace(catch_backtrace()))
+    end
     
     GC.gc()
     

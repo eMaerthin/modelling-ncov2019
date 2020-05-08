@@ -74,6 +74,8 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
     
     state.rng = MersenneTwister(seed)
     
+    
+
     params = Simulation.load_params(
         state.rng,
         population=individuals_df, 

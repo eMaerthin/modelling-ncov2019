@@ -21,9 +21,10 @@ return parse_args(s)
 end
 
 function read_params(json, rng::AbstractRNG)
-  constant_kernel_param = json["transmission_probabilities"]["constant"]  |> Float64
-  household_kernel_param = json["transmission_probabilities"]["household"] |> Float64
-  hospital_kernel_param = get(json["transmission_probabilities"],"hospital", 0.0) |> Float64
+  constant_kernel_param = json["transmission_probabilities"]["constant"]  |> float
+  household_kernel_param = json["transmission_probabilities"]["household"] |> float
+  hospital_kernel_param = get(json["transmission_probabilities"],"hospital", 0.0) |> float
+  friendship_kernel_param = get(json["transmission_probabilities"],"friendship", 0.0) |> float
   
   mild_detection_prob = json["detection_mild_proba"]  |> Float64
 
@@ -49,6 +50,7 @@ function read_params(json, rng::AbstractRNG)
     constant_kernel_param = constant_kernel_param,
     household_kernel_param = household_kernel_param,
     hospital_kernel_param = hospital_kernel_param,
+    friendship_kernel_param = friendship_kernel_param,
         
     backward_tracking_prob = tracking_prob,
     backward_detection_delay = tracking_backward_delay,
@@ -179,12 +181,12 @@ function main()
     Simulation.initialfeed!(state, num_initial_infected)
 
     callback = DetectionCallback(Simulation.num_individuals(params), max_num_infected) #TODO reset!(cb)
-    try
+    #try
       Simulation.simulate!(state, params, callback)
-    catch err
-      println(stderr, "iteration ", trajectory_id, " failed: ", err)
-      foreach( println, stacktrace(catch_backtrace()))
-    end
+    #catch err
+    #  println(stderr, "iteration ", trajectory_id, " failed: ", err)
+    #  foreach( println, stacktrace(catch_backtrace()))
+    #end
     
     GC.gc()
     

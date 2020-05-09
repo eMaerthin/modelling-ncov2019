@@ -19,11 +19,10 @@ struct SimParams
   progressions::Vector{Progression} # not sure if progressions should be there
     
   hospital_kernel_params::Union{Nothing, HospitalInfectionParams}  # nothing if hospital kernel not active  
+  friendship_kernel_params::Union{Nothing, FriendshipKernelParams}
 
   constant_kernel_param::Float64
   household_kernel_param::Float64
-
-  friendship_kernel_params::Union{Nothing, FriendshipKernelParams}
   
   hospital_detections::Bool
   mild_detection_prob::Float64
@@ -128,7 +127,7 @@ function make_params(
                         elseif 0.0 < friendship_kernel_param 
                           FriendshipKernelParams(
                             friendship_kernel_param,
-                            individuals_df.age,
+                            Age.(individuals_df.age),
                             individuals_df.gender,
                             individuals_df.social_competence)
                         else error("bad condition for friendship kernel")
@@ -166,11 +165,10 @@ function make_params(
     progressions,
     
     hospital_kernel_params,
+    friendship_kernel_params,
     
     constant_kernel_param,   
     household_kernel_param,
-    friendship_kernel_param,
-    friendship_kernel_params,
     
     hospital_detections,
     mild_detection_prob,

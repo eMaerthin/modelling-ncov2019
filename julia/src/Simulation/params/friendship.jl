@@ -8,34 +8,14 @@ struct FriendshipSampler
     categories::Vector{Vector{Int64}}
 end
 
-const max_age = 120::Int64
+const max_age = 120
 
-@inline function to_idx(age::Int8, gender::Bool)::Int64
-    if gender
-        return Int64(age)+max_age+2
-    else
-        return Int64(age)+1
-    end
-end
+@inline to_idx(age::Integer, gender::Bool) = gender ? Int(age+max_age+2) : Int(age+1)
+@inline to_age_gender(idx::Integer) = (idx <= max_age+1) ? (Int(idx-1), false) : (Int(idx-max_age-2), true)
+@inline friendship_phi(age::Integer, alpha::Real) = age <= 20 ? float(age) : float(20+(age-20)^alpha)
 
-@inline function to_age_gender(idx::Int64)::Tuple{Int8, Bool}
-    if idx <= max_age+1
-        return Int8(idx-1), false
-    else
-        return Int8(idx-max_age-2), true
-    end
-end
-
-@inline function friendship_phi(age::Int8, alpha::Float64)::Float32
-    fla = Float32(age)
-    if age <= 20
-        return fla
-    end
-    return 20.0 + (fla - 20.0)^alpha
-end
-
-@inline function friendship_g(age1::Int8, age2::Int8, H::Vector{Float32}, alpha::Float64, beta::Float64)::Float32
-    nom = H[age1+1] * H[age2+1] * exp( -0.08 * Float32(age1)+Float32(age2) )
+@inline function friendship_g(age1::Integer, age2::Integer, H::AbstractVector{T} where T<:Real, alpha::Real, beta::Real)
+    nom = H[age1+1] * H[age2+1] * exp( -0.08 * (age1 + age2) )
     denom = 1.0 + 0.2 * abs(friendship_phi(age1, alpha) - friendship_phi(age2, alpha)) ^ beta
     return nom/denom
 end
@@ -44,10 +24,10 @@ function FriendshipSampler(
   ages::AbstractVector{Age},
   genders::AbstractVector{Bool},
   social_competences::AbstractVector{SocialCompetence},
-  alpha::Float64 = 0.75, 
-  beta::Float64 = 1.6)
+  alpha::Real = 0.75, 
+  beta::Real = 1.6)
 
-  categories = [Vector{Int64}() for _ in 1:(2*max_age+2)]
+  categories = [Vector{Int}() for _ in 1:(2*max_age+2)]
 
   num_individuals = length(ages)
   @assert num_individuals == length(genders) == length(social_competences)
@@ -74,16 +54,14 @@ function FriendshipSampler(
   return FriendshipSampler(categories_selectors, category_samplers, categories)
 end
 
-FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::Float64 = 1.6) = 
+FriendshipSampler(population::DataFrame, alpha::Real = 0.75, beta::Real = 1.6) = 
     FriendshipSampler(population.ages, population.genders, population.social_competences, alpha, beta)
 
 
-function friend_sample(fs::FriendshipSampler, age::Int8, gender::Bool, rng=Random.GLOBAL_RNG)
+function friend_sample(fs::FriendshipSampler, age::Integer, gender::Bool, rng=Random.GLOBAL_RNG)
     category = a_sample(fs.categories_selectors[to_idx(age, gender)], rng)
     return fs.categories[category][a_sample(fs.category_samplers[category], rng)]
 end
-
-
 
 struct FriendshipKernelParams
   kernel_constant::Real
@@ -92,11 +70,19 @@ struct FriendshipKernelParams
 end
 
 function FriendshipKernelParams(
-    kernel_constant::Real, 
-    ages::AbstractVector{Age},
-    genders::AbstractVector{Bool},
-    social_competences::Vector{SocialCompetence}, #concrete type for direct storage
-    )
-    FriendshipKernelParams(kernel_constant, social_competences, FriendshipSampler(ages, genders, social_competences))
+  kernel_constant::Real, 
+  ages::AbstractVector{Age},
+  genders::AbstractVector{Bool},
+  social_competences::Vector{SocialCompetence}) #concrete type for direct storage
+
+  @assert all(0 .<= ages .<= max_age)
+
+  FriendshipKernelParams(
+    kernel_constant, 
+    social_competences, 
+    FriendshipSampler(
+      ages, 
+      genders, 
+      social_competences))
 end
 socialcompetence(p::FriendshipKernelParams, person_id::Integer) = p.social_competences[person_id]

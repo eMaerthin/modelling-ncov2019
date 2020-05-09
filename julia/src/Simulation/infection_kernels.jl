@@ -33,6 +33,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
       push!(state.queue, Event(Val(TransmissionEvent), infection_time, subject_id, source_id, ConstantKernelContact))
     end
   end
+  nothing
 end
 
 function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, source_id::Integer, params::SimParams)
@@ -73,6 +74,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HouseholdContact}}, 
       HouseholdContact)
     )
   end
+  nothing
 end
 
 function enqueue_transmissions!(state::SimState, ::Type{Val{HospitalContact}}, source_id::Integer, params::SimParams)
@@ -114,6 +116,9 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{HospitalContact}}, s
 end
 
 function enqueue_transmissions!(state::SimState, ::Type{Val{FriendshipContact}}, source_id::Integer, params::SimParams)
+  if nothing == params.friendship_kernel_params
+    return
+  end
   progression = progressionof(params, source_id)
 
   start_time = progression.incubation_time
@@ -124,7 +129,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{FriendshipContact}},
               else    error("no recovery nor symptoms time defined")
               end
 
-  total_infection_rate = (end_time - start_time) * params.friendship_kernel_param * socialcompetence(source_id)
+  total_infection_rate = (end_time - start_time) * params.friendship_kernel_params.kernel_constant * socialcompetence(source_id)
 
   num_infections = rand(state.rng, Poisson(total_infection_rate))
 
@@ -146,4 +151,5 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{FriendshipContact}},
       push!(state.queue, Event(Val(TransmissionEvent), infection_time, subject_id, source_id, ConstantKernelContact))
     end
   end
+  nothing
 end

@@ -97,6 +97,6 @@ function FriendshipKernelParams(
     genders::AbstractVector{Bool},
     social_competences::Vector{SocialCompetence}, #concrete type for direct storage
     )
-    FriendshipKernelParams(kernel_constant, social_competences, FriendshipSampler(ages, genders, social_competences)
-
+    FriendshipKernelParams(kernel_constant, social_competences, FriendshipSampler(ages, genders, social_competences))
 end
+socialcompetence(p::FriendshipKernelParams, person_id::Integer) = p.social_competences[person_id]

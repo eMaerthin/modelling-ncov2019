@@ -443,7 +443,7 @@ function backtrack!(state::SimState, params::SimParams, person_id::Integer; trac
     return
   end
   
-  if !track_household_connections && (HouseholdContact == contact_kind)
+  if !track_household_connections && (HouseholdContact == contactkind(event))
     return
   end
   

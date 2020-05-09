@@ -124,9 +124,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{FriendshipContact}},
               else    error("no recovery nor symptoms time defined")
               end
 
-  source_person = params.people[source_id]::Person
-
-  total_infection_rate = (end_time - start_time) * params.friendship_kernel_param * source_person.social_competence
+  total_infection_rate = (end_time - start_time) * params.friendship_kernel_param * socialcompetence(source_id)
 
   num_infections = rand(state.rng, Poisson(total_infection_rate))
 
@@ -140,7 +138,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{FriendshipContact}},
   num_individuals = size(params.progressions, 1)
 
   for _ in 1:num_infections
-    subject_id = friend_sample(params.friendship_kernel_sampler, source_person.age, source_person.gender, state.rng)
+    subject_id = friend_sample(params.friendship_kernel_sampler, age(params, source_id), gender(source_id), state.rng)
 
     if Healthy == health(state, subject_id)
       infection_time::TimePoint = rand(state.rng, time_dist) |> TimePoint

@@ -28,12 +28,18 @@ function read_params(json, rng::AbstractRNG)
   mild_detection_prob = json["detection_mild_proba"]  |> Float64
 
   tracking_prob = json["contact_tracking"]["probability"]  |> Float64
-  tracking_delay = json["contact_tracking"]["delay"]  |> Float64
+  tracking_backward_delay = json["contact_tracking"]["backward_detection_delay"]  |> Float64
+  tracking_forward_delay = json["contact_tracking"]["forward_detection_delay"]  |> Float64
+  tracking_testing_delay = json["contact_tracking"]["testing_time"]  |> Float64
+
+
   phone_tracking_usage = json["phone_tracking"]["usage"] |> Float64
+  phone_tracking_testing_delay = json["phone_tracking"]["detection_delay"] |> Float64
+
 
   population_path = json["population_path"] # <= JSON
   population_path::AbstractString # checks if it was indeed a string
-	
+
   individuals_df = load(population_path)["individuals_df"]
 
   Simulation.load_params(
@@ -47,14 +53,15 @@ function read_params(json, rng::AbstractRNG)
     hospital_kernel_param = hospital_kernel_param,
         
     backward_tracking_prob = tracking_prob,
-    backward_detection_delay = tracking_delay/2,
+    backward_detection_delay = tracking_backward_delay,
         
     forward_tracking_prob = tracking_prob,
-    forward_detection_delay = tracking_delay/2,
+    forward_detection_delay = tracking_forward_delay,
         
-    testing_time = tracking_delay/2,
+    testing_time = tracking_testing_delay,
 
     phone_tracking_usage = phone_tracking_usage
+    #??? = phone_tracking_testing_delay
 )
 end
 const OptTimePoint = Union{Missing, Simulation.TimePoint}

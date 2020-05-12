@@ -15,7 +15,7 @@ function resample!(rng::AbstractRNG, params::PhoneTrackingParams, prob::Real)
     params
 end
 
-PhoneTrackingParams(rng::AbstractRNG, N::Integer, usage::Real, detection_prob::Real=1.0, detection_delay::Real=0.5) =
+PhoneTrackingParams(rng::AbstractRNG, N::Integer, usage::Real, detection_delay::Real=0.25, detection_prob::Real=1.0) =
     resample!(rng, PhoneTrackingParams(N, detection_prob, detection_delay), usage)
 
 uses_phone_tracking(params::PhoneTrackingParams, person_id::Integer) = params.isusingapp[person_id]

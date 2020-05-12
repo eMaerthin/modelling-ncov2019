@@ -60,6 +60,7 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
 
         mild_detection_prob=0.0,
         phone_tracking_usage=0.0,
+        phone_tracking_delay=0.25,
         hospital_kernel_param::Float64=0.0,
         history::Union{Nothing, Vector{Simulation.Event}}=nothing,
         execution_history::Union{Nothing, BitVector}=nothing,
@@ -91,7 +92,8 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
         forward_detection_delay= nothing==forward_detection_delay ? tracking_delay/2 : forward_detection_delay,
         
         testing_time= nothing==testing_time ? tracking_delay/2 : testing_time,
-        phone_tracking_usage=phone_tracking_usage
+        phone_tracking_usage=phone_tracking_usage,
+        phone_tracking_delay=phone_tracking_delay
     );
     
     Simulation.initialfeed!(state, initial_infections)

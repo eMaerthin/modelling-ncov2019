@@ -252,3 +252,91 @@ function plot_heatmap_mild_detection_vs_c(
   #ylim(minimum(tracking_probs), maximum(tracking_probs))
   savefig(image_path, bbox_inches="tight")
 end
+
+function plot_heatmap_c_vs_phone_tracking_usage(results, Cs=0:0.05:1, phone_tracking_usage = 0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
+  reduction = 1 .- Cs / 1.35
+  
+  if nothing == cmax
+    cmax = maximum(results)
+  end   
+  
+  if nothing == cmin
+    cmin = minimum(results)
+  end 
+  
+  if logscale
+    im = pcolor(
+      extendrange(reduction), 
+      extendrange(phone_tracking_usage), 
+      results, 
+      norm=matplotlib.colors.LogNorm(vmin=cmin, vmax=cmax),
+      cmap="nipy_spectral")
+      clim(vmin=cmin)
+  end    
+   
+  if addcbar 
+    cbar = colorbar()
+  end
+
+  xlabel("f - Stopień redukcji kontaktów")
+  
+  xticks(
+    0:0.1:1,
+    ["$(Int(100*f))%" for f in 0:0.1:1],
+    rotation=60)
+  
+  ylabel("u - część populacji używająca aplikacji \n do śledzenia kontaktów")
+
+  gca().invert_yaxis()
+  gca().invert_xaxis()
+
+  return im
+end
+
+function plot_heatmap_phone_tracking_usage_vs_tracking_prob(
+  results, 
+  phone_tracking_usages = 0:0.05:1, 
+  tracking_probs=0:0.05:1; 
+  cmin=nothing,
+  cmax=nothing,
+  logscale=true,
+  addcbar=true
+)  
+
+  if nothing == cmax
+    cmax = maximum(results)
+  end   
+
+  if nothing == cmin
+    cmin = minimum(results)
+  end 
+
+  if logscale
+    im = pcolor(
+      extendrange(phone_tracking_usages), 
+      extendrange(tracking_probs), 
+      results, 
+      norm=matplotlib.colors.LogNorm(vmin=cmin, vmax=cmax),
+      cmap="nipy_spectral")
+      clim(vmin=cmin)
+  else
+    im = pcolor(
+      extendrange(phone_tracking_usages), 
+      extendrange(tracking_probs), 
+      results, 
+      norm=matplotlib.colors.Normalize(vmin=cmin, vmax=cmax),
+      cmap="nipy_spectral")
+  end    
+  
+  clim(vmin=cmin)     
+
+  if addcbar
+    colorbar() 
+  end
+    
+  gca().invert_xaxis()
+  gca().invert_yaxis()  
+  xlabel("u - część populacji używająca aplikacji śledzącej")
+  ylabel("b - skuteczność śledzenia kontaktów")
+  return im
+end

@@ -52,6 +52,7 @@ end
 function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
         tracking_prob::Float64=0.0, 
         constant_kernel_param::Float64=1.0, 
+        household_kernel_param::Real=0.3,
 
         tracking_delay::Float64=2.5,
         forward_detection_delay::Union{Nothing,Float64}=nothing,
@@ -60,7 +61,7 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
 
         mild_detection_prob=0.0,
         phone_tracking_usage=0.0,
-        phone_tracking_delay=0.25,
+        phone_detection_delay=0.25,
         hospital_kernel_param::Float64=0.0,
         history::Union{Nothing, Vector{Simulation.Event}}=nothing,
         execution_history::Union{Nothing, BitVector}=nothing,
@@ -73,8 +74,6 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
     
     state.rng = MersenneTwister(seed)
     
-    
-
     params = Simulation.load_params(
         state.rng,
         population=individuals_df, 
@@ -82,7 +81,7 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
         mild_detection_prob = mild_detection_prob,
         
         constant_kernel_param=constant_kernel_param,
-        household_kernel_param=1.0,
+        household_kernel_param=household_kernel_param,
         hospital_kernel_param=hospital_kernel_param,
         
         backward_tracking_prob=tracking_prob,
@@ -93,7 +92,7 @@ function simple_run!(state::Simulation.SimState, individuals_df::DataFrame;
         
         testing_time= nothing==testing_time ? tracking_delay/2 : testing_time,
         phone_tracking_usage=phone_tracking_usage,
-        phone_tracking_delay=phone_tracking_delay
+        phone_detection_delay=phone_detection_delay
     );
     
     Simulation.initialfeed!(state, initial_infections)

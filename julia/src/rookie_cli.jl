@@ -32,10 +32,8 @@ function read_params(json, rng::AbstractRNG)
   tracking_forward_delay = json["contact_tracking"]["forward_detection_delay"]  |> Float64
   tracking_testing_delay = json["contact_tracking"]["testing_time"]  |> Float64
 
-
   phone_tracking_usage = json["phone_tracking"]["usage"] |> Float64
   phone_tracking_testing_delay = json["phone_tracking"]["detection_delay"] |> Float64
-
 
   population_path = json["population_path"] # <= JSON
   population_path::AbstractString # checks if it was indeed a string
@@ -60,8 +58,8 @@ function read_params(json, rng::AbstractRNG)
         
     testing_time = tracking_testing_delay,
 
-    phone_tracking_usage = phone_tracking_usage
-    #??? = phone_tracking_testing_delay
+    phone_tracking_usage = phone_tracking_usage,
+    phone_detection_delay = phone_tracking_testing_delay
 )
 end
 const OptTimePoint = Union{Missing, Simulation.TimePoint}

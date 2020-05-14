@@ -56,9 +56,9 @@ function FriendshipSampler(population::DataFrame, alpha::Float64 = 0.75, beta::F
 
     categories_selectors = Vector{AliasSampler{Int32, Float32}}(undef, length(categories))
 
+    P = Vector{Float32}(undef, length(categories))
     for idx::Int32 in 1:length(categories)
         age, gender = to_age_gender(idx)
-        P = Vector{Float32}(undef, length(categories))
         for idx2::Int32 in 1:length(categories)
             age2, gender2 = to_age_gender(idx2)
             P[idx2] = friendship_g(age, age2, H, alpha, beta) * (gender == gender2 ? Float32(1.2) : Float32(0.8))

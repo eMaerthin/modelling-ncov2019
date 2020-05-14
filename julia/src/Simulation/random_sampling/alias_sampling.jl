@@ -8,13 +8,14 @@ struct AliasSampler{IndexType <: Integer, ProbabilityParamType <: Real}
 end
 
 function AliasSampler{IndexType, ProbabilityParamType}(
-                weights::Vector{ProbabilityParamType}
+                weights::AbstractVector{ProbabilityParamType}
             ) where{IndexType <: Integer, ProbabilityParamType <: Real}
 
     n = length(weights)
     s = sum(weights)
     scf = n/s
-    sc_probabilities = (weights*scf)::Vector{ProbabilityParamType}
+    sc_probabilities = Vector{ProbabilityParamType}(undef, n)
+    sc_probabilities .= weights.*scf
 
     smalls = Vector{IndexType}(undef, n)
     smalls_idx = 0

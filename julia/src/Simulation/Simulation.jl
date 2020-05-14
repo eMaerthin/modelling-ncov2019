@@ -17,6 +17,7 @@ import Base.show
 
 const TimePoint = Fixed{Int32, 16}
 const TimeDiff = Fixed{Int32, 16}
+const PersonIdx=UInt32
 
 include("enums.jl")
 include("event.jl")

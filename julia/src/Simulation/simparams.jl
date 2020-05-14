@@ -2,7 +2,7 @@ using Random
 using Distributions
 
 const Age=UInt8
-const PersonIdx=UInt32
+
 
 include("params/households.jl")
 include("params/friendship.jl")
@@ -110,8 +110,6 @@ function make_params(
 
   phone_tracking_usage::Real=0.0,
   phone_detection_delay::Real=0.25
-
-  phone_tracking_usage=0.0
 )
   sort!(individuals_df, :household_index)
 
@@ -121,8 +119,6 @@ function make_params(
 
   household_ptrs = make_household_ptrs(individuals_df.household_index)
 
-  #population::Vector{Person} = [Person(individuals_df.age[idx], individuals_df.gender[idx], individuals_df.social_competence[idx]) for idx in 1:nrow(individuals_df)]
-  
   friendship_kernel_params =  if 0 == friendship_kernel_param; nothing
                         elseif 0.0 < friendship_kernel_param 
                           FriendshipKernelParams(
@@ -145,11 +141,6 @@ function make_params(
                             else error("hospital_kernel_param must be postive or 0, got $hospital_kernel_param")
                             end
 
-  phone_tracking_params = if 0 == phone_tracking_usage; nothing
-                      elseif 0.0 < phone_tracking_usage <= 1.0
-                        PhoneTrackingParams(rng, num_individuals, phone_tracking_usage)
-                      else error("tracking_app_usage must be nonnegative, got $phone_tracking_usage")
-                      end
   phone_tracking_params = if 0 == phone_tracking_usage; nothing
                       elseif 0.0 < phone_tracking_usage <= 1.0
                         PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay)

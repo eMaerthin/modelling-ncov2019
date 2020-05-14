@@ -35,8 +35,8 @@ end
 
 struct Event
   time::TimePoint
-  subject_id::UInt32
-  source_id::UInt32
+  subject_id::PersonIdx
+  source_id::PersonIdx
   event_kind::EventKind
   contact_kind::ContactKind
   extension::Bool

@@ -7,9 +7,10 @@ struct AliasSampler{IndexType <: Integer, ProbabilityParamType <: Real}
     nonalias_probs::Vector{ProbabilityParamType}
 end
 
-function AliasSampler{IndexType, ProbabilityParamType}(
+function AliasSampler(IndexType::Type,
                 weights::Vector{ProbabilityParamType}
-            ) where{IndexType <: Integer, ProbabilityParamType <: Real}
+            ) where{ProbabilityParamType <: Real}
+    @assert IndexType <: Integer
 
     n = length(weights)
     s = sum(weights)

@@ -36,7 +36,7 @@ end
 end
 
 @inline function friendship_g(age1::Int8, age2::Int8, H::Vector{Float32}, alpha::Float64, beta::Float64)::Float32
-    nom = H[age1+1] * H[age2+1] * exp( -0.08 * Float32(age1)+Float32(age2) )
+    nom = H[age1+1] * H[age2+1] * exp( -0.08 * (Float32(age1)+Float32(age2)) )
     denom = 1.0 + 0.2 * abs(friendship_phi(age1, alpha) - friendship_phi(age2, alpha)) ^ beta
     return nom/denom
 end

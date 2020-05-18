@@ -7,15 +7,15 @@ struct AliasSampler{IndexType <: Integer, ProbabilityParamType <: Real}
     nonalias_probs::Vector{ProbabilityParamType}
 end
 
-function AliasSampler{IndexType, ProbabilityParamType}(
+function AliasSampler(IndexType::Type,
                 weights::AbstractVector{ProbabilityParamType}
-            ) where{IndexType <: Integer, ProbabilityParamType <: Real}
+            ) where{ProbabilityParamType <: Real}
+    @assert IndexType <: Integer
 
     n = length(weights)
     s = sum(weights)
     scf = n/s
-    sc_probabilities = Vector{ProbabilityParamType}(undef, n)
-    sc_probabilities .= weights.*scf
+    sc_probabilities = (weights*scf)::Vector{ProbabilityParamType}
 
     smalls = Vector{IndexType}(undef, n)
     smalls_idx = 0

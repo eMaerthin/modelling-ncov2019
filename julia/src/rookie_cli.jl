@@ -1,3 +1,6 @@
+using Pkg
+Pkg.activate(".")
+
 push!(LOAD_PATH, "Simulation")
 using JSON
 using ArgParse

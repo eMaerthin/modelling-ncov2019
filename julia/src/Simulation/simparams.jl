@@ -44,7 +44,7 @@ progressionof(params::SimParams, person_id::Integer) = params.progressions[perso
 severityof(params::SimParams, person_id::Integer) = progressionof(params, person_id).severity
 householdof(params::SimParams, person_id::Integer) = UnitRange(params.household_ptrs[person_id]...)
 age(params::SimParams, person_id::Integer) = params.ages[person_id]
-gender(params::SimParams, person_id::Integer) = params.gender[person_id]
+gender(params::SimParams, person_id::Integer) = params.genders[person_id]
 
 socialcompetence(params::SimParams, person_id::Integer) = 
   nothing!=params.friendship_kernel_params && socialcompetence(params.friendship_kernel_params, person_id)

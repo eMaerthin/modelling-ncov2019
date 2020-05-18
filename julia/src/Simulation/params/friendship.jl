@@ -22,7 +22,7 @@ const num_friendship_categories = 2*max_age+2
 @inline friendship_phi(age::Integer, alpha::Real) = age <= 20 ? float(age) : float(20+(age-20.0)^alpha)
 
 @inline function friendship_g(age1::Integer, age2::Integer, H::AbstractVector{T} where T<:Real, alpha::Real, beta::Real)
-    nom = H[age1+1] * H[age2+1] * exp( -0.08 * (age1 + age2) )
+    nom = float(H[age1+1]) * float(H[age2+1]) * exp( -0.08 * (age1 + age2) )
     denom = 1.0 + 0.2 * abs(friendship_phi(age1, alpha) - friendship_phi(age2, alpha)) ^ beta
     return nom/denom
 end
@@ -51,14 +51,14 @@ function FriendshipSampler(
 
   categories_selectors = Vector{FriendshipCategorySelector}(undef, num_friendship_categories)
 
+  P = Vector{CategoryProb}(undef, num_friendship_categories)
   for idx in 1:num_friendship_categories
       age, gender = friendship_to_age_gender(idx)
-      P = Vector{CategoryProb}(undef, num_friendship_categories) # can this be moved outside the loop and re-used?
       for idx2 in 1:num_friendship_categories
           age2, gender2 = friendship_to_age_gender(idx2)
           P[idx2] = friendship_g(age, age2, H, alpha, beta) * (gender == gender2 ? 1.2 : 0.8)
       end
-      categories_selectors[idx] = FriendshipCategorySelector(P)
+      categories_selectors[idx] = AliasSampler(CategoryIdx, P)#FriendshipCategorySelector(P)
   end
 
   category_samplers = Vector{FriendshipCategorySampler}(undef, num_friendship_categories)
@@ -67,8 +67,9 @@ function FriendshipSampler(
       alias_sampler_par = Vector{CategoryProb}(undef, length(category))
       for pers_idx in 1:length(category)
           person_id = category[pers_idx]
-          category_samplers[cat_idx][pers_idx] = social_competences[person_id]
+          alias_sampler_par[pers_idx] = social_competences[person_id]
       end
+      category_samplers[cat_idx] = AliasSampler(InCategoryIdx, alias_sampler_par)
   end
 
   return FriendshipSampler(categories_selectors, category_samplers, categories)
@@ -76,7 +77,6 @@ end
 
 FriendshipSampler(population::DataFrame, alpha::Real = 0.75, beta::Real = 1.6) = 
     FriendshipSampler(population.age, population.gender, population.social_competence, alpha, beta)
-
 
 function friend_sample(fs::FriendshipSampler, age::Integer, gender::Bool, rng=Random.GLOBAL_RNG)
     category = a_sample(fs.categories_selectors[friendship_to_idx(age, gender)], rng)
@@ -86,7 +86,7 @@ end
 struct FriendshipKernelParams
   kernel_constant::Real
   social_competences::Vector{SocialCompetence}
-  friendship_sampler::FriendshipSampler
+  sampler::FriendshipSampler
 end
 
 function FriendshipKernelParams(

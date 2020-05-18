@@ -1,3 +1,6 @@
+using Pkg
+Pkg.activate(".")
+
 push!(LOAD_PATH, "Simulation")
 using Base.Threads
 using JSON
@@ -22,19 +25,20 @@ return parse_args(s)
 end
 
 function read_params(json, rng::AbstractRNG)
-  constant_kernel_param = json["transmission_probabilities"]["constant"]  |> Float64
-  household_kernel_param = json["transmission_probabilities"]["household"] |> Float64
-  hospital_kernel_param = get(json["transmission_probabilities"],"hospital", 0.0) |> Float64
-  
-  mild_detection_prob = json["detection_mild_proba"]  |> Float64
+  constant_kernel_param = json["transmission_probabilities"]["constant"]  |> float
+  household_kernel_param = json["transmission_probabilities"]["household"] |> float
+  hospital_kernel_param = get(json["transmission_probabilities"],"hospital", 0.0) |> float
+  friendship_kernel_param = get(json["transmission_probabilities"],"friendship", 0.0) |> float
 
-  tracking_prob = json["contact_tracking"]["probability"]  |> Float64
-  tracking_backward_delay = json["contact_tracking"]["backward_detection_delay"]  |> Float64
-  tracking_forward_delay = json["contact_tracking"]["forward_detection_delay"]  |> Float64
-  testing_time = json["contact_tracking"]["testing_time"]  |> Float64
+  mild_detection_prob = json["detection_mild_proba"]  |> float
 
-  phone_tracking_usage = json["phone_tracking"]["usage"] |> Float64
-  phone_tracking_testing_delay = json["phone_tracking"]["detection_delay"] |> Float64
+  tracking_prob = json["contact_tracking"]["probability"]  |> float
+  tracking_backward_delay = json["contact_tracking"]["backward_detection_delay"]  |> float
+  tracking_forward_delay = json["contact_tracking"]["forward_detection_delay"]  |> float
+  testing_time = json["contact_tracking"]["testing_time"]  |> float
+
+  phone_tracking_usage = json["phone_tracking"]["usage"] |> float
+  phone_tracking_testing_delay = json["phone_tracking"]["detection_delay"] |> float
 
   population_path = json["population_path"] # <= JSON
   population_path::AbstractString # checks if it was indeed a string
@@ -50,6 +54,7 @@ function read_params(json, rng::AbstractRNG)
     constant_kernel_param = constant_kernel_param,
     household_kernel_param = household_kernel_param,
     hospital_kernel_param = hospital_kernel_param,
+    friendship_kernel_param = friendship_kernel_param,
         
     backward_tracking_prob = tracking_prob,
     backward_detection_delay = tracking_backward_delay,

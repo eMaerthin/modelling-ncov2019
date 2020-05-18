@@ -137,3 +137,5 @@ function initialfeed!(state::SimState, num_initial_infections::Integer)
   end
    
 end
+
+saveparams(dict, state::SimState, prefix::AbstractString="") = saveparams(dict, state.forest, prefix)

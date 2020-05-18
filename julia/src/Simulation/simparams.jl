@@ -5,29 +5,6 @@ include("params/progression.jl")
 include("params/hospital.jl")
 include("params/phonetracking.jl")
 
-#struct RunParams
-#  seed::Int
-#
-#  constant_kernel_param::Float64
-#  household_kernel_param::Float64
-#
-#  hospital_detections::Bool
-#
-#  backward_tracking_prob::Float32
-#  backward_detection_delay::TimeDiff
-#
-#  forward_tracking_prob::Float32
-#  forward_detection_delay::TimeDiff
-#
-#  quarantine_length::Float32
-#  testing_time::TimeDiff
-#end
-#
-#struct PopulationParams
-#  household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
-#  
-#end
-
 struct SimParams 
   household_ptrs::Vector{Tuple{UInt32,UInt32}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
     
@@ -172,4 +149,23 @@ function make_params(
     phone_tracking_params
   )
   params
+end
+
+function saveparams(dict, p::SimParams)
+  dict["constant/kernel_param"] = p.constant_kernel_param
+  dict["household/kernel_param"] = p.household_kernel_param
+  dict["quarantine/duration"] = p.quarantine_length
+  dict["detections/hospital"] = p.hospital_detections
+  dict["detections/mild"] = p.mild_detection_prob
+
+  dict["tracking/backward_prob"] = p.backward_tracking_prob
+  dict["tracking/backward_detection_delay"] = p.backward_detection_delay
+  dict["tracking/forward_tracking_prob"] = p.forward_tracking_prob
+  dict["tracking/forward_detection_delay"] = p.forward_detection_delay
+  dict["tracking/testing_time"] = p.testing_time
+
+  saveparams(dict, p.progressions, "progressions/")
+  nothing==p.hospital_kernel_params || saveparams(dict, p.hospital_kernel_params, "hospital/")
+  nothing==p.phone_tracking_params || saveparams(dict, p.phone_tracking_params, "phone_tracking/")
+  nothing
 end

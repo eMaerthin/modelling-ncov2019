@@ -9,6 +9,9 @@ struct Progression
     death_time::Union{Missing, TimeDiff}
     #Progression(severity::Severity, incubation_time::Real, mild_time::Real, severe_time::Real, recovery_time) = incubation < mild_time < severe_time < recovery_time
 end
+
+
+
 Progression() = Progression(Asymptomatic, missing, missing, missing, missing, missing)
 
 # Asymptotic not allowed as yet (some asserts prevent them)
@@ -114,4 +117,16 @@ function resample!(
       dist_death_time)
   end
   progressions
+end
+
+storagefloat(t::Union{Missing,TimeDiff})::Float32 = ismissing(t) ? NaN32 : Float32(t)
+storagefloat(p::Progression, symbol::Symbol) = getproperty(p, symbol) |> storagefloat
+
+function saveparams(dict, progressions::AbstractVector{Progression}, prefix::AbstractString="")
+    dict[prefix*"severities"] = getproperty.(progressions, :severity)
+    dict[prefix*"incubation_times"] = storagefloat.(progressions, :incubation_time)
+    dict[prefix*"mild_symptoms_times"] = storagefloat.(progressions, :mild_symptoms_time)
+    dict[prefix*"severe_symptoms_times"] = storagefloat.(progressions, :severe_symptoms_time)
+    dict[prefix*"recovery_times"] = storagefloat.(progressions, :recovery_time)
+    dict[prefix*"death_times"] = storagefloat.(progressions, :death_time)
 end

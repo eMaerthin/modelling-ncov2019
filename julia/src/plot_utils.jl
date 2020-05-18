@@ -113,13 +113,16 @@ function plot_heatmap_mild_detection_vs_tracking_prob(
   )
   clim(vmin=10^2)     
 
+  gca().invert_yaxis()
+  gca().invert_xaxis()
+
   colorbar() 
   title("Łączna liczba zarażonych \n dla redukcji kontaktów o $(100*(1-c/1.35))% \n i opóźnienia śledzenia kontaktów o $delay dni")
   xlabel("prawdopodobieństwo wykrycia lekkich przypadków")
   ylabel("b - skuteczność śledzenia kontaktów")
   #xlim(minimum(mild_detection_probs), maximum(mild_detection_probs))
   #ylim(minimum(tracking_probs), maximum(tracking_probs))
-  savefig(image_path, bbox_inches="tight")
+  #savefig(image_path, bbox_inches="tight")
 end
 
 function plot_heatmap_mild_detection_vs_tracking_prob(
@@ -128,7 +131,8 @@ function plot_heatmap_mild_detection_vs_tracking_prob(
     tracking_probs=0:0.05:1; 
     cmin=nothing,
     cmax=nothing,
-    logscale=true
+    logscale=true,
+    addcbar=true
   )  
   
   if nothing == cmax
@@ -140,31 +144,32 @@ function plot_heatmap_mild_detection_vs_tracking_prob(
   end 
   
   if logscale
-    pcolor(
+    im = pcolor(
       extendrange(mild_detections), 
       extendrange(tracking_probs), 
-      results', 
+      results, 
       norm=matplotlib.colors.LogNorm(vmin=cmin, vmax=cmax),
       cmap="nipy_spectral")
       clim(vmin=cmin)
   else
-    pcolor(
+    im = pcolor(
       extendrange(mild_detections), 
       extendrange(tracking_probs), 
-      results', 
+      results, 
       norm=matplotlib.colors.Normalize(vmin=cmin, vmax=cmax),
       cmap="nipy_spectral")
   end    
    
   clim(vmin=cmin)     
+  if addcbar
+    colorbar() 
+  end
 
-  colorbar() 
-  #title("Łączna liczba zarażonych \n dla redukcji kontaktów o $(100*(1-c/1.35))% \n i opóźnienia śledzenia kontaktów o $delay dni")
-  xlabel("prawdopodobieństwo wykrycia lekkich przypadków")
+  gca().invert_yaxis()
+  gca().invert_xaxis()
+  xlabel("q' - prawdopodobieństwo wykrycia lekkich przypadków")
   ylabel("b - skuteczność śledzenia kontaktów")
-  #xlim(minimum(mild_detection_probs), maximum(mild_detection_probs))
-  #ylim(minimum(tracking_probs), maximum(tracking_probs))
-  #savefig(image_path, bbox_inches="tight")
+  im
 end
 
 function plot_heatmap_mild_detection_vs_c(results, mild_detection_probss = 0:0.05:1, Cs=0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
@@ -247,7 +252,7 @@ function plot_heatmap_mild_detection_vs_c(
     ["$(100*f)%" for f in 0.0:0.1:1])
   xticks(rotation=30)
   
-  ylabel("prawdopodobieństwo wykrycia lekkich przypadków")
+  ylabel("q' - prawdopodobieństwo wykrycia lekkich przypadków")
   #xlim(minimum(mild_detection_probs), maximum(mild_detection_probs))
   #ylim(minimum(tracking_probs), maximum(tracking_probs))
   savefig(image_path, bbox_inches="tight")
@@ -272,6 +277,13 @@ function plot_heatmap_c_vs_phone_tracking_usage(results, Cs=0:0.05:1, phone_trac
       norm=matplotlib.colors.LogNorm(vmin=cmin, vmax=cmax),
       cmap="nipy_spectral")
       clim(vmin=cmin)
+  else
+    im = pcolor(
+      extendrange(reduction), 
+      extendrange(phone_tracking_usage),
+      results, 
+      norm=matplotlib.colors.Normalize(vmin=cmin, vmax=cmax),
+      cmap="nipy_spectral")
   end    
    
   if addcbar 

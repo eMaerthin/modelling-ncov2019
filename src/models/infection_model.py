@@ -1032,7 +1032,7 @@ class InfectionModel:
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
-        self.test_bandwidth_plot(simulation_output_dir)
+        # self.test_bandwidth_plot(simulation_output_dir)
         with open(output_log_file, "w") as out:
             out.write(output_log)
 

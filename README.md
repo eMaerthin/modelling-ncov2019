@@ -1,4 +1,44 @@
 # modelling-ncov2019
+## README for reproducing results presented in the "Mitigation and herd immunity strategy for COVID-19 is likely to fail"
+### System requirements
+#### All software dependencies and operating systems (including version numbers)
+Operating system: The software was tested on macOS Catalina 10.15.4, macOS Mojave 10.14.6 and CentOS Linux 7 (Core).
+Python 3.7.3 is required.
+There is a list of python libraries required for running the code enlisted in `requirements.txt` in the repository (see [requirements.txt](https://github.com/MOCOS-COVID19/modelling-ncov2019/blob/batch-poland-grid/requirements.txt)).
+
+### Installation guide
+#### Instructions
+- make sure [GIT LFS is installed](https://developer.lsst.io/v/DM-7552/tools/git_lfs.html)
+- clone the repository initiated to branch used for producing the paper <code>git clone --single-branch --branch batch-poland-grid git@github.com:MOCOS-COVID19/modelling-ncov2019.git</code>
+
+(Tip: This is a live codebase - There are some changes everyday from the time of writing the paper including completely new model written in julia language which is faster and has more components. Some of the changes are not backward compatible, so we recommend you to use the branch <code>batch-poland-gid</code> specified in the command above to reproduce paper's results.)
+
+- enter the root of the project and initialize git lfs `git lfs install`
+- extract wroclaw dataset to directory `data`: `tar -xf data/raw/wroclaw_population.tar.gz -C data/`
+- create virtual env `python3 -m venv venv`
+- activate virtual env `source venv/bin/activate`
+- install python libraries required for running the code `pip install -r requirements.txt`
+
+#### Typical install time on a "normal" desktop computer
+- under 5 minutes
+
+### Demo
+#### Instructions to run demo
+TODO
+#### Expected output
+TODO
+#### Expected run time for demo on a "normal" desktop computer
+TODO
+
+### Instructions for use
+#### How to run the software on your data
+#### Reproduction instructions
+##### Steps to reproduce Figure 4
+1. `mkdir data/poland-dir`
+2. `tar -xf data/raw/poland_population.tar.gz -C data/poland-dir`
+3. ``
+
+(We encourage you to include instructions for reproducing all the quantitative results in the manuscript.)
 
 ## useful links:
 ### Technical stuff:
@@ -69,6 +109,7 @@ As of now the following paths are tracked with git-lfs:
 - `data/*/*.zip`
 - `data/*/*.csv`
 - `data/*/*.xlsx`
+- `data/*/*.tar.gz`
 - `references/*.pdf`
 - `notebooks/*.ipynb`
 

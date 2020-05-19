@@ -6,6 +6,7 @@
   "max_time": 700,
   "log_outputs": false,
   "log_time_freq": 1e9,
+  "turn_on_detection": false,
   "transmission_probabilities": {
     "household": 1,
     "constant": 0.0

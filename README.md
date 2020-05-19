@@ -48,14 +48,20 @@ of the project and run the demo by typing in your commandline:
 
 
 #### Expected output
-Successful demo should create a folder `outputs/demo/` inside the root directory.
+Demo is configured to output updated statistics every simulated "24h" including per-day-increase, number of active cases, number of deaths, cumulative number of affected cases.
+
+In the end a successful demo should create a folder `outputs/demo/` inside the root directory.
 
 Inside the folder a unique subfolder is created and inside that folder all pictures and times are stored.
 
 The demo represents the free growth of epidemics - the outcome should be similar to the picture from Figure 1 from the paper.
+
+One of resulted files should be `paper_bins.png` and `paper_summary.png`
+which were used respectively as Figure 1 left and respectively Figure 1 right panel.
+
 #### Expected run time for demo on a "normal" desktop computer
 
-TODO
+The demo should finish in 15 minutes. The time can differ depending on the RAM available.
 
 ### Instructions for use
 #### How to run the software on your data

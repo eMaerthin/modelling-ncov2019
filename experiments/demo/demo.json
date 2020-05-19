@@ -5,7 +5,7 @@
   "save_input_data": false,
   "max_time": 120,
   "log_outputs": true,
-  "log_time_freq": 1e9,
+  "log_time_freq": 1,
   "turn_on_detection": false,
   "transmission_probabilities": {
     "household": 1,

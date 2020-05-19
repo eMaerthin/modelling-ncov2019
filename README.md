@@ -67,13 +67,6 @@ The demo should finish in 15 minutes. The time can differ depending on the RAM a
 #### How to run the software on your data
 #### Reproduction instructions
 
-##### Steps to reproduce Figure 1
-1. `mkdir data/raw/wroclaw_population`
-2. `tar -xf data/raw/wroclaw_population.tar.gz -C data/raw/wroclaw_population`
-3. `bash experiment/figure1_experiment/run.sh`
-
-#####
-
 ##### Steps to reproduce Figure 4
 1. `mkdir data/raw/poland_population`
 2. `tar -xf data/raw/poland_population.tar.gz -C data/raw/poland_population`

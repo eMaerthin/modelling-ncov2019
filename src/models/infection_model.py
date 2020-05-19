@@ -567,7 +567,7 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'doubling_times.png'))
         plt.close(fig)
 
-    def lancet_draw_death_age_cohorts(self, simulation_output_dir):
+    def paper_draw_death_age_cohorts(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
         df_in = self.df_individuals
@@ -588,7 +588,7 @@ class InfectionModel:
         ax.legend()
         experiment_id = self._params[EXPERIMENT_ID]
         fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'lancet_supplementary_deceased_cases_age_analysis.png'))
+        plt.savefig(os.path.join(simulation_output_dir, 'paper_supplementary_deceased_cases_age_analysis.png'))
         plt.close(fig)
 
     def draw_death_age_cohorts(self, simulation_output_dir):
@@ -616,7 +616,7 @@ class InfectionModel:
         plt.savefig(os.path.join(simulation_output_dir, 'deceased_cases_age_analysis.png'))
         plt.close(fig)
 
-    def lancet_store_bins(self, simulation_output_dir):
+    def paper_store_bins(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
 
@@ -649,7 +649,7 @@ class InfectionModel:
         ax0.set_ylabel('Incidents')
         ax0.set_xlabel('Time in days')
         fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'lancet_bins.png'))
+        plt.savefig(os.path.join(simulation_output_dir, 'paper_bins.png'))
         plt.close(fig)
 
     def store_bins(self, simulation_output_dir):
@@ -788,7 +788,7 @@ class InfectionModel:
         plt.close(fig)
 
 
-    def lancet_store_graphs(self, simulation_output_dir):
+    def paper_store_graphs(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
 
@@ -830,7 +830,7 @@ class InfectionModel:
             ax2.set_ylim(bottom=0, top=1)
             ax2.legend()
         fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'lancet_summary.png'))
+        plt.savefig(os.path.join(simulation_output_dir, 'paper_summary.png'))
         plt.close(fig)
 
     def store_semilogy(self, simulation_output_dir):
@@ -965,15 +965,15 @@ class InfectionModel:
             self._params[EXPERIMENT_ID] = f'{self._params[EXPERIMENT_ID]})'
         if self._params[FEAR_FACTORS].get(CONSTANT, self._params[FEAR_FACTORS][DEFAULT])[FEAR_FUNCTION] != FearFunctions.FearDisabled:
             self._params[EXPERIMENT_ID] = f'{self._params[EXPERIMENT_ID]}\n reduction factor: {(1 - self.fear(CONSTANT)):.3f}, reduced R*: {reduced_r:.3f}'
-        self.lancet_store_graphs(simulation_output_dir)
-        self.lancet_store_bins(simulation_output_dir)
+        self.paper_store_graphs(simulation_output_dir)
+        self.paper_store_bins(simulation_output_dir)
         self.store_semilogy(simulation_output_dir)
         self.doubling_time(simulation_output_dir)
-        self.lancet_icu_beds(simulation_output_dir)
-        self.lancet_draw_death_age_cohorts(simulation_output_dir)
+        self.paper_icu_beds(simulation_output_dir)
+        self.paper_draw_death_age_cohorts(simulation_output_dir)
         self._params[EXPERIMENT_ID] = hack
 
-    def lancet_icu_beds(self, simulation_output_dir):
+    def paper_icu_beds(self, simulation_output_dir):
         df_r1 = self.df_progression_times
         df_r2 = self.df_infections
 
@@ -1012,7 +1012,7 @@ class InfectionModel:
             ax.plot([critical_t] * 2, [0, largest_y], label=f'Critical time {critical_t:.1f}')
         ax.legend()  # 'upper left')
         fig.tight_layout()
-        plt.savefig(os.path.join(simulation_output_dir, 'lancet_icu_beds_analysis.png'))
+        plt.savefig(os.path.join(simulation_output_dir, 'paper_icu_beds_analysis.png'))
         plt.close(fig)
 
     def icu_beds(self, simulation_output_dir):
@@ -1160,7 +1160,8 @@ class InfectionModel:
             ]:
                 self._deaths += 1
                 if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
-                    self._icu_needed -= 1
+                    if self._progression_times_dict[person_id][T2] < self.global_time:
+                        self._icu_needed -= 1
                     self._active_people -= 1
                 self._infection_status[person_id] = InfectionStatus.Death.value
 
@@ -1171,7 +1172,8 @@ class InfectionModel:
             ]:
                 self._active_people -= 1
                 if self._expected_case_severity[person_id] == ExpectedCaseSeverity.Critical:
-                    self._icu_needed -= 1
+                    if self._progression_times_dict[person_id][T2] < self.global_time:
+                        self._icu_needed -= 1
                 self._infection_status[person_id] = InfectionStatus.Recovered
         elif type_ == TDETECTION:
             if self.get_infection_status(person_id) not in [

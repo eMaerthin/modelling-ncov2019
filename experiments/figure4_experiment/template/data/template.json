@@ -39,6 +39,7 @@
   },
   "epidemic_status": "not_detected",
   "stop_simulation_threshold": 1000000,
+  "icu_availability": 10000,
   "disease_progression": {
     "default": {
       "t0": {

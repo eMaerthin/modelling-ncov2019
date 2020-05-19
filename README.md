@@ -3,7 +3,7 @@
 ### System requirements
 #### All software dependencies and operating systems (including version numbers)
 Operating system: The software was tested on macOS Catalina 10.15.4, macOS Mojave 10.14.6 and CentOS Linux 7 (Core).
-Python 3.7.3 or later is required.
+Python 3.6.8 or later is required (was tested on Python 3.6.8 and Python 3.7.3).
 There is a list of python libraries required for running the code enlisted in `requirements.txt` in the repository (see [requirements.txt](https://github.com/MOCOS-COVID19/modelling-ncov2019/blob/batch-poland-grid/requirements.txt)).
 
 ### Installation guide
@@ -17,6 +17,7 @@ There is a list of python libraries required for running the code enlisted in `r
 - extract wroclaw dataset to directory `data`: `tar -xf data/raw/wroclaw_population.tar.gz -C data/`
 - create virtual env `python3 -m venv venv`
 - activate virtual env `source venv/bin/activate`
+- install python src `pip install -e .`
 - install python libraries required for running the code `pip install -r requirements.txt`
 
 #### Typical install time on a "normal" desktop computer

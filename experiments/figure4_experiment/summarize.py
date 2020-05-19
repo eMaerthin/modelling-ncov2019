@@ -7,20 +7,16 @@ from numpy.ma import masked_array
 
 path='experiments/figure4_experiment/figure4.csv'
 df = pd.read_csv(path, sep=';')
-df=df.groupby(['c', 'Init_#people'])['Last_processed_time',
-                                 'Total_#Affected'].apply(np.mean).reset_index().rename(
-    columns={'Last_processed_time': 'MeanTime', 'Total_#Affected': 'Mean#Affected', 'Init_#people': 'Init#people'})
-print(df.columns)
-x=sorted(list(set(df['c'].values)))
-y=sorted(list(set(df['Init#people'].values)))
+x=sorted(list(set(df['c_norm'].values)))
+y=sorted(list(set(df['Init_people'].values)))
 
 print(x)
 print(y)
 @np.vectorize
-def try_value(x_id, y_id, column='MeanTime'):
-    r = df[df.c==x[x_id]][df['Init#people']==y[y_id]]
+def try_value(x_id, y_id, column='Mean_Time'):
+    r = df[df.c==x[x_id]][df['Init_people']==y[y_id]]
     v = r[column].values
-    w = r['MeanTime'].values
+    w = r['Mean_Time'].values
     if len(v)>0:
         if v[0] > 1000000:
             return 1000000.0001
@@ -64,7 +60,7 @@ ax.set_title('Prevalence', fontsize=22)
 ax.set_xticks(np.arange(0, len(y), 2))
 ax.set_xticklabels([f'{elem/1000:.1f}k' for elem in y[::2]])
 ax.set_yticks(np.arange(0, len(x), 2))
-ax.set_yticklabels([f'{float(elem)*2.34:.2f}' for elem in x[::2]])
+ax.set_yticklabels([f'{float(elem):.2f}' for elem in x[::2]])
 ax.set_title("Average number of days until extinction of epidemics\n starting from N people for given R* value\n", fontsize=22)
 ax.set_ylabel('R* value - average number of people infected \nby a single person (outside of the household)', fontsize=18)
 ax.set_xlabel('people initially infected (at "day0") (in thousands)', fontsize=18)
@@ -80,16 +76,16 @@ fig.show()
 fig.tight_layout()
 plt.savefig(f'experiments/figure4_experiment/figure4a.png', dpi=300)
 
-harvest2 = try_value(X, Y, column='Mean#Affected')
+mean_affected = try_value(X, Y, column='Mean_Affected')
 fig,ax = plt.subplots(figsize=(15.2,14.6))
 ax.set_title('Prevalence', fontsize=22)
-Z = harvest2/1000 # prevalence in thousands
+Z = mean_affected/1000 # prevalence in thousands
 v1a = masked_array(Z,Z>=1000.1)
 c = ax.imshow(v1a, cmap='Reds', interpolation='nearest', norm=LogNorm(vmin=1, vmax=1000))
 ax.set_xticks(np.arange(0, len(y), 2))
 ax.set_xticklabels([f'{elem/1000:.1f}k' for elem in y[::2]])
 ax.set_yticks(np.arange(0, len(x), 2))
-ax.set_yticklabels([f'{float(elem)*2.34:.2f}' for elem in x[::2]])
+ax.set_yticklabels([f'{float(elem):.2f}' for elem in x[::2]])
 ax.set_title("Prevalence in thousands from N people infectious\n till last active case for given R* value\n", fontsize=22)
 ax.set_ylabel('R* value - average number of people infected \nby a single person (outside of the household)', fontsize=18)
 ax.set_xlabel('people initially infected (at "day0") (in thousands)', fontsize=18)

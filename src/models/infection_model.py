@@ -232,6 +232,7 @@ class InfectionModel:
                 choice_set = self._individuals_indices# self._df_individuals.index.values
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
+                        cardinality=int(cardinality)
                         selected_rows = np.random.choice(choice_set, cardinality, replace=False)
                         # now only previously unselected indices can be drawn in next steps
                         choice_set = np.array(list(set(choice_set) - set(selected_rows)))
@@ -1021,14 +1022,14 @@ class InfectionModel:
                 mean_affected_when_no_outbreak = (mean_affected_when_no_outbreak * no_outbreaks + self._affected_people) / ( no_outbreaks + 1)
                 no_outbreaks += 1
         c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
-        c_norm = c/0.427 # TODO this should not be hardcoded, and one should recalculate this
+        c_norm = c*2.34 # TODO this should not be hardcoded, and one should recalculate this
         init_people = 0 # TODO support different import methods
         if isinstance(self._params[INITIAL_CONDITIONS], dict):
             cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
             init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
-        output_log = f'\nMean Time\tMean #Affected\tWins freq.\tc\tc_norm\tInit #people'\
-                     f'\n{mean_time_when_no_outbreak}\t{mean_affected_when_no_outbreak}'\
-                     f'\t{outbreak_proba}\t{c}\t{c_norm}\t{init_people}'
+        output_log = f'\nMean_Time;Mean_Affected;Wins_freq;c;c_norm;Init_people'\
+                     f'\n{mean_time_when_no_outbreak};{mean_affected_when_no_outbreak}'\
+                     f';{outbreak_proba};{c};{c_norm:.6f};{init_people}'
         logger.info(output_log)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')

@@ -1206,10 +1206,10 @@ class InfectionModel:
     def run_simulation(self):
         def _inner_loop(iter):
             while not q.empty():
-                if self._icu_needed >= self._params[ICU_AVAILABILITY]:
-                    logging.info('icu')
-                    self.band_time = self._global_time
-                    break
+                #if self._icu_needed >= self._params[ICU_AVAILABILITY]:
+                #    logging.info('icu')
+                #    self.band_time = self._global_time
+                #    break
                 #print(f'{self._icu_needed} - {self._params[ICU_AVAILABILITY]}')
                 if self.affected_people >= self.stop_simulation_threshold:
                     logging.info(f"The outbreak reached a high number {self.stop_simulation_threshold}")

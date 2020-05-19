@@ -1268,8 +1268,8 @@ class InfectionModel:
                 init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
             subcritical = self._active_people < init_people/2 # at 200 days
             bandtime = self.band_time
-            if bandtime:
-                return 0
+            #if bandtime:
+            #    return 0
             prev30 = self.prevalance_at(30)
             prev60 = self.prevalance_at(60)
             prev90 = self.prevalance_at(90)

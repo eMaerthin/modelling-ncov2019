@@ -14,7 +14,9 @@ There is a list of python libraries required for running the code enlisted in `r
 (Tip: This is a live codebase - There are some changes everyday from the time of writing the paper including completely new model written in julia language which is faster and has more components. Some of the changes are not backward compatible, so we recommend you to use the branch <code>batch-poland-gid</code> specified in the command above to reproduce paper's results.)
 
 - enter the root of the project and initialize git lfs `git lfs install`
-- extract wroclaw dataset to directory `data`: `tar -xf data/raw/wroclaw_population.tar.gz -C data/`
+- extract wroclaw dataset to directory `data/raw/wroclaw_population`:
+  1. `mkdir data/raw/wroclaw_population`
+  2. `tar -xf data/raw/wroclaw_population.tar.gz -C data/raw/wroclaw_population`
 - create virtual env `python3 -m venv venv`
 - activate virtual env `source venv/bin/activate`
 - install python src `pip install -e .`
@@ -24,11 +26,35 @@ There is a list of python libraries required for running the code enlisted in `r
 - under 5 minutes
 
 ### Demo
+In order to run a simulation we need a json file and two files
+with individual level attributes of a population and household
+assignment.
+Population file has as a header specifying which kind of attributes
+persons have and as many rows as the size of population.
+There are three obligatory attributes that should exist in every
+generated population: `gender`, `sex` and `household_id`.
+If possible, one can add more attributes like average time spent
+while commuting, social activity score indicating how social
+the person is, the classification of work the person does etc.
+
 #### Instructions to run demo
-TODO
+In order to run the demo we prepared a Wroclaw population and
+demo json file.
+Assuming you already did steps from installation guide please
+ensure the environment is already activated, go to root path
+of the project and run the demo by typing in your commandline:
+
+<code>python3 src/models/infection_model.py --params-path experiments/demo/demo.json --df-individuals-path data/raw/wroclaw_population/population_experiment.csv --df-households-path data/raw/wroclaw_population/households_experiment.csv run-simulation</code>
+
+
 #### Expected output
-TODO
+Successful demo should create a folder `outputs/demo/` inside the root directory.
+
+Inside the folder a unique subfolder is created and inside that folder all pictures and times are stored.
+
+The demo represents the free growth of epidemics - the outcome should be similar to the picture from Figure 1 from the paper.
 #### Expected run time for demo on a "normal" desktop computer
+
 TODO
 
 ### Instructions for use

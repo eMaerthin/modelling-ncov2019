@@ -1313,7 +1313,7 @@ class InfectionModel:
             cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
         init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
 
-        output_log_mean = f'\nMean_Time;Mean_Affected;Wins_freq;c;c_norm;Init_people' \
+        output_log_mean = f'Mean_Time;Mean_Affected;Wins_freq;c;c_norm;Init_people' \
                      f'\n{mean_time_when_no_outbreak};{mean_affected_when_no_outbreak}' \
                      f';{outbreak_proba};{c};{c_norm:.6f};{init_people}'
         logger.info(output_log_mean)

@@ -239,6 +239,7 @@ class InfectionModel:
                 choice_set = self._individuals_indices# self._df_individuals.index.values
                 for infection_status, cardinality in initial_conditions[CARDINALITIES].items():
                     if cardinality > 0:
+                        cardinality = int(cardinality)
                         selected_rows = np.random.choice(choice_set, cardinality, replace=False)
                         # now only previously unselected indices can be drawn in next steps
                         choice_set = np.array(list(set(choice_set) - set(selected_rows)))

@@ -9,7 +9,7 @@ There is a list of python libraries required for running the code enlisted in `r
 ### Installation guide
 #### Instructions
 - make sure [GIT LFS is installed](https://developer.lsst.io/v/DM-7552/tools/git_lfs.html)
-- clone the repository initiated to branch used for producing the paper `git clone --single-branch --branch grid_SD_detection git@github.com:MOCOS-COVID19/modelling-ncov2019.git`
+- clone the repository initiated to branch used for producing the paper `git clone --single-branch --branch grid_SD_detection git@github.com:MOCOS-COVID19/modelling-ncov2019.git` or `git clone --single-branch --branch grid_SD_detection https://github.com/MOCOS-COVID19/modelling-ncov2019.git`
 
 (Tip: This is a live codebase - There are some changes everyday from the time of writing the paper including completely new model written in julia language which is faster and has more components. Some of the changes are not backward compatible, so we recommend you to use the branch <code>batch-poland-gid</code> specified in the command above to reproduce paper's results.)
 

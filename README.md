@@ -37,16 +37,17 @@ TODO
 ##### Steps to reproduce Figure 1
 1. `mkdir data/raw/wroclaw_population`
 2. `tar -xf data/raw/wroclaw_population.tar.gz -C data/raw/wroclaw_population`
-3. run `experiment/figure1_experiment/run.sh`
+3. `bash experiment/figure1_experiment/run.sh`
 
 #####
 
 ##### Steps to reproduce Figure 4
 1. `mkdir data/raw/poland_population`
 2. `tar -xf data/raw/poland_population.tar.gz -C data/raw/poland_population`
-3. run `experiment/figure4_experiment/create_input_folders.sh` to create simulation folders
-4. run `experiment/figure4_experiment/run.sh` to run 300 experiments. This will last several hours on "normal" desktop.
-5. run `python3 experiment/figure4_experiment/summarize.py` to generate two parts of Figure 4
+3. go to `experiments/figure4_experiment` and run `bash create_input_folders.sh` to create simulation folders.
+4. `bash experiments/figure4_experiment/run.sh` to run 300 experiments. This will last several hours on "normal" desktop.
+5. run `bash experiments/figure4_experiment/create_csv.sh` to create final csv file based on outcomes from the simulation.
+6. run `python3 experiments/figure4_experiment/summarize.py` to generate two parts of Figure 4 based on final csv file.
 
 ## Project Organization
 

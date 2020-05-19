@@ -7,10 +7,15 @@ from numpy.ma import masked_array
 
 path='experiments/figure4_experiment/figure4.csv'
 df = pd.read_csv(path, sep=';')
-
+df=df.groupby(['c', 'Init_#people'])['Last_processed_time',
+                                 'Total_#Affected'].apply(np.mean).reset_index().rename(
+    columns={'Last_processed_time': 'MeanTime', 'Total_#Affected': 'Mean#Affected', 'Init_#people': 'Init#people'})
+print(df.columns)
 x=sorted(list(set(df['c'].values)))
 y=sorted(list(set(df['Init#people'].values)))
 
+print(x)
+print(y)
 @np.vectorize
 def try_value(x_id, y_id, column='MeanTime'):
     r = df[df.c==x[x_id]][df['Init#people']==y[y_id]]

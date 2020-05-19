@@ -1241,6 +1241,10 @@ class InfectionModel:
                      'Prevalence_120days;Prevalence_150days;Prevalence_180days;Band_hit_time;Subcritical;'\
                      'Prevalence_360days;runs;fear;detection_rate;increase_10;increase_20;increase_30;increase_40;'\
                      'increase_50;increase_100;increase_150;incidents_per_last_day;over_icu;hospitalized\n'
+        outbreak_proba = 0.0
+        mean_time_when_no_outbreak = 0.0
+        mean_affected_when_no_outbreak = 0.0
+        no_outbreaks = 0
         for i, seed in enumerate(seeds):
             runs += 1
             self.parse_random_seed(seed)
@@ -1292,12 +1296,32 @@ class InfectionModel:
                          f'{mean_increase_at_50};{mean_increase_at_100};{mean_increase_at_150};{incidents_per_last_day};{outbreak};{hospitalized}\n'
             logger.info(output_add)
             output_log = f'{output_log}{output_add}'
+            outbreak_proba = (i * outbreak_proba + outbreak) / (i + 1)
+            if not outbreak:
+                mean_time_when_no_outbreak = (mean_time_when_no_outbreak * no_outbreaks + self._global_time) / (no_outbreaks + 1)
+                mean_affected_when_no_outbreak = (mean_affected_when_no_outbreak * no_outbreaks + self._affected_people) / (no_outbreaks + 1)
+                no_outbreaks += 1
         logger.info(output_log)
+
+        c = self._params[TRANSMISSION_PROBABILITIES][CONSTANT]
+        c_norm = c * 2.34  # TODO this should not be hardcoded, and one should recalculate this
+        init_people = 0  # TODO support different import methods
+        if isinstance(self._params[INITIAL_CONDITIONS], dict):
+            cardinalities = self._params[INITIAL_CONDITIONS][CARDINALITIES]
+        init_people = cardinalities.get(CONTRACTION, 0) + cardinalities.get(INFECTIOUS, 0)
+
+        output_log_mean = f'\nMean_Time;Mean_Affected;Wins_freq;c;c_norm;Init_people' \
+                     f'\n{mean_time_when_no_outbreak};{mean_affected_when_no_outbreak}' \
+                     f';{outbreak_proba};{c};{c_norm:.6f};{init_people}'
+        logger.info(output_log_mean)
         simulation_output_dir = self._save_dir('aggregated_results')
         output_log_file = os.path.join(simulation_output_dir, 'results.txt')
+        output_log_file_mean = os.path.join(simulation_output_dir, 'results_mean.txt')
         self.test_bandwidth_plot(simulation_output_dir)
         with open(output_log_file, "w") as out:
             out.write(output_log)
+        with open(output_log_file_mean, "w") as out:
+            out.write(output_log_mean)
 
 
     def setup_simulation(self):

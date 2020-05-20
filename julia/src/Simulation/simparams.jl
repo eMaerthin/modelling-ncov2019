@@ -2,17 +2,16 @@ using Random
 using Distributions
 using FunctionWrappers
 
-
 const Age=UInt8
-
 
 include("params/households.jl")
 include("params/friendship.jl")
 include("params/progression.jl")
 include("params/hospital.jl")
 include("params/phonetracking.jl")
+include("params/modulations.jl")
 
-struct SimParams 
+struct SimParams
   household_ptrs::Vector{Tuple{PersonIdx,PersonIdx}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
 
   ages::Vector{Age}
@@ -40,12 +39,12 @@ struct SimParams
 
   phone_tracking_params::Union{Nothing, PhoneTrackingParams}
 
-  infection_modulation#::InfectionModulation
+  infection_modulation::Function
 end
 
 const InfectionModulation = FunctionWrappers.FunctionWrapper{Bool, Tuple{SimState, SimParams, Event}}
 
-num_individuals(params::SimParams) = length(params.household_ptrs)
+numindividuals(params::SimParams) = length(params.household_ptrs)
 progressionof(params::SimParams, person_id::Integer) = params.progressions[person_id]
 severityof(params::SimParams, person_id::Integer) = progressionof(params, person_id).severity
 householdof(params::SimParams, person_id::Integer) = UnitRange(params.household_ptrs[person_id]...)

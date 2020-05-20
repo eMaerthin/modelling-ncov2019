@@ -20,9 +20,7 @@ function execute!(state::SimState, params::SimParams, event::Event)::Bool
   elseif HomeTreatmentSuccessEvent==kind;       return execute!(Val(HomeTreatmentSuccessEvent), state, params, event)
   elseif GoHospitalEvent==kind;                 return execute!(Val(GoHospitalEvent), state, params, event)
   elseif ReleasedEvent==kind;                   return execute!(Val(ReleasedEvent), state, params, event)
-  elseif DetectedOutsideQuarantineEvent==kind;  return execute!(Val(DetectedOutsideQuarantineEvent), state, params, event)
-  elseif DetectedFromQuarantineEvent==kind;     return execute!(Val(DetectedFromQuarantineEvent), state, params, event)
-  elseif DetectedFromTrackingEvent==kind;       return execute!(Val(DetectedFromTrackingEvent), state, params, event)
+  elseif DetectionEvent==kind;                  return execute!(Val{DetectionEvent}, state, params, event)
   elseif TrackedEvent==kind;                    return execute!(Val(TrackedEvent), state, params, event)
   elseif QuarantinedEvent==kind;                return execute!(Val(QuarantinedEvent), state, params, event)
   elseif QuarantineEndEvent==kind;              return execute!(Val(QuarantineEndEvent), state, params, event)
@@ -133,9 +131,9 @@ function execute!(::Val{BecomeInfectiousEvent}, state::SimState, params::SimPara
 
   if ishealthcare(params, subject_id) && rand(state.rng) < params.hospital_kernel_params.healthcare_detection_prob
     delay = params.hospital_kernel_params.healthcare_detection_delay
-    push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event)+delay, subject_id))  
+    push!(state.queue, Event(Val(DetectionEvent), time(event)+delay, subject_id, OutsideQuarantineDetction))
   elseif(rand(state.rng) < params.mild_detection_prob)
-    push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event)+2, subject_id))
+    push!(state.queue, Event(Val(DetectionEvent), time(event)+2, subject_id, OutsideQuarantineDetction))
   end
   return true  
 end
@@ -253,9 +251,9 @@ function execute!(::Val{GoHospitalEvent}, state::SimState, params::SimParams, ev
   end
   
   if is_from_quarantine
-    push!(state.queue, Event(Val(DetectedFromQuarantineEvent), time(event), subject_id), immediate=true) # immediately
+    push!(state.queue, Event(Val(DetectionEvent), time(event), subject_id, FromQuarantineDetection), immediate=true) # immediately
   else
-    push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), time(event), subject_id), immediate=true) # immediately
+    push!(state.queue, Event(Val(DetectionEvent), time(event), subject_id, OutsideQuarantineDetction), immediate=true) # immediately
   end
   return true
 end
@@ -269,36 +267,17 @@ end
 #
 # Detection events
 #
-
-function execute!(::Val{DetectedOutsideQuarantineEvent}, state::SimState, params::SimParams, event::Event)::Bool
+function execute!(::Val{DetectionEvent}, state::SimState, params::SimParams, event::Event)::Bool
   subject_id = subject(event)
+  detection_kind = detectionkind(event)
   if isdetected(state, subject_id)
     return false
   end
   setdetected!(state, subject_id, Detected)
   quarantinehousehold!(state, params, subject_id, include_subject=true)
-  trackhousehold!(state, params, subject_id, track_household_connections=true)
-  return true
-end
-
-function execute!(::Val{DetectedFromQuarantineEvent}, state::SimState, params::SimParams, event::Event)::Bool
-  subject_id = subject(event)
-  if isdetected(state, subject_id)
-    return false
+  if FromQuarantineDetection !== detection_kind
+    trackhousehold!(state, params, subject_id, track_household_connections=true)
   end
-  setdetected!(state, subject_id, Detected)
-  quarantinehousehold!(state, params, subject_id, include_subject=true) #make the quarantine longer
-  return true
-end
-
-function execute!(::Val{DetectedFromTrackingEvent}, state::SimState, params::SimParams, event::Event)::Bool
-  subject_id = subject(event)
-  if isdetected(state, subject_id)
-    return false
-  end
-  setdetected!(state, subject_id, Detected)
-  quarantinehousehold!(state, params, subject_id, include_subject=true) #make the quarantine longer
-  trackhousehold!(state, params, subject_id, track_household_connections=true)
   return true
 end
 
@@ -322,7 +301,7 @@ function execute!(::Val{TrackedEvent}, state::SimState, params::SimParams, event
     @assert member_health ∉ SA[SevereSymptoms, CriticalSymptoms, Dead] "patient should have already been infected at the hospital"
     
     if Infectious == member_health || MildSymptoms == member_health
-      push!(state.queue, Event(Val(DetectedFromTrackingEvent), time(event) + params.testing_time, member))
+      push!(state.queue, Event(Val(DetectionEvent), time(event) + params.testing_time, member, FromTrackingDetection))
     end
   end
   return true
@@ -394,7 +373,6 @@ function execute!(::Val{QuarantineEndEvent}, state::SimState, params::SimParams,
   return true
 end
 
-
 #
 # Quarantine and backtracking helpers
 #
@@ -403,9 +381,9 @@ function detectioncheck!(state::SimState, params::SimParams, person_id::Integer)
   now = state.time
   if Undetected != detected(state, person_id) 
     if isquarantined(state, person_id)
-      push!(state.queue, Event(Val(DetectedFromQuarantineEvent), now, person_id), immediate=true) # immediately  
+      push!(state.queue, Event(Val(DetectionEvent), now, person_id, FromQuarantineDetection), immediate=true) # immediately  
     else
-      push!(state.queue, Event(Val(DetectedOutsideQuarantineEvent), now, person_id), immediate=true) # immediately
+      push!(state.queue, Event(Val(DetectionEvent), now, person_id, OutsideQuarantineDetction), immediate=true) # immediately
     end
   end 
 end

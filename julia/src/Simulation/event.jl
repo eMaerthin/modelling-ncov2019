@@ -1,17 +1,18 @@
 @enum EventKind::UInt8 begin 
 
-# the underlying values are also priorites in case the time is the same
+# the underlying values are also priorites in case the times are equal
 # therefore the order of definition implies priority
 
   QuarantinedEvent
-  DetectedFromQuarantineEvent  
+  DetectionEvent
+  #DetectedFromQuarantineEvent  
   HomeTreatmentSuccessEvent
   QuarantineEndEvent
 
   GoHospitalEvent
   
-  DetectedOutsideQuarantineEvent
-  DetectedFromTrackingEvent
+  #DetectedOutsideQuarantineEvent
+  #DetectedFromTrackingEvent
 
   TrackedEvent
   ReleasedEvent
@@ -34,22 +35,25 @@
 end
 
 struct Event
-  time::TimePoint
-  subject_id::PersonIdx
-  source_id::PersonIdx
-  event_kind::EventKind
-  contact_kind::ContactKind
-  extension::Bool
+  time::TimePoint                 # 4 bytes
+  subject_id::PersonIdx           # 4 bytes
+  source_id::PersonIdx            # 4 bytes
+  event_kind::EventKind           # 1 byte
+  contact_kind::ContactKind       # 1 byte
+  extension::Bool                 # 1 byte
+  detection_kind::DetectionKind   # 1 byte
+                                  # alignment = 4 bytes
   
-  Event() = new(0.0, 0, 0, InvalidEvent, NoContact, false)
-  Event(::Val{E}, time::Real, subject::Integer) where E = new(time, subject, 0, E, NoContact, false)
-  Event(::Val{OutsideInfectionEvent}, time::Real, subject::Integer) = new(time, subject, 0, OutsideInfectionEvent, OutsideContact, false)
+  Event() = new(0.0, 0, 0, InvalidEvent, NoContact, false, NoDetection)
+  Event(::Val{E}, time::Real, subject::Integer) where E = new(time, subject, 0, E, NoContact, false, NoDetection)
+  Event(::Val{OutsideInfectionEvent}, time::Real, subject::Integer) = new(time, subject, 0, OutsideInfectionEvent, OutsideContact, false, NoDetection)
   Event(::Val{TransmissionEvent}, ::Real, ::Integer) = error("source and contact kind needed for transmission event")
-  Event(::Val{TransmissionEvent}, time::Real, subject::Integer, source::Integer, contact_kind::ContactKind) = new(time, subject, source, TransmissionEvent, contact_kind, false)
-  Event(::Val{QuarantinedEvent}, time::Real, subject::Integer, extension::Bool) = new(time, subject, 0, QuarantinedEvent, NoContact, extension)
-  Event(::Val{TrackedEvent}, time::Real, subject::Integer) = error("source must be given for TrackedEvent")
-  Event(::Val{TrackedEvent}, time::Real, subject::Integer, source::Integer) = new(time, subject, source, TrackedEvent, NoContact, false)
-  
+  Event(::Val{TransmissionEvent}, time::Real, subject::Integer, source::Integer, contact_kind::ContactKind) = new(time, subject, source, TransmissionEvent, contact_kind, false, NoDetection)
+  Event(::Val{QuarantinedEvent}, time::Real, subject::Integer, extension::Bool) = new(time, subject, 0, QuarantinedEvent, NoContact, extension, NoDetection)
+  Event(::Val{TrackedEvent}, ::Real, ::Integer) = error("source must be given for TrackedEvent")
+  Event(::Val{TrackedEvent}, time::Real, subject::Integer, source::Integer) = new(time, subject, source, TrackedEvent, NoContact, false, NoDetection)
+  Event(::Val{DetectionEvent}, ::Real, ::Integer) = error("detection kind must be given for detection event")
+  Event(::Val{DetectionEvent}, time::Real, subject::Integer, detectionkind::DetectionKind) = new(time, subject, source, DetectionEvent, NoContact, false, detectionkind)
 end
 
 time(event::Event) = event.time
@@ -70,3 +74,9 @@ function show(io::IO, event::Event)
     print(io, " <= ", source(event), " ", kind(event), " ", contactkind(event), " ", event.extension)
   end
 end
+
+isdetection(ek::Simulation.EventKind) = ek == DetectedOutsideQuarantineEvent || ek == DetectedFromTrackingEvent || ek == DetectedFromQuarantineEvent
+istransmission(ek::Simulation.EventKind) = ek == TransmissionEvent || ek == OutsideInfectionEvent
+isquarantine(ek::Simulation.EventKind) = ek == QuarantinedEvent || ek == QuarantineEndEvent
+ishospitalization(ek::Simulation.EventKind) = ek == GoHospitalEvent
+isdeath(ek::Simulation.EventKind) = ek == DeathEvent

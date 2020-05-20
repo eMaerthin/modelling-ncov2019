@@ -102,23 +102,14 @@ function reset!(cb::DetectionCallback, max_num_infected::Integer=10^8)
   cb.num_infected_remain = max_num_infected
 end
 
-isdetection(ek::Simulation.EventKind) = ek == Simulation.DetectedOutsideQuarantineEvent || ek == Simulation.DetectedFromTrackingEvent || ek == Simulation.DetectedFromQuarantineEvent
-istransmission(ek::Simulation.EventKind) = ek == Simulation.TransmissionEvent || ek == Simulation.OutsideInfectionEvent
-
 function (cb::DetectionCallback)(event::Simulation.Event, state::Simulation.SimState, params::Simulation.SimParams)
   eventkind = Simulation.kind(event)
   contactkind = Simulation.contactkind(event)
   subject = Simulation.subject(event)
-  if isdetection(eventkind)
+  if Simulation.isdetection(eventkind)
     cb.detection_times[subject] = Simulation.time(event)
-    if Simulation.DetectedOutsideQuarantineEvent == eventkind
-      cb.detection_types[subject] = 1
-    elseif Simulation.DetectedFromTrackingEvent == eventkind
-      cb.detection_types[subject] = 2
-    elseif Simulation.DetectedFromQuarantineEvent == eventkind
-      cb.detection_types[subject] = 3
-    end
-  elseif istransmission(eventkind)
+    cb.detection_types[subject] = Simulation.detectionkind(event)
+  elseif Simulation.istransmission(eventkind)
     cb.num_infected_remain -= 1
   elseif eventkind == Simulation.TrackedEvent
     cb.tracking_sources[subject] = Simulation.source(event)
@@ -126,19 +117,14 @@ function (cb::DetectionCallback)(event::Simulation.Event, state::Simulation.SimS
   return cb.num_infected_remain>0
 end
 
-const comma = ','    
-const float_with_offset(offset, time) = float(offset + time)
-
-
-
 function save_infections_and_detections(path::AbstractString, simstate::Simulation.SimState, callback::DetectionCallback)
-  #try
+  try
     f = jldopen(path, "w")
     Simulation.saveparams(f, simstate)
     saveparams(f, callback)
-  #finally
+  finally
     close(f)
-  #end
+  end
 end
 
 function main()

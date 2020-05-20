@@ -1,33 +1,15 @@
-
-
+include("state/individualstate.jl")
+include("state/runningstats.jl")
 
 # the mutable part of the simulation
-
-struct IndividualState #TODO change to immutable
-  health::HealthState
-  freedom::FreedomState
-  detected::DetectionStatus
-  quarantine_level::SafeUInt8
-end
-
-IndividualState() = IndividualState(
-  Healthy,
-  Free,
-  Undetected,
-  0
-)
-
-show(io::IO, s::IndividualState) = print(io, "(",s.health, ", ", s.freedom, ", ", s.detected, ", ", s.quarantine_level, ")")
-
-
 mutable struct SimState
   rng::MersenneTwister
   time::TimePoint
   queue::EventQueue
   individuals::Vector{IndividualState}  
   forest::InfectionForest
-     
-    
+  stats::RunningStats
+
   SimState(rng::AbstractRNG, num_individuals::Integer) = num_individuals <= 0 || num_individuals > typemax(UInt32) ? error("number of individuals must be positive and smaller than $(typemax(UInt32))") : 
     new(
       rng,
@@ -36,6 +18,7 @@ mutable struct SimState
       EventQueue(),
       
       fill(IndividualState(), num_individuals),
+      RunningStats(),
       
       InfectionForest(num_individuals),
     ) 
@@ -55,10 +38,12 @@ function reset!(state::SimState, rng::AbstractRNG)
   empty!(state.queue)
   reset!(state.forest)
   fill!(state.individuals, IndividualState())
+  state.stats = RunningStats()
   state
 end
 
 time(state) = state.time
+numindividuals(state::SimState) = length(state.individuals)
 
 reset!(state::SimState) = reset!(state::SimState, state.rng)
 reset!(state::SimState, seed::Integer) = reset!(state, MersenneTwister(seed))

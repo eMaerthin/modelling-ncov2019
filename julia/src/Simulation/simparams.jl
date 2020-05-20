@@ -12,8 +12,6 @@ include("params/progression.jl")
 include("params/hospital.jl")
 include("params/phonetracking.jl")
 
-const InfectionModulation = FunctionWrappers.FunctionWrapper{Bool, Tuple{SimState, SimParams, Event}}
-
 struct SimParams 
   household_ptrs::Vector{Tuple{PersonIdx,PersonIdx}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
 
@@ -42,8 +40,10 @@ struct SimParams
 
   phone_tracking_params::Union{Nothing, PhoneTrackingParams}
 
-  infection_modulation::InfectionModulation
+  infection_modulation#::InfectionModulation
 end
+
+const InfectionModulation = FunctionWrappers.FunctionWrapper{Bool, Tuple{SimState, SimParams, Event}}
 
 num_individuals(params::SimParams) = length(params.household_ptrs)
 progressionof(params::SimParams, person_id::Integer) = params.progressions[person_id]

@@ -75,8 +75,13 @@ function show(io::IO, event::Event)
   end
 end
 
-isdetection(ek::Simulation.EventKind) = ek == DetectedOutsideQuarantineEvent || ek == DetectedFromTrackingEvent || ek == DetectedFromQuarantineEvent
+isdetection(ek::Simulation.EventKind) = ek == DetectionEvent
+isdetection(e::Event) = isdetection(kind(e))
 istransmission(ek::Simulation.EventKind) = ek == TransmissionEvent || ek == OutsideInfectionEvent
+istransmission(e::Event) = istransmission(kind(e))
 isquarantine(ek::Simulation.EventKind) = ek == QuarantinedEvent || ek == QuarantineEndEvent
+isquarantine(e::Event) = isquarantine(kind(e))
 ishospitalization(ek::Simulation.EventKind) = ek == GoHospitalEvent
+ishospitalization(e::Event) = ishospitalization(kind(e))
 isdeath(ek::Simulation.EventKind) = ek == DeathEvent
+isdeath(e::Event) = isdeath(kind(e))

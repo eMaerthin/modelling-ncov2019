@@ -3,12 +3,7 @@
 # Update time & ispatch to the right event handler
 #
 
-function execute!(state::SimState, params::SimParams, event::Event)::Bool 
-  @assert state.time <= time(event)  "time for event $event was smaller than current time $(state.time)"
-  state.time = time(event)
-  
-  kind::EventKind = event.event_kind
-  
+function execute!(kind::EventKind, state::SimState, params::SimParams, event::Event)::Bool
   if     OutsideInfectionEvent==kind;           return execute!(Val(OutsideInfectionEvent), state, params, event) 
   elseif TransmissionEvent==kind;               return execute!(Val(TransmissionEvent), state, params, event)
   elseif BecomeInfectiousEvent==kind;           return execute!(Val(BecomeInfectiousEvent), state, params, event)
@@ -20,7 +15,7 @@ function execute!(state::SimState, params::SimParams, event::Event)::Bool
   elseif HomeTreatmentSuccessEvent==kind;       return execute!(Val(HomeTreatmentSuccessEvent), state, params, event)
   elseif GoHospitalEvent==kind;                 return execute!(Val(GoHospitalEvent), state, params, event)
   elseif ReleasedEvent==kind;                   return execute!(Val(ReleasedEvent), state, params, event)
-  elseif DetectionEvent==kind;                  return execute!(Val{DetectionEvent}, state, params, event)
+  elseif DetectionEvent==kind;                  return execute!(Val(DetectionEvent), state, params, event)
   elseif TrackedEvent==kind;                    return execute!(Val(TrackedEvent), state, params, event)
   elseif QuarantinedEvent==kind;                return execute!(Val(QuarantinedEvent), state, params, event)
   elseif QuarantineEndEvent==kind;              return execute!(Val(QuarantineEndEvent), state, params, event)
@@ -29,6 +24,17 @@ function execute!(state::SimState, params::SimParams, event::Event)::Bool
   return true
 end
 
+function execute!(state::SimState, params::SimParams, event::Event)::Bool 
+  @assert state.time <= time(event)  "time for event $event was smaller than current time $(state.time)"
+  state.time = time(event)
+  
+  kind::EventKind = event.event_kind
+  was_executed = execute!(kind, state, params, event)
+  if was_executed
+    update!(state.stats, event)
+  end
+  was_executed
+end
 
 #
 # transmissions

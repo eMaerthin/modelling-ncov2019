@@ -1,5 +1,7 @@
 using Random
 using Distributions
+using FunctionWrappers
+
 
 const Age=UInt8
 
@@ -9,6 +11,8 @@ include("params/friendship.jl")
 include("params/progression.jl")
 include("params/hospital.jl")
 include("params/phonetracking.jl")
+
+const InfectionModulation = FunctionWrappers.FunctionWrapper{Bool, Tuple{SimState, SimParams, Event}}
 
 struct SimParams 
   household_ptrs::Vector{Tuple{PersonIdx,PersonIdx}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
@@ -37,6 +41,8 @@ struct SimParams
   testing_time::TimeDiff
 
   phone_tracking_params::Union{Nothing, PhoneTrackingParams}
+
+  infection_modulation::InfectionModulation
 end
 
 num_individuals(params::SimParams) = length(params.household_ptrs)
@@ -147,7 +153,8 @@ function make_params(
                       else error("tracking_app_usage must be nonnegative, got $phone_tracking_usage")
                       end
   
-
+  infection_modulation = (state, params, event) -> true
+  
   params = SimParams(
     household_ptrs,
     individuals_df.age,
@@ -173,7 +180,8 @@ function make_params(
     quarantine_length, # quarantine length
     testing_time, # testing time
 
-    phone_tracking_params
+    phone_tracking_params,
+    infection_modulation
   )
   params
 end

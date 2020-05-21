@@ -39,7 +39,7 @@ struct SimParams
 
   phone_tracking_params::Union{Nothing, PhoneTrackingParams}
 
-  infection_modulation::Union{Nothing,Function}
+  infection_modulation_function
 end
 
 const InfectionModulation = FunctionWrappers.FunctionWrapper{Bool, Tuple{SimState, SimParams, Event}}
@@ -87,9 +87,15 @@ function load_params(rng=MersenneTwister(0);
     dist_death_time
   )
   
-  infection_modulation = nothing===infection_modulation_name ? nothing : make_infection_modulation(infection_modulation_name, infection_modulation_params)
+  infection_modulation_function = isnothing(infection_modulation_name) ? nothing : make_infection_modulation(infection_modulation_name, infection_modulation_params)
 
-  make_params(rng, individuals_df=individuals_df, progressions=progressions, infection_modulation=infection_modulation; kwargs...)
+  make_params(
+    rng, 
+    individuals_df=individuals_df, 
+    progressions=progressions, 
+    infection_modulation_function=infection_modulation_function; 
+    kwargs...
+  )
 end
 
 function make_params(
@@ -97,7 +103,7 @@ function make_params(
   individuals_df::DataFrame,
   progressions::AbstractArray{Progression},
 
-  infection_modulation::Union{Nothing,F} where F<:Function=nothing,
+  infection_modulation_function=nothing,
         
   hospital_kernel_param::Float64=0.0,
   healthcare_detection_prob::Float64=0.8,
@@ -184,7 +190,7 @@ function make_params(
     testing_time, # testing time
 
     phone_tracking_params,
-    infection_modulation
+    infection_modulation_function
   )
   params
 end

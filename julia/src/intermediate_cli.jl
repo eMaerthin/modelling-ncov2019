@@ -101,7 +101,7 @@ function saveparams(dict, cb::DetectionCallback, prefix::AbstractString="")
     timeopt = cb.detection_times[i]
     detection_times[i] = ismissing(timeopt) ? NaN32 : Float32(timeopt)
   end  
-  dict[prefix*"detection_times"] = cb.detection_times
+  dict[prefix*"detection_times"] = detection_times
   dict[prefix*"detection_types"] = cb.detection_types
   dict[prefix*"tracking_sources"] = cb.tracking_sources
 end
@@ -129,7 +129,7 @@ function (cb::DetectionCallback)(event::Simulation.Event, state::Simulation.SimS
 end
 
 function save_infections_and_detections(path::AbstractString, simstate::Simulation.SimState, callback::DetectionCallback)
-  f = jldopen(path, "w")
+  f = jldopen(path, "w", compress=true)
   try
     Simulation.saveparams(f, simstate)
     saveparams(f, callback)
@@ -167,7 +167,7 @@ function main()
   param_save_path = output_prefix*"run_params.jld2"
   
   @info "saving parameters" num_individuals param_save_path
-  jldopen(param_save_path, "w") do dict
+  jldopen(param_save_path, "w", compress=false) do dict
     Simulation.saveparams(dict, params)
   end
 

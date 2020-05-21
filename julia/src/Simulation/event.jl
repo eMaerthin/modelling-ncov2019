@@ -53,7 +53,7 @@ struct Event
   Event(::Val{TrackedEvent}, ::Real, ::Integer) = error("source must be given for TrackedEvent")
   Event(::Val{TrackedEvent}, time::Real, subject::Integer, source::Integer) = new(time, subject, source, TrackedEvent, NoContact, false, NoDetection)
   Event(::Val{DetectionEvent}, ::Real, ::Integer) = error("detection kind must be given for detection event")
-  Event(::Val{DetectionEvent}, time::Real, subject::Integer, detectionkind::DetectionKind) = new(time, subject, source, DetectionEvent, NoContact, false, detectionkind)
+  Event(::Val{DetectionEvent}, time::Real, subject::Integer, detectionkind::DetectionKind) = new(time, subject, 0, DetectionEvent, NoContact, false, detectionkind)
 end
 
 time(event::Event) = event.time
@@ -61,6 +61,7 @@ subject(event::Event) = event.subject_id
 source(event::Event) = event.source_id
 kind(event::Event) = event.event_kind
 contactkind(event::Event) = event.contact_kind
+detectionkind(event::Event) = event.detection_kind
 
 function show(io::IO, event::Event)
   print(io, time(event), ":", kind(event), " ", subject(event))

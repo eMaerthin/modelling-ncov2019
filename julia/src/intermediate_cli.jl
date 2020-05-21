@@ -45,6 +45,14 @@ function read_params(json, rng::AbstractRNG)
 
   individuals_df = load(population_path)["individuals_df"]
 
+  infection_modulation_name, infection_modulation_params = if !haskey(json, "modulation")
+    nothing, NamedTuple{}()
+  else
+    modulation = json["modulation"]
+    params = get(modulation, "params", Dict{String,Any}())
+    modulation["function"], NamedTuple{Tuple(Symbol.(keys(params)))}(values(params))
+  end
+
   Simulation.load_params(
     rng,
     population = individuals_df, 
@@ -65,7 +73,10 @@ function read_params(json, rng::AbstractRNG)
     testing_time = testing_time,
 
     phone_tracking_usage = phone_tracking_usage,
-    phone_detection_delay = phone_tracking_testing_delay
+    phone_detection_delay = phone_tracking_testing_delay,
+
+    infection_modulation_name=infection_modulation_name,
+    infection_modulation_params=infection_modulation_params
 )
 end
 const OptTimePoint = Union{Missing, Simulation.TimePoint}
@@ -108,7 +119,7 @@ function (cb::DetectionCallback)(event::Simulation.Event, state::Simulation.SimS
   subject = Simulation.subject(event)
   if Simulation.isdetection(eventkind)
     cb.detection_times[subject] = Simulation.time(event)
-    cb.detection_types[subject] = Simulation.detectionkind(event)
+    cb.detection_types[subject] = Simulation.detectionkind(event) |> UInt8
   elseif Simulation.istransmission(eventkind)
     cb.num_infected_remain -= 1
   elseif eventkind == Simulation.TrackedEvent
@@ -118,8 +129,8 @@ function (cb::DetectionCallback)(event::Simulation.Event, state::Simulation.SimS
 end
 
 function save_infections_and_detections(path::AbstractString, simstate::Simulation.SimState, callback::DetectionCallback)
+  f = jldopen(path, "w")
   try
-    f = jldopen(path, "w")
     Simulation.saveparams(f, simstate)
     saveparams(f, callback)
   finally
@@ -148,19 +159,11 @@ function main()
   num_trajectories = json["num_trajectories"] |> Int
   num_initial_infected = json["initial_conditions"]["cardinalities"]["infectious"] |> Int
   params_seed = get(json, "params_seed", 0)
-  
-  infection_modulation_name, infection_modulation_params = if !haskey(json, "modulation")
-                                                             nothing, NamedTuple{}()
-                                                           else
-                                                             modulation = json["modulation"]
-                                                             params = get(modulation, "params", Dict{String,Any}())
-                                                             modulation["function"], NamedTuple{Tuple(Symbol.(keys(params)))}(values(params))
-                                                           end
 
   @info "loading population and setting up parameters" params_seed
   rng = MersenneTwister(params_seed)
   params = read_params(json, rng) 
-  num_individuals =  Simulation.num_individuals(params)
+  num_individuals =  Simulation.numindividuals(params)
   param_save_path = output_prefix*"run_params.jld2"
   
   @info "saving parameters" num_individuals param_save_path
@@ -171,6 +174,7 @@ function main()
   states = [Simulation.SimState(num_individuals, seed=123) for _ in 1:nthreads()]
   callbacks = [DetectionCallback(num_individuals, max_num_infected) for _ in 1:nthreads()]
 
+  @info "starting simulation" num_trajectories
   writelock = ReentrantLock()
   progress = ProgressMeter.Progress(num_trajectories)
   @threads for trajectory_id in 1:num_trajectories
@@ -182,15 +186,20 @@ function main()
     reset!(callback, max_num_infected)
     try
       Simulation.simulate!(state, params, callback)
-      lock(writelock) # JLD2 is not thread-safe, not even when files are separate
-      save_infections_and_detections("run_$trajectory_id.jld2", state, callback)
+      try
+        lock(writelock) # JLD2 is not thread-safe, not even when files are separate
+        save_infections_and_detections("run_$trajectory_id.jld2", state, callback)
+      catch err
+        println(stderr, "Saving results failed on thread ", threadid(), " iteration ", trajectory_id, " failed: ", err)
+        foreach(x -> println(stderr, x), stacktrace(catch_backtrace()))
+      finally
+        unlock(writelock)
+      end
     catch err
-      println(stderr, "thread ", threadid(), " iteration ", trajectory_id, " failed: ", err)
+      println(stderr, "Simulation failed on thread ", threadid(), " iteration ", trajectory_id, " failed: ", err)
       foreach(x -> println(stderr, x), stacktrace(catch_backtrace()))
-    finally
-      unlock(writelock)
     end
-    
+        
     ProgressMeter.next!(progress) # is thread-safe
   end
 end

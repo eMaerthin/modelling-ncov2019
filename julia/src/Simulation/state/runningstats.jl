@@ -10,7 +10,7 @@ numdetected(stats::RunningStats) = stats.num_detected
 numdead(stats::RunningStats) = stats.num_dead
 
 function  update!(stats::RunningStats, event::Event)
-  ek == kind(event)
+  ek = kind(event)
   if isdetection(ek)
     stats.num_detected += 1
   elseif istransmission(ek)

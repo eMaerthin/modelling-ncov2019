@@ -1,4 +1,5 @@
-struct TanhModulation
+
+struct TanhModulation <: InfectionModulation
   weight_detected::Float64
   weight_deaths::Float64
   loc::Float64
@@ -15,8 +16,8 @@ function (f::TanhModulation)(state::SimState, params::SimParams, event::Event)
     return true # do not affect other types of contact than "outer" ones
   end
 
-  num_detected = numdetected(state) 
-  num_deaths = numdead(state)
+  num_detected = numdetected(state.stats) 
+  num_deaths = numdead(state.stats)
   fear = num_detected * f.weight_detected + num_deaths * f.weight_deaths
   x = (fear - f.loc) / f.scale
   scaling = ((1 - f.limit_value) / 2)
@@ -24,10 +25,9 @@ function (f::TanhModulation)(state::SimState, params::SimParams, event::Event)
   rand(state.rng) < tanh(x) * scaling + base 
 end
 
-
 # This all to avoid using @eval and others
-const modulations = Dict{String, Function}(
-    "Tanh" => TanhModulation
+const modulations = Dict{String, Type{T} where T}(
+    "TanhModulation" => TanhModulation
 )
 
 make_infection_modulation(name::AbstractString; args...) = modulations[name](;args...)

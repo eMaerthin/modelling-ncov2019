@@ -9,7 +9,8 @@ include("params/friendship.jl")
 include("params/progression.jl")
 include("params/hospital.jl")
 include("params/phonetracking.jl")
-include("params/modulations.jl")
+
+abstract type InfectionModulation end
 
 struct SimParams
   household_ptrs::Vector{Tuple{PersonIdx,PersonIdx}}  # (i1,i2) where i1 and i2 are the indices of first and last member of the household
@@ -39,10 +40,10 @@ struct SimParams
 
   phone_tracking_params::Union{Nothing, PhoneTrackingParams}
 
-  infection_modulation_function
+  infection_modulation_function::InfectionModulation
 end
 
-const InfectionModulation = FunctionWrappers.FunctionWrapper{Bool, Tuple{SimState, SimParams, Event}}
+include("params/modulations.jl")
 
 numindividuals(params::SimParams) = length(params.household_ptrs)
 progressionof(params::SimParams, person_id::Integer) = params.progressions[person_id]
@@ -61,7 +62,7 @@ uses_phone_tracking(params::SimParams, person_id::Integer) =
 
 function load_params(rng=MersenneTwister(0);
         population::Union{AbstractString,DataFrame},
-        infection_modulation_name::Union{Nothing,Symbol},
+        infection_modulation_name::Union{Nothing,AbstractString}=nothing,
         infection_modulation_params::NamedTuple=NamedTuple{}(),
         kwargs...
         )
@@ -87,7 +88,7 @@ function load_params(rng=MersenneTwister(0);
     dist_death_time
   )
   
-  infection_modulation_function = isnothing(infection_modulation_name) ? nothing : make_infection_modulation(infection_modulation_name, infection_modulation_params)
+  infection_modulation_function = isnothing(infection_modulation_name) ? nothing : make_infection_modulation(infection_modulation_name; infection_modulation_params...)
 
   make_params(
     rng, 
@@ -201,6 +202,8 @@ function saveparams(dict, p::SimParams)
   dict["quarantine/duration"] = p.quarantine_length
   dict["detections/hospital"] = p.hospital_detections
   dict["detections/mild"] = p.mild_detection_prob
+
+  dict["infection_modulation"] = p.infection_modulation_function
 
   dict["tracking/backward_prob"] = p.backward_tracking_prob
   dict["tracking/backward_detection_delay"] = p.backward_detection_delay

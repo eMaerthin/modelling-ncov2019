@@ -18,9 +18,10 @@ mutable struct SimState
       EventQueue(),
       
       fill(IndividualState(), num_individuals),
-      RunningStats(),
-      
+
       InfectionForest(num_individuals),
+
+      RunningStats()
     ) 
 end
 

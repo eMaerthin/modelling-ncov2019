@@ -6,8 +6,8 @@ function execute!(state::SimState, params::SimParams, event::Event)::Bool
   @assert state.time <= time(event)  "time for event $event was smaller than current time $(state.time)"
   state.time = time(event)
   
-  kind = kind(event)
-  was_executed = execute!(kind, state, params, event)
+  event_kind = kind(event)
+  was_executed = execute!(event_kind, state, params, event)
   if was_executed
     update!(state.stats, event)
   end
@@ -79,7 +79,7 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
   
   @assert contactkind(event) == HospitalContact || (contactkind(event) == HouseholdContact) || (!isquarantined(state, source(event)) && !isquarantined(state, subject(event))) "the event $event should not be executed because subject state is $(state.individuals[subject(event)]) and source state is $(state.individuals[source(event)])"
     
-  if !params.infection_modulation(state, params, event)
+  if !params.infection_modulation_function(state, params, event)::Bool
     return false
   end
 

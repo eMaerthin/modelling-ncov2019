@@ -1,0 +1,37 @@
+{
+  "num_trajectories" : 10,
+  "population_path" : "../../data/simulations/wrocław_v2.jld2",
+  "detection_mild_proba" : 0.0,
+  "contact_tracking": {
+    "probability" : 0.0,
+    "backward_detection_delay" : 1.75,
+    "forward_detection_delay" : 1.75,
+    "testing_time" : 0.25
+  },
+  "transmission_probabilities": {
+    "household": 0.3,
+    "constant": 1.35,
+    "hospital": 0.0,
+    "friendship": 1.0
+  },
+  "modulation":{
+    "function" : "TanhModulation",
+    "params" : {
+      "scale": 2000,
+      "loc": 500,
+      "weight_detected": 1,
+      "weight_deaths": 0,
+      "limit_value": 1.0
+    }
+  },
+  "initial_conditions": {
+    "cardinalities": {
+      "infectious": 100
+    }
+  },
+  "phone_tracking": {
+    "usage" : 0.3,
+    "detection_delay" : 0.25
+  },
+  "stop_simulation_threshold": 1000000
+}

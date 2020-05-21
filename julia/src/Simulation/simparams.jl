@@ -39,7 +39,7 @@ struct SimParams
 
   phone_tracking_params::Union{Nothing, PhoneTrackingParams}
 
-  infection_modulation::Function
+  infection_modulation::Union{Nothing,Function}
 end
 
 const InfectionModulation = FunctionWrappers.FunctionWrapper{Bool, Tuple{SimState, SimParams, Event}}
@@ -61,6 +61,8 @@ uses_phone_tracking(params::SimParams, person_id::Integer) =
 
 function load_params(rng=MersenneTwister(0);
         population::Union{AbstractString,DataFrame},
+        infection_modulation_name::Union{Nothing,Symbol},
+        infection_modulation_params::NamedTuple=NamedTuple{}(),
         kwargs...
         )
         
@@ -78,20 +80,24 @@ function load_params(rng=MersenneTwister(0);
   progressions = Vector{Simulation.Progression}(undef, num_individuals);
   resample!(rng, progressions, individuals_df.age,
     dist_incubation_time, 
-    dist_symptom_onset_time, 
+    dist_symptom_onset_time,
     dist_hospitalization_time,
     dist_mild_recovery_time,
     dist_severe_recovery_time,
     dist_death_time
   )
   
-  make_params(rng, individuals_df=individuals_df, progressions=progressions; kwargs...)
+  infection_modulation = nothing===infection_modulation_name ? nothing : make_infection_modulation(infection_modulation_name, infection_modulation_params)
+
+  make_params(rng, individuals_df=individuals_df, progressions=progressions, infection_modulation=infection_modulation; kwargs...)
 end
 
 function make_params(
   rng::AbstractRNG=MersenneTwister(0);
   individuals_df::DataFrame,
   progressions::AbstractArray{Progression},
+
+  infection_modulation::Union{Nothing,F} where F<:Function=nothing,
         
   hospital_kernel_param::Float64=0.0,
   healthcare_detection_prob::Float64=0.8,
@@ -151,8 +157,6 @@ function make_params(
                         PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay)
                       else error("tracking_app_usage must be nonnegative, got $phone_tracking_usage")
                       end
-  
-  infection_modulation = (state, params, event) -> true
   
   params = SimParams(
     household_ptrs,

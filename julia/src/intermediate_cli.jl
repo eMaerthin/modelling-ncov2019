@@ -149,6 +149,14 @@ function main()
   num_initial_infected = json["initial_conditions"]["cardinalities"]["infectious"] |> Int
   params_seed = get(json, "params_seed", 0)
   
+  infection_modulation_name, infection_modulation_params = if !haskey(json, "modulation")
+                                                             nothing, NamedTuple{}()
+                                                           else
+                                                             modulation = json["modulation"]
+                                                             params = get(modulation, "params", Dict{String,Any}())
+                                                             modulation["function"], NamedTuple{Tuple(Symbol.(keys(params)))}(values(params))
+                                                           end
+
   @info "loading population and setting up parameters" params_seed
   rng = MersenneTwister(params_seed)
   params = read_params(json, rng) 

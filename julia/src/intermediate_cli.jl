@@ -189,14 +189,11 @@ function main()
       try
         lock(writelock) # JLD2 is not thread-safe, not even when files are separate
         save_infections_and_detections("run_$trajectory_id.jld2", state, callback)
-      catch err
-        println(stderr, "Saving results failed on thread ", threadid(), " iteration ", trajectory_id, " failed: ", err)
-        foreach(x -> println(stderr, x), stacktrace(catch_backtrace()))
       finally
         unlock(writelock)
       end
     catch err
-      println(stderr, "Simulation failed on thread ", threadid(), " iteration ", trajectory_id, " failed: ", err)
+      println(stderr, "Failed on thread ", threadid(), " iteration ", trajectory_id, " failed: ", err)
       foreach(x -> println(stderr, x), stacktrace(catch_backtrace()))
     end
         

@@ -28,24 +28,31 @@ function reset!(forest::RobinForest)
 end
 
 function push!(forest::RobinForest, infection::Event) 
-  source_id = source(infection)
+  
 
-  if 0 == source_id
-    @assert OutsideContact == contactkind(infection)
-    return nothing
-  end
+#  if 0 == source_id
+#    @assert 
+#    return nothing
+#  end
 
   subject_id = subject(infection)
   
   @assert contactkind(forest.inedges[subject_id]) == NoContact "The infection source should be assigned only once: $(forest.inedges[subject_id])"
   forest.inedges[subject_id] = infection
-  
-  source_outdeg = forest.outdegrees[source_id] += 1
-  
-  key = EdgeDictKey(source_id, source_outdeg)
-  @assert !haskey(forest.outedgedict, key)
-  forest.outedgedict[key] = subject_id
-  
+
+  source_id = source(infection)
+
+  if OutsideContact != contactkind(infection)
+    @assert 0 != source_id
+
+    source_outdeg = forest.outdegrees[source_id] += 1
+    key = EdgeDictKey(source_id, source_outdeg)
+    @assert !haskey(forest.outedgedict, key)
+    forest.outedgedict[key] = subject_id
+  else
+    @assert 0 == source_id
+  end
+
   nothing
 end
 
@@ -75,7 +82,7 @@ function saveparams(dict, forest::RobinForest, prefix::AbstractString="")
   contact_kinds = Vector{UInt8}(undef, N)
   @simd for i in 1:N
     event = forest.inedges[i]
-    infected = NoContact == contactkind(event)
+    infected = NoContact != contactkind(event)
     infection_times[i] = infected ? Float32(time(event)) : NaN32
     infection_sources[i] = infected ? source(event) : 0
     contact_kinds[i] = contactkind(event) |> UInt8

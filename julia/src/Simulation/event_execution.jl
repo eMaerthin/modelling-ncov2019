@@ -425,7 +425,7 @@ function backtrack!(state::SimState, params::SimParams, person_id::Integer; trac
   event = backwardinfection(state, person_id)
   backward_id = source(event)
   
-  if NoContact == contactkind(event) 
+  if NoContact == contactkind(event) || OutsideContact == contactkind(event)
     @assert 0 == backward_id
     return
   end

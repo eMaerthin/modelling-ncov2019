@@ -1,6 +1,6 @@
 {
   "num_trajectories" : 10,
-  "population_path" : "../../data/simulations/wrocław_v2.jld2",
+  "population_path" : "../../data/simulations/poland_v3.jld2",
   "detection_mild_proba" : 0.0,
   "contact_tracking": {
     "probability" : 0.0,
@@ -12,7 +12,7 @@
     "household": 0.3,
     "constant": 1.35,
     "hospital": 0.0,
-    "friendship": 1.0
+    "friendship": 0.0
   },
   "modulation":{
     "function" : "TanhModulation",

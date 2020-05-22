@@ -11,7 +11,7 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
   total_infection_rate = (end_time - start_time) * params.constant_kernel_param
 
   num_infections = rand(state.rng, Poisson(total_infection_rate))
-    
+
   if num_infections == 0
     return
   end

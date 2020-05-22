@@ -136,6 +136,7 @@ function save_infections_and_detections(path::AbstractString, simstate::Simulati
   finally
     close(f)
   end
+  nothing
 end
 
 function main()
@@ -177,6 +178,7 @@ function main()
   @info "starting simulation" num_trajectories
   writelock = ReentrantLock()
   progress = ProgressMeter.Progress(num_trajectories)
+  GC.gc()
   @threads for trajectory_id in 1:num_trajectories
     state = states[threadid()]
     Simulation.reset!(state, trajectory_id)
@@ -188,7 +190,7 @@ function main()
       Simulation.simulate!(state, params, callback)
       try
         lock(writelock) # JLD2 is not thread-safe, not even when files are separate
-        save_infections_and_detections("run_$trajectory_id.jld2", state, callback)
+        save_infections_and_detections(output_prefix*"run_$trajectory_id.jld2", state, callback)
       finally
         GC.gc()
         unlock(writelock)

@@ -4,7 +4,7 @@ using ProgressMeter
 using StatsBase
 
 trajectory(times::AbstractVector{T} where T) = filter(isfinite, times) |> sort!
-daily(times::AbstractArray{T} where T, max_time::Real) = fit(Histogram, times, 0:(max_time |> ceil |> Int) ).weights
+daily(times::AbstractArray{T} where T, max_days::Integer) = fit(Histogram, times, 0:(max_days) ).weights
 daily(times::AbstractVector{T} where T) = daily(times, maximum(times))
 const daily_trajectory = daily ∘ trajectory
 
@@ -32,15 +32,16 @@ try
     try
       infection_times, detection_times = load(run_path, "infection_times", "detection_times")
 
+      max_infection_time = filter(!isnan, infection_times) |> maximum
+      max_detection_time = filter(!isnan, detection_times) |> maximum
+      max_days = min(max_infection_time, max_detection_time) |> floor |> Int
+      
       trajectory_group = JLD2.Group(output_file, string(i))
-    
-      trajectory_group["infections"] = trajectory(infection_times)
-      trajectory_group["detection_times"] = trajectory(detection_times)
-  
-      trajectory_group["daily_infections"] = daily_trajectory(infection_times)
-      trajectory_group["daily_detections"] = daily_trajectory(detection_times)
-      trajectory_group["daily_deaths"] = daily_trajectory(infection_times.+death_progressions)
-      trajectory_group["daily_hospitalizations"] = daily_trajectory(infection_times.+hospitalization_progressions)
+
+      trajectory_group["daily_infections"] = daily( infection_times |> trajectory, max_days)
+      trajectory_group["daily_detections"] = daily( detection_times |> trajectory, max_days)
+      trajectory_group["daily_deaths"] = daily(infection_times.+death_progressions |> trajectory, max_days)
+      trajectory_group["daily_hospitalizations"] = daily(infection_times.+hospitalization_progressions |> trajectory, max_days)
   
     catch ex
       @error "problem processing file " run_path ex

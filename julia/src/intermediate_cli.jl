@@ -190,6 +190,7 @@ function main()
         lock(writelock) # JLD2 is not thread-safe, not even when files are separate
         save_infections_and_detections("run_$trajectory_id.jld2", state, callback)
       finally
+        GC.gc()
         unlock(writelock)
       end
     catch err

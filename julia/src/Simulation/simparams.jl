@@ -40,7 +40,7 @@ struct SimParams
 
   phone_tracking_params::Union{Nothing, PhoneTrackingParams}
 
-  infection_modulation_function::InfectionModulation
+  infection_modulation_function::Union{Nothing,InfectionModulation}
 end
 
 include("params/modulations.jl")

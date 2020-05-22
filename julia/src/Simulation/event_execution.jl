@@ -79,7 +79,7 @@ function execute!(::Val{TransmissionEvent}, state::SimState, params::SimParams, 
   
   @assert contactkind(event) == HospitalContact || (contactkind(event) == HouseholdContact) || (!isquarantined(state, source(event)) && !isquarantined(state, subject(event))) "the event $event should not be executed because subject state is $(state.individuals[subject(event)]) and source state is $(state.individuals[source(event)])"
     
-  if !params.infection_modulation_function(state, params, event)::Bool
+  if params.infection_modulation_function != nothing && !params.infection_modulation_function(state, params, event)::Bool
     return false
   end
 

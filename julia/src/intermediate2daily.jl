@@ -37,7 +37,7 @@ try
       max_days = min(max_infection_time, max_detection_time) |> floor |> Int
       
       trajectory_group = JLD2.Group(output_file, string(i))
-
+      
       trajectory_group["daily_infections"] = daily( infection_times |> trajectory, max_days)
       trajectory_group["daily_detections"] = daily( detection_times |> trajectory, max_days)
       trajectory_group["daily_deaths"] = daily(infection_times.+death_progressions |> trajectory, max_days)

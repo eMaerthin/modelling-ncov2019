@@ -1,5 +1,5 @@
-using Pkg
-Pkg.activate(".")
+#using Pkg
+#Pkg.activate(".")
 
 push!(LOAD_PATH, "Simulation")
 using Base.Threads

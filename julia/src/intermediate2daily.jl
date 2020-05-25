@@ -12,17 +12,17 @@ if length(ARGS) < 1
   error("give path to the grid tiles and number of trajectoirs(optional)")
 end
 
-grid_path = ARGS[1]
+output_path = ARGS[1]
 num_paths = length(ARGS) == 2 ? parse(Int, ARGS[2]) : 100
 
-output_file = jldopen(grid_path*"/daily_trajectories.jld2", "w", compress=true)
+output_file = jldopen(output_path*"/daily_trajectories.jld2", "w", compress=true)
 try
-  hospitalization_progressions, death_progressions = load(grid_path*"/run_params.jld2", 
+  hospitalization_progressions, death_progressions = load(output_path*"/run_params.jld2", 
     "progressions/severe_symptoms_times",
     "progressions/death_times")
 
   @showprogress for i in 1:num_paths
-    run_path = grid_path*"/run_$i.jld2"
+    run_path = output_path*"/run_$i.jld2"
 
     if !isfile(run_path)
       @warn "could not load run file $run_path, stopping"

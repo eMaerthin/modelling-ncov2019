@@ -7,30 +7,30 @@ const Path = Vector{String}
 function parserange(str::AbstractString)
   parts = split(str, ":")
   if 2 == length(parts)
-      b = parse(Float64, parts[1])
-      e = parse(Float64, parts[2])
-      b:e
+    b = parse(Float64, parts[1])
+    e = parse(Float64, parts[2])
+    b:e
   elseif 3 == length(parts)
-      b = parse(Float64, parts[1])
-      s = parse(Float64, parts[2])
-      e = parse(Float64, parts[3])
-      b:s:e
+    b = parse(Float64, parts[1])
+    s = parse(Float64, parts[2])
+    e = parse(Float64, parts[3])
+    b:s:e
   else
-      nothing
+    nothing
   end
 end
 
 function findranges(dict::AbstractDict{String,T} where T)
   paths = Vector{Path}()
   for key in keys(dict)
-      val = dict[key]
-      if isa(val, AbstractString)
-          if nothing != parserange(val)
-              push!(paths, Path([key]))
-          end
-      elseif isa(val, AbstractDict)
-          append!(paths, map(path->insert!(copy(path), 1, key), findranges(dict[key])))
+    val = dict[key]
+    if isa(val, AbstractString)
+      if nothing != parserange(val)
+        push!(paths, Path([key]))
       end
+    elseif isa(val, AbstractDict)
+      append!(paths, map(path->insert!(copy(path), 1, key), findranges(dict[key])))
+    end
   end
   paths
 end
@@ -40,9 +40,9 @@ getbypath(val, ::Path) = val
 
 function setbypath!(dict::AbstractDict{T} where T<:AbstractString, path::Path, value::Real) 
   if length(path) > 1
-      setbypath!(dict[path[1]], path[2:end], value)
+    setbypath!(dict[path[1]], path[2:end], value)
   else
-      dict[only(path)] = value
+    dict[only(path)] = value
   end
 end
 
@@ -51,6 +51,10 @@ function main()
 
   json = JSON.parsefile(ARGS[1], dicttype=OrderedDict)
   workdir = ARGS[2]
+
+  open(joinpath(workdir, "template.json"),"w") do f
+    JSON.print(f, json)
+  end  
 
   rangepaths = findranges(json) |> sort
   ranges = map(x->getbypath(json, x) |> parserange, rangepaths)
@@ -78,6 +82,8 @@ function main()
     end
   end
   CSV.write(joinpath(workdir, "parameters_map.csv"), df)
+
+
 end
 
 main()

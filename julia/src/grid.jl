@@ -52,10 +52,6 @@ function main()
   json = JSON.parsefile(ARGS[1], dicttype=OrderedDict)
   workdir = ARGS[2]
 
-  open(joinpath(workdir, "template.json"),"w") do f
-    JSON.print(f, json)
-  end  
-
   rangepaths = findranges(json) |> sort
   ranges = map(x->getbypath(json, x) |> parserange, rangepaths)
 
@@ -83,6 +79,9 @@ function main()
   end
   CSV.write(joinpath(workdir, "parameters_map.csv"), df)
 
+  open(joinpath(workdir, "template.json"),"w") do f
+    JSON.print(f, json)
+  end 
 
 end
 

@@ -3,13 +3,16 @@ using FileIO
 using ProgressMeter
 using StatsBase
 
+include("Simulation/enums.jl")
+
 trajectory(times::AbstractVector{T} where T) = filter(isfinite, times) |> sort!
 daily(times::AbstractArray{T} where T, max_days::Integer) = fit(Histogram, times, 0:(max_days) ).weights
 daily(times::AbstractVector{T} where T) = daily(times, maximum(times))
+
 const daily_trajectory = daily ∘ trajectory
 
 if length(ARGS) < 1
-  error("give path to the grid tiles and number of trajectoirs(optional)")
+  error("give path to the grid tiles and number of trajectories(optional)")
 end
 
 output_path = ARGS[1]
@@ -30,7 +33,7 @@ try
     end
 
     try
-      infection_times, detection_times = load(run_path, "infection_times", "detection_times")
+      infection_times, detection_times, contact_kinds = load(run_path, "infection_times", "detection_times", "contact_kinds")
 
       max_infection_time = filter(!isnan, infection_times) |> maximum
       max_detection_time = filter(!isnan, detection_times) |> maximum
@@ -42,7 +45,12 @@ try
       trajectory_group["daily_detections"] = daily( detection_times |> trajectory, max_days)
       trajectory_group["daily_deaths"] = daily(infection_times.+death_progressions |> trajectory, max_days)
       trajectory_group["daily_hospitalizations"] = daily(infection_times.+hospitalization_progressions |> trajectory, max_days)
-  
+      for kind in values(instances(ContactKind))
+        if kind == NoContact
+          continue
+        end
+        trajectory_group["daily_" * lowercase(string(kind))] = daily(infection_times[contact_kinds.==Int(kind)], max_days)
+      end
     catch ex
       @error "problem processing file " run_path ex
     end

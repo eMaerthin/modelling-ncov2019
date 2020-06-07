@@ -27,8 +27,8 @@ end
 function read_params(json, rng::AbstractRNG)
   constant_kernel_param = json["transmission_probabilities"]["constant"]  |> float
   household_kernel_param = json["transmission_probabilities"]["household"] |> float
-  hospital_kernel_param = get(json["transmission_probabilities"],"hospital", 0.0) |> float
-  friendship_kernel_param = get(json["transmission_probabilities"],"friendship", 0.0) |> float
+  hospital_kernel_param = get(json["transmission_probabilities"], "hospital", 0.0) |> float
+  friendship_kernel_param = get(json["transmission_probabilities"], "friendship", 0.0) |> float
 
   mild_detection_prob = json["detection_mild_proba"]  |> float
 

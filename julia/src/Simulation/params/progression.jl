@@ -10,8 +10,6 @@ struct Progression
     #Progression(severity::Severity, incubation_time::Real, mild_time::Real, severe_time::Real, recovery_time) = incubation < mild_time < severe_time < recovery_time
 end
 
-
-
 Progression() = Progression(Asymptomatic, missing, missing, missing, missing, missing)
 
 # Asymptotic not allowed as yet (some asserts prevent them)

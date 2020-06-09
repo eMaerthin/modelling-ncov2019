@@ -27,8 +27,8 @@ end
 function read_params(json, rng::AbstractRNG)
   constant_kernel_param = json["transmission_probabilities"]["constant"]  |> float
   household_kernel_param = json["transmission_probabilities"]["household"] |> float
-  hospital_kernel_param = get(json["transmission_probabilities"],"hospital", 0.0) |> float
-  friendship_kernel_param = get(json["transmission_probabilities"],"friendship", 0.0) |> float
+  hospital_kernel_param = json["transmission_probabilities"]["hospital"] |> float
+  friendship_kernel_param = json["transmission_probabilities"]["friendship"] |> float
 
   mild_detection_prob = json["detection_mild_proba"]  |> float
 
@@ -38,7 +38,8 @@ function read_params(json, rng::AbstractRNG)
   testing_time = json["contact_tracking"]["testing_time"]  |> float
 
   phone_tracking_usage = json["phone_tracking"]["usage"] |> float
-  phone_tracking_testing_delay = json["phone_tracking"]["detection_delay"] |> float
+  phone_tracking_delay = json["phone_tracking"]["detection_delay"] |> float
+  phone_testing_delay = json["phone_tracking"]["testing_delay"] |> float
 
   population_path = json["population_path"] # <= JSON
   population_path::AbstractString # checks if it was indeed a string
@@ -73,7 +74,7 @@ function read_params(json, rng::AbstractRNG)
     testing_time = testing_time,
 
     phone_tracking_usage = phone_tracking_usage,
-    phone_detection_delay = phone_tracking_testing_delay,
+    phone_detection_delay = phone_tracking_delay,
 
     infection_modulation_name=infection_modulation_name,
     infection_modulation_params=infection_modulation_params
@@ -172,7 +173,7 @@ function main()
     Simulation.saveparams(dict, params)
   end
 
-  states = [Simulation.SimState(num_individuals, seed=123) for _ in 1:nthreads()]
+  states = [Simulation.SimState(num_individuals) for _ in 1:nthreads()] # states will be set up by reset!
   callbacks = [DetectionCallback(num_individuals, max_num_infected) for _ in 1:nthreads()]
 
   @info "starting simulation" num_trajectories

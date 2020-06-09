@@ -127,7 +127,8 @@ function make_params(
   testing_time::Float64=1.0,
 
   phone_tracking_usage::Real=0.0,
-  phone_detection_delay::Real=0.25
+  phone_detection_delay::Real=0.25,
+  phone_testing_delay::Real=1.5
 )
   sort!(individuals_df, :household_index)
 
@@ -161,7 +162,7 @@ function make_params(
 
   phone_tracking_params = if 0 == phone_tracking_usage; nothing
                       elseif 0.0 < phone_tracking_usage <= 1.0
-                        PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay)
+                        PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay, phone_testing_delay)
                       else error("tracking_app_usage must be nonnegative, got $phone_tracking_usage")
                       end
   

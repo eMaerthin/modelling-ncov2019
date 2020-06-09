@@ -306,6 +306,10 @@ function execute!(::Val{TrackedEvent}, state::SimState, params::SimParams, event
     @assert member_health ∉ SA[SevereSymptoms, CriticalSymptoms, Dead] "patient should have already been infected at the hospital"
     
     if Infectious == member_health || MildSymptoms == member_health
+      testing_time = params.testing_time
+      if uses_phone_tracking(params, member)
+        testing_time = min(testing_time, params.phone_tracking_params.testing_time)
+      end
       push!(state.queue, Event(Val(DetectionEvent), time(event) + params.testing_time, member, FromTrackingDetection))
     end
   end

@@ -10,7 +10,7 @@
   },
   "transmission_probabilities": {
     "household": 0.3,
-    "constant": 1.35,
+    "constant": "0.0:0.03375:1.35",
     "hospital": 0.0,
     "friendship": 0.0
   },
@@ -30,7 +30,7 @@
     }
   },
   "phone_tracking": {
-    "usage" : 0.3,
+    "usage" : "0:0.1:1",
     "detection_delay" : 0.25,
     "testing_delay" : 1.5
   },

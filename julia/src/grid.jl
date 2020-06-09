@@ -74,13 +74,13 @@ function main()
       open(joinpath(subdir, "params_experiment.json"),"w") do f
         JSON.print(f, specific_json)
       end
-      push!(df, (joinpath(subdir, "output.jld2"), xval, yval))
+      push!(df, ("grid_$(x-1)_$(y-1)", xval, yval))
     end
   end
   CSV.write(joinpath(workdir, "parameters_map.csv"), df)
 
   open(joinpath(workdir, "template.json"),"w") do f
-    JSON.print(f, json)
+    JSON.print(f, json, 2)
   end 
 
 end

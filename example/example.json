@@ -31,8 +31,7 @@
   },
   "phone_tracking": {
     "usage" : 0.3,
-    "detection_delay" : 0.25,
-    "testing_delay" : 1.5
+    "detection_delay" : 0.25
   },
   "stop_simulation_threshold": 1000000
 }

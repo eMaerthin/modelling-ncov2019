@@ -9,7 +9,9 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{ConstantKernelContac
               end  
           
   total_infection_rate = (end_time - start_time) * params.constant_kernel_param
-
+  
+  total_infection_rate *= spreading(params, source_id)
+  
   num_infections = rand(state.rng, Poisson(total_infection_rate))
 
   if num_infections == 0
@@ -130,6 +132,8 @@ function enqueue_transmissions!(state::SimState, ::Type{Val{FriendshipContact}},
               end
 
   total_infection_rate = (end_time - start_time) * params.friendship_kernel_params.kernel_constant * socialcompetence(params, source_id)
+
+  total_infection_rate *= spreading(params, source_id)
 
   num_infections = rand(state.rng, Poisson(total_infection_rate))
 

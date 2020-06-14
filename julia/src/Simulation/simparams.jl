@@ -62,7 +62,7 @@ ishealthcare(params::SimParams, person_id::Integer) =
 uses_phone_tracking(params::SimParams, person_id::Integer) =
   nothing!=params.phone_tracking_params && uses_phone_tracking(params.phone_tracking_params, person_id)
 
-spreading(params::SimParams, person_id::Integer) = isnothing(params.spreading_params) ? nothing : spreading(params.spreading_params, person_id)
+spreading(params::SimParams, person_id::Integer) = isnothing(params.spreading_params) ? 1.0 : spreading(params.spreading_params, person_id)
 
 function load_params(rng=MersenneTwister(0);
         population::Union{AbstractString,DataFrame},

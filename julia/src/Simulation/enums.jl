@@ -9,3 +9,12 @@
 @enum ContactKind::UInt8 NoContact=0 HouseholdContact HospitalContact FriendshipContact SporadicContact ConstantKernelContact OutsideContact # 3 bits
 
 @enum DetectionKind::UInt8 NoDetection=0 OutsideQuarantineDetction=1 FromQuarantineDetection FromTrackingDetection
+
+@enum TrackingKind::UInt8 begin 
+  NotTracked=0 
+  MildCaseTracked #unused yet
+  HospitalTracked #unused yet
+  QuarantineTracked #unused yet
+  ClassicalTracked 
+  PhoneTracked 
+end

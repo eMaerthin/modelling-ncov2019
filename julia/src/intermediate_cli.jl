@@ -90,36 +90,41 @@ function read_params(json, rng::AbstractRNG)
 end
 const OptTimePoint = Union{Missing, Simulation.TimePoint}
 
-mutable struct DetectionCallback
+struct DetectionCallback
     detection_times::Vector{OptTimePoint}
     detection_types::Vector{UInt8}
+
+    tracking_times::Vector{OptTimePoint}
     tracking_sources::Vector{UInt32}
+    tracking_types::Vector{UInt8}
     
-    num_infected_remain::UInt32
+    max_num_infected::UInt32
 end
 DetectionCallback(sz::Integer, max_num_infected::Integer=10^8) = DetectionCallback(
     Vector{OptTimePoint}(missing, sz),
     fill(UInt8(0), sz),
+    Vector{OptTimePoint}(missing, sz),
     fill(UInt32(0), sz),
+    fill(UInt8(0), sz),
     max_num_infected
 )
-function saveparams(dict, cb::DetectionCallback, prefix::AbstractString="")
-  N = length(cb.detection_times)
-  detection_times = Vector{Float32}(undef, N)
-  for i = 1:N
-    timeopt = cb.detection_times[i]
-    detection_times[i] = ismissing(timeopt) ? NaN32 : Float32(timeopt)
-  end  
-  dict[prefix*"detection_times"] = detection_times
+
+optreal2float(optreal::Union{Missing,T} where T<:Real) = ismissing(optreal) ? NaN32 : Float32(optreal)
+
+function saveparams(dict, cb::DetectionCallback, prefix::AbstractString="") 
+  dict[prefix*"detection_times"] = optreal2float.(cb.detection_times)
   dict[prefix*"detection_types"] = cb.detection_types
+
+  dict[prefix*"tracking_times"] = optreal2float.(cb.tracking_times)
   dict[prefix*"tracking_sources"] = cb.tracking_sources
+  dict[prefix*"tracking_types"] = cb.tracking_types
 end
 
-function reset!(cb::DetectionCallback, max_num_infected::Integer=10^8)
+function reset!(cb::DetectionCallback)
   fill!(cb.detection_times, missing)
   fill!(cb.detection_types, 0)
   fill!(cb.tracking_sources, 0)
-  cb.num_infected_remain = max_num_infected
+  fill!(cb.tracking_types, 0)
 end
 
 function (cb::DetectionCallback)(event::Simulation.Event, state::Simulation.SimState, params::Simulation.SimParams)
@@ -129,12 +134,12 @@ function (cb::DetectionCallback)(event::Simulation.Event, state::Simulation.SimS
   if Simulation.isdetection(eventkind)
     cb.detection_times[subject] = Simulation.time(event)
     cb.detection_types[subject] = Simulation.detectionkind(event) |> UInt8
-  elseif Simulation.istransmission(eventkind)
-    cb.num_infected_remain -= 1
-  elseif eventkind == Simulation.TrackedEvent
+  elseif Simulation.istracking(eventkind)
+    cb.tracking_times[subject] = Simulation.time(event)
     cb.tracking_sources[subject] = Simulation.source(event)
+    cb.tracking_types[subject] = Simulation.trackingkind(event) |> UInt8
   end
-  return cb.num_infected_remain>0
+  return Simulation.numinfected(state.stats) < cb.max_num_infected
 end
 
 function save_infections_and_detections(path::AbstractString, simstate::Simulation.SimState, callback::DetectionCallback)
@@ -188,14 +193,15 @@ function main()
   writelock = ReentrantLock()
   progress = ProgressMeter.Progress(num_trajectories)
   GC.gc()
-  @threads for trajectory_id in 1:num_trajectories
+  #@threads 
+  for trajectory_id in 1:num_trajectories
     state = states[threadid()]
     Simulation.reset!(state, trajectory_id)
     Simulation.initialfeed!(state, num_initial_infected)
 
     callback = callbacks[threadid()]
-    reset!(callback, max_num_infected)
-    try
+    reset!(callback)
+    #try
       Simulation.simulate!(state, params, callback)
       try
         lock(writelock) # JLD2 is not thread-safe, not even when files are separate
@@ -204,10 +210,10 @@ function main()
         GC.gc()
         unlock(writelock)
       end
-    catch err
-      println(stderr, "Failed on thread ", threadid(), " iteration ", trajectory_id, " failed: ", err)
-      foreach(x -> println(stderr, x), stacktrace(catch_backtrace()))
-    end
+    #catch err
+    #  println(stderr, "Failed on thread ", threadid(), " iteration ", trajectory_id, " failed: ", err)
+    #  foreach(x -> println(stderr, x), stacktrace(catch_backtrace()))
+    #end
         
     ProgressMeter.next!(progress) # is thread-safe
   end

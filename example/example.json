@@ -24,6 +24,11 @@
       "limit_value": 1.0
     }
   },
+  "spreading" : {
+    "alpha" : 3,
+    "x0" : 1,
+    "truncation" : 100
+  },
   "initial_conditions": {
     "cardinalities": {
       "infectious": 100

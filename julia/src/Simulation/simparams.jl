@@ -9,6 +9,7 @@ include("params/friendship.jl")
 include("params/progression.jl")
 include("params/hospital.jl")
 include("params/phonetracking.jl")
+include("params/spreading.jl")
 
 abstract type InfectionModulation end
 
@@ -41,6 +42,7 @@ struct SimParams
   phone_tracking_params::Union{Nothing, PhoneTrackingParams}
 
   infection_modulation_function::Union{Nothing,InfectionModulation}
+  spreading_params::Union{Nothing, SpreadingParams}
 end
 
 include("params/modulations.jl")
@@ -59,6 +61,8 @@ ishealthcare(params::SimParams, person_id::Integer) =
   nothing!=params.hospital_kernel_params && ishealthcare(params.hospital_kernel_params, person_id)
 uses_phone_tracking(params::SimParams, person_id::Integer) =
   nothing!=params.phone_tracking_params && uses_phone_tracking(params.phone_tracking_params, person_id)
+
+spreading(params::SimParams, person_id::Integer) = isnothing(params.spreading_params) ? 1.0 : spreading(params.spreading_params, person_id)
 
 function load_params(rng=MersenneTwister(0);
         population::Union{AbstractString,DataFrame},
@@ -127,7 +131,11 @@ function make_params(
   testing_time::Float64=1.0,
 
   phone_tracking_usage::Real=0.0,
-  phone_detection_delay::Real=0.25
+  phone_detection_delay::Real=0.25,
+
+  spreading_alpha::Union{Nothing,Real}=nothing,
+  spreading_x0::Real=1,
+  spreading_truncation::Real=Inf
 )
   sort!(individuals_df, :household_index)
 
@@ -165,6 +173,13 @@ function make_params(
                       else error("tracking_app_usage must be nonnegative, got $phone_tracking_usage")
                       end
   
+  spreading_params = if nothing == spreading_alpha; nothing
+                  elseif 1.0 < spreading_alpha
+                    SpreadingParams(rng, num_individuals, alpha=spreading_alpha, x0=spreading_x0, truncation=spreading_truncation)
+                  else error("spreading_alpha must be larger than 1, got $spreading_alpha")
+                  end
+
+
   params = SimParams(
     household_ptrs,
     individuals_df.age,
@@ -191,12 +206,14 @@ function make_params(
     testing_time, # testing time
 
     phone_tracking_params,
-    infection_modulation_function
+    infection_modulation_function,
+    spreading_params
   )
   params
 end
 
 function saveparams(dict, p::SimParams)
+  dict["num_individuals"] = numindividuals(p)
   dict["constant/kernel_param"] = p.constant_kernel_param
   dict["household/kernel_param"] = p.household_kernel_param
   dict["quarantine/duration"] = p.quarantine_length
@@ -214,5 +231,6 @@ function saveparams(dict, p::SimParams)
   saveparams(dict, p.progressions, "progressions/")
   nothing==p.hospital_kernel_params || saveparams(dict, p.hospital_kernel_params, "hospital/")
   nothing==p.phone_tracking_params || saveparams(dict, p.phone_tracking_params, "phone_tracking/")
+  nothing==p.spreading_params || saveparams(dict, p.spreading_params, "spreading")
   nothing
 end

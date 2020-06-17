@@ -53,6 +53,11 @@ function read_params(json, rng::AbstractRNG)
     modulation["function"], NamedTuple{Tuple(Symbol.(keys(params)))}(values(params))
   end
 
+  spreading = get(json, "spreading", nothing)
+  spreading_alpha = isnothing(spreading) ? nothing : spreading["alpha"]
+  spreading_x0 = isnothing(spreading) ? 1 : get(spreading, "x0", 1)
+  spreading_truncation = isnothing(spreading) ? Inf : get(spreading, "truncation", Inf)
+
   Simulation.load_params(
     rng,
     population = individuals_df, 
@@ -76,7 +81,11 @@ function read_params(json, rng::AbstractRNG)
     phone_detection_delay = phone_tracking_testing_delay,
 
     infection_modulation_name=infection_modulation_name,
-    infection_modulation_params=infection_modulation_params
+    infection_modulation_params=infection_modulation_params,
+
+    spreading_alpha=spreading_alpha,
+    spreading_x0=spreading_x0,
+    spreading_truncation=spreading_truncation
 )
 end
 const OptTimePoint = Union{Missing, Simulation.TimePoint}

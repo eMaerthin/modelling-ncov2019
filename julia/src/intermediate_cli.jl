@@ -53,7 +53,7 @@ function read_params(json, rng::AbstractRNG)
     modulation["function"], NamedTuple{Tuple(Symbol.(keys(params)))}(values(params))
   end
 
-  spreading = get(json, "super_spreading", nothing)
+  spreading = get(json, "spreading", nothing)
   spreading_alpha = isnothing(spreading) ? nothing : spreading["alpha"]
   spreading_x0 = isnothing(spreading) ? 1 : get(spreading, "x0", 1)
   spreading_truncation = isnothing(spreading) ? Inf : get(spreading, "truncation", Inf)

@@ -24,7 +24,7 @@
       "limit_value": 1.0
     }
   },
-  "super_spreading" : {
+  "spreading" : {
     "alpha" : 3,
     "x0" : 1,
     "truncation" : 100

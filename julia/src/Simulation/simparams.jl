@@ -133,7 +133,7 @@ function make_params(
   phone_tracking_usage::Real=0.0,
   phone_detection_delay::Real=0.25,
 
-  spreading_alpha::Union{Nothing,Real}=4,
+  spreading_alpha::Union{Nothing,Real}=nothing,
   spreading_x0::Real=1,
   spreading_truncation::Real=Inf
 )
@@ -213,6 +213,7 @@ function make_params(
 end
 
 function saveparams(dict, p::SimParams)
+  dict["num_individuals"] = numindividuals(p)
   dict["constant/kernel_param"] = p.constant_kernel_param
   dict["household/kernel_param"] = p.household_kernel_param
   dict["quarantine/duration"] = p.quarantine_length
@@ -230,6 +231,6 @@ function saveparams(dict, p::SimParams)
   saveparams(dict, p.progressions, "progressions/")
   nothing==p.hospital_kernel_params || saveparams(dict, p.hospital_kernel_params, "hospital/")
   nothing==p.phone_tracking_params || saveparams(dict, p.phone_tracking_params, "phone_tracking/")
-  nothing==p.spreading_params || saveparams(dict, p.spreading_params, "super_spreading")
+  nothing==p.spreading_params || saveparams(dict, p.spreading_params, "spreading")
   nothing
 end

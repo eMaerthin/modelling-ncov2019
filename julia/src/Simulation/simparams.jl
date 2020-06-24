@@ -174,9 +174,9 @@ function make_params(
                       end
   
   spreading_params = if nothing == spreading_alpha; nothing
-                  elseif 1.0 < spreading_alpha
+                  elseif 0.0 < spreading_alpha
                     SpreadingParams(rng, num_individuals, alpha=spreading_alpha, x0=spreading_x0, truncation=spreading_truncation)
-                  else error("spreading_alpha must be larger than 1, got $spreading_alpha")
+                  else error("spreading_alpha must be larger than 0, got $spreading_alpha")
                   end
 
 

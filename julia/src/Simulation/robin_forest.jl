@@ -28,12 +28,6 @@ function reset!(forest::RobinForest)
 end
 
 function push!(forest::RobinForest, infection::Event) 
-  
-
-#  if 0 == source_id
-#    @assert 
-#    return nothing
-#  end
 
   subject_id = subject(infection)
   

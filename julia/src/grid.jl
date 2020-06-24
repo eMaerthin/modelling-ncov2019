@@ -50,7 +50,7 @@ function main()
   @assert length(ARGS) > 0 "JSON file needed"
 
   json = JSON.parsefile(ARGS[1], dicttype=OrderedDict)
-  workdir = ARGS[2]
+  workdir = length(ARGS)>1 ? ARGS[2] : splitext(ARGS[1])[1]
 
   rangepaths = findranges(json) |> sort
   ranges = map(x->getbypath(json, x) |> parserange, rangepaths)
@@ -61,7 +61,7 @@ function main()
   xpath, ypath = rangepaths
   xrange, yrange = ranges
 
-  df = DataFrame([String[], Float64[], Float64[]], ["path", join(xpath, "_"), join(ypath, "_")])
+  df = DataFrame([String[], Float64[], Float64[]], [:path, Symbol(join(xpath, "_")), Symbol(join(ypath, "_"))])
 
   for (x,xval) in enumerate(xrange)
     for (y,yval) in enumerate(yrange)

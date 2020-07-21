@@ -132,6 +132,7 @@ function make_params(
 
   phone_tracking_usage::Real=0.0,
   phone_detection_delay::Real=0.25,
+  phone_tracking_usage_by_household::Bool=false,
 
   spreading_alpha::Union{Nothing,Real}=nothing,
   spreading_x0::Real=1,
@@ -169,7 +170,9 @@ function make_params(
 
   phone_tracking_params = if 0 == phone_tracking_usage; nothing
                       elseif 0.0 < phone_tracking_usage <= 1.0
-                        PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay)
+                        phone_tracking_usage_by_household ?
+                          PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay, 1) :
+                          PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay, 1, household_ptrs)
                       else error("tracking_app_usage must be nonnegative, got $phone_tracking_usage")
                       end
   
@@ -178,7 +181,6 @@ function make_params(
                     SpreadingParams(rng, num_individuals, alpha=spreading_alpha, x0=spreading_x0, truncation=spreading_truncation)
                   else error("spreading_alpha must be larger than 0, got $spreading_alpha")
                   end
-
 
   params = SimParams(
     household_ptrs,

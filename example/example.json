@@ -6,7 +6,8 @@
     "probability" : 0.0,
     "backward_detection_delay" : 1.75,
     "forward_detection_delay" : 1.75,
-    "testing_time" : 0.25
+    "testing_time" : 0.25,
+    "by household" : false
   },
   "transmission_probabilities": {
     "household": 0.3,

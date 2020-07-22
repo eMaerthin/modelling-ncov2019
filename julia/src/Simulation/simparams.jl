@@ -171,8 +171,8 @@ function make_params(
   phone_tracking_params = if 0 == phone_tracking_usage; nothing
                       elseif 0.0 < phone_tracking_usage <= 1.0
                         phone_tracking_usage_by_household ?
-                          PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay, 1) :
-                          PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay, 1, household_ptrs)
+                          PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay, 1, household_ptrs) :
+                          PhoneTrackingParams(rng, num_individuals, phone_tracking_usage, phone_detection_delay, 1)
                       else error("tracking_app_usage must be nonnegative, got $phone_tracking_usage")
                       end
   

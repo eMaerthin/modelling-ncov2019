@@ -30,7 +30,7 @@ function resamplebyhouseholds!(rng::AbstractRNG, params::PhoneTrackingParams, pr
 
     household = UnitRange(household_start, household_end)
 
-    assignements_in_household = max(length(household), num_users-num_assigned)
+    assignements_in_household = min(length(household), num_users-num_assigned)
     for member in 1:assignements_in_household
       params.isusingapp[household[member]] = true
     end

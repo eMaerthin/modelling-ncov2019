@@ -16,7 +16,7 @@ function read_params(json, rng::AbstractRNG)
 
   phone_tracking = get(json, "phone_tracking", nothing)
   phone_tracking_usage = isnothing(phone_tracking) ? 0.0 : phone_tracking["usage"] |> float
-  phone_tracking_testing_delay = isnothing(phone_tracking) ? 1.0 : phone_tracking : ["detection_delay"] |> float
+  phone_tracking_testing_delay = isnothing(phone_tracking) ? 1.0 : phone_tracking["detection_delay"] |> float
   phone_tracking_usage_by_household = isnothing(phone_tracking) ? false : phone_tracking["usage_by_household"] |> Bool 
 
   population_path = json["population_path"] # <= JSON

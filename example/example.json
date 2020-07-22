@@ -3,7 +3,7 @@
   "population_path" : "../../data/simulations/poland_v3.jld2",
   "detection_mild_proba" : 0.0,
   "contact_tracking": {
-    "probability" : 0.0,
+    "probability" : 0.5,
     "backward_detection_delay" : 1.75,
     "forward_detection_delay" : 1.75,
     "testing_time" : 0.25
@@ -36,7 +36,8 @@
   },
   "phone_tracking": {
     "usage" : 0.3,
-    "detection_delay" : 0.25
+    "detection_delay" : 0.25,
+    "usage_by_household" : true
   },
   "stop_simulation_threshold": 1000000
 }

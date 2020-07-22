@@ -17,7 +17,7 @@ end
 function resamplebyhouseholds!(rng::AbstractRNG, params::PhoneTrackingParams, prob::Real, household_ptrs::Vector{Tuple{Ti,Ti}} where Ti<:Integer)
   
   num_individuals = length(household_ptrs)
-  num_users = rand!(rng, Binomial(num_individuals, prob)) # makes the number same as in the independent case
+  num_users = rand(rng, Binomial(num_individuals, prob)) # makes the number same as in the independent case
 
   randomized_households = shuffle!(rng, unique(household_ptrs)) # not optimal but gets the job done
 

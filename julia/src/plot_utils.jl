@@ -6,7 +6,7 @@ mystep(r::AbstractArray) = r[2] - r[1]
 
 extendrange(r) = range( (first(r)-mystep(r)/2), last(r)+mystep(r)/2, length=length(r)+1)
 
-function plot_heatmap(results, tracking_probs = 0:0.05:1, Cs=0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
+function plot_heatmap_tracing_prob_vs_c(results, tracing_probs = 0:0.05:1, Cs=0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
   figure(figsize=(10,5))
   reduction = 1 .- Cs / 1.35  |> collect  
   
@@ -21,16 +21,16 @@ function plot_heatmap(results, tracking_probs = 0:0.05:1, Cs=0:0.05:1; cmin=noth
   if logscale
     pcolor(
       extendrange(reduction), 
-      extendrange(tracking_probs), 
-      results', 
+      extendrange(tracing_probs), 
+      results, 
       norm=matplotlib.colors.LogNorm(vmin=cmin, vmax=cmax),
       cmap="nipy_spectral")
       clim(vmin=cmin)
   else
     pcolor(
       extendrange(reduction), 
-      extendrange(tracking_probs), 
-      results', 
+      extendrange(tracing_probs), 
+      results, 
       norm=matplotlib.colors.Normalize(vmin=cmin, vmax=cmax),
       cmap="nipy_spectral")
   end    
@@ -39,13 +39,14 @@ function plot_heatmap(results, tracking_probs = 0:0.05:1, Cs=0:0.05:1; cmin=noth
     cbar = colorbar()
   end
 
-  xlabel("f - Stopień redukcji kontaktów")
-  
+  #xlabel("f - Stopień redukcji kontaktów")
+  xlabel("f - contact reduction rate")
   xticks(
     0:0.1:1,
     ["$(100*f)%" for f in 0:0.1:1])
   
-  ylabel("b - skuteczność śledzenia kontaktów")
+  #ylabel("b - skuteczność śledzenia kontaktów")
+  ylabel("b - contact tracing efficiency")
 
   gca().invert_yaxis()
   gca().invert_xaxis()
@@ -88,6 +89,7 @@ function plot_heatmap_delay_vs_tracking_prob(
   xlabel("d - opóźnienie śledzenia w dniach")
   ylabel("b - skuteczność śledzenia kontaktów")
 
+
 end
 
 function plot_heatmap_mild_detection_vs_tracking_prob(
@@ -117,15 +119,16 @@ function plot_heatmap_mild_detection_vs_tracking_prob(
   gca().invert_xaxis()
 
   colorbar() 
-  title("Łączna liczba zarażonych \n dla redukcji kontaktów o $(100*(1-c/1.35))% \n i opóźnienia śledzenia kontaktów o $delay dni")
+  #title("Łączna liczba zarażonych \n dla redukcji kontaktów o $(100*(1-c/1.35))% \n i opóźnienia śledzenia kontaktów o $delay dni")
   xlabel("prawdopodobieństwo wykrycia lekkich przypadków")
   ylabel("b - skuteczność śledzenia kontaktów")
+  
   #xlim(minimum(mild_detection_probs), maximum(mild_detection_probs))
   #ylim(minimum(tracking_probs), maximum(tracking_probs))
   #savefig(image_path, bbox_inches="tight")
 end
 
-function plot_heatmap_mild_detection_vs_tracking_prob(
+function plot_heatmap_mild_detection_vs_tracing_prob(
     results, 
     mild_detections = 0:0.05:1, 
     tracking_probs=0:0.05:1; 
@@ -167,13 +170,15 @@ function plot_heatmap_mild_detection_vs_tracking_prob(
 
   gca().invert_yaxis()
   gca().invert_xaxis()
-  xlabel("q' - prawdopodobieństwo wykrycia lekkich przypadków")
-  ylabel("b - skuteczność śledzenia kontaktów")
+  #xlabel("q' - prawdopodobieństwo wykrycia lekkich przypadków")
+  #ylabel("b - skuteczność śledzenia kontaktów")
+  xlabel("q' - mild case detection probability")
+  ylabel("b - contact tracing efficiency")
+
   im
 end
 
-function plot_heatmap_mild_detection_vs_c(results, mild_detection_probss = 0:0.05:1, Cs=0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
-  figure(figsize=(10,5))
+function plot_heatmap_mild_detection_vs_c(results, mild_detection_probs = 0:0.05:1, Cs=0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
   reduction = 1 .- Cs / 1.35  |> collect
       
   if nothing == cmax
@@ -185,7 +190,7 @@ function plot_heatmap_mild_detection_vs_c(results, mild_detection_probss = 0:0.0
   end 
   
   if logscale
-    pcolor(
+    im = pcolor(
       extendrange(reduction), 
       extendrange(mild_detection_probs), 
       results', 
@@ -193,7 +198,7 @@ function plot_heatmap_mild_detection_vs_c(results, mild_detection_probss = 0:0.0
       cmap="nipy_spectral")
       clim(vmin=cmin)
   else
-    pcolor(
+    im = pcolor(
       extendrange(reduction), 
       extendrange(mild_detection_probs), 
       results', 
@@ -203,17 +208,26 @@ function plot_heatmap_mild_detection_vs_c(results, mild_detection_probss = 0:0.0
   if addcbar
     c = colorbar()
   end
-  xlabel("f - Stopień redukcji kontaktów")
-  
+
+  #xlabel("f - Stopień redukcji kontaktów")
+  xlabel("f - contact reduction rate")
+
   xticks(
     0:0.1:1,
     ["$(100*f)%" for f in 0:0.1:1])
   
-  ylabel("q - Skuteczność wykrywania lekkich przypadków")
+  #ylabel("q' - Skuteczność wykrywania lekkich przypadków")
+  ylabel("q' - mild case detection probability")
 
   gca().invert_yaxis()
   gca().invert_xaxis()
-  #savefig("tracking_heatmap_$title.png", bbox_inches="tight")
+
+  xticks(
+    0:0.1:1,
+    ["$(Int(100*f))%" for f in 0:0.1:1],
+    rotation=60)
+
+  im
 end
 
 function plot_heatmap_mild_detection_vs_c(
@@ -258,7 +272,7 @@ function plot_heatmap_mild_detection_vs_c(
   savefig(image_path, bbox_inches="tight")
 end
 
-function plot_heatmap_c_vs_phone_tracking_usage(results, Cs=0:0.05:1, phone_tracking_usage = 0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
+function plot_heatmap_c_vs_phone_tracing_usage(results, Cs=0:0.05:1, phone_tracking_usage = 0:0.05:1; cmin=nothing, cmax=nothing, logscale=true, addcbar::Bool=true)
   reduction = 1 .- Cs / 1.35
   
   if nothing == cmax
@@ -290,14 +304,16 @@ function plot_heatmap_c_vs_phone_tracking_usage(results, Cs=0:0.05:1, phone_trac
     cbar = colorbar()
   end
 
-  xlabel("f - Stopień redukcji kontaktów")
-  
+  #xlabel("f - Stopień redukcji kontaktów")
+  xlabel("f - contact reduction rate")
+
   xticks(
     0:0.1:1,
     ["$(Int(100*f))%" for f in 0:0.1:1],
     rotation=60)
   
-  ylabel("u - część populacji używająca aplikacji \n do śledzenia kontaktów")
+  #ylabel("u - część populacji używająca aplikacji \n do śledzenia kontaktów")
+  ylabel("u - fraction of population \n using the contact tracing app")
 
   gca().invert_yaxis()
   gca().invert_xaxis()

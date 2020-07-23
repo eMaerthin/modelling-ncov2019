@@ -34,7 +34,7 @@ function resamplebyhouseholds!(rng::AbstractRNG, params::PhoneTrackingParams, pr
     for member in 1:assignements_in_household
       params.isusingapp[household[member]] = true
     end
-
+    num_assigned += assignements_in_household
   end
 end
 

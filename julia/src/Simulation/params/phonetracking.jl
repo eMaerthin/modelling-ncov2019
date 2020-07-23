@@ -17,7 +17,7 @@ end
 function resamplebyhouseholds!(rng::AbstractRNG, params::PhoneTrackingParams, prob::Real, household_ptrs::Vector{Tuple{Ti,Ti}} where Ti<:Integer)
   
   num_individuals = length(household_ptrs)
-  num_users = rand!(rng, Binomial(num_individuals, prob)) # makes the number same as in the independent case
+  num_users = rand(rng, Binomial(num_individuals, prob)) # makes the number same as in the independent case
 
   randomized_households = shuffle!(rng, unique(household_ptrs)) # not optimal but gets the job done
 
@@ -30,11 +30,11 @@ function resamplebyhouseholds!(rng::AbstractRNG, params::PhoneTrackingParams, pr
 
     household = UnitRange(household_start, household_end)
 
-    assignements_in_household = max(length(household), num_users-num_assigned)
+    assignements_in_household = min(length(household), num_users-num_assigned)
     for member in 1:assignements_in_household
       params.isusingapp[household[member]] = true
     end
-
+    num_assigned += assignements_in_household
   end
 end
 

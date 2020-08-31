@@ -1,4 +1,5 @@
 # modelling-ncov2019
+[![Build Status](https://travis-ci.org/MOCOS-COVID19/modelling-ncov2019.svg?branch=master)](https://travis-ci.org/MOCOS-COVID19/modelling-ncov2019)
 
 ## useful links:
 ### Technical stuff:
